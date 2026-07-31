@@ -9,7 +9,13 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "HOW KRU needs camera access to scan restaurants and food.",
+        "NSPhotoLibraryUsageDescription": "HOW KRU needs photo library access.",
+        "NSPhotoLibraryAddUsageDescription": "HOW KRU needs permission to save photos.",
+        "NSLocationWhenInUseUsageDescription": "HOW KRU needs your location to find nearby restaurants for your mission."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +25,14 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ],
+      "package": "com.sa9seung.how_kru"
     },
     "web": {
       "output": "static",
@@ -38,11 +51,30 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "HOW KRU needs camera access to scan restaurants and food."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "HOW KRU needs your location to find nearby restaurants for your mission."
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "476cf630-e13d-475a-a097-37da8ebed0cc"
+      }
+    },
+    "owner": "sa9seung"
   }
 }

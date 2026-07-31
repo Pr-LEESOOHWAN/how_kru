@@ -1,0 +1,103 @@
+﻿no,id,name_kr,name_en,status,filename,license,artist,source_page,file_url
+1,bulgogi,불고기,Bulgogi,OK,001_bulgogi.jpg,CC BY 2.0,"Chloe Lim from Seoul, South Korea",https://commons.wikimedia.org/w/index.php?curid=87510605,https://upload.wikimedia.org/wikipedia/commons/4/4e/Korean_marinated_beef_-Bulgogi-_%288634652350%29.jpg
+2,bibimbap,비빔밥,Bibimbap,OK,002_bibimbap.jpg,CC BY-SA 4.0,Peachyeung316,https://commons.wikimedia.org/w/index.php?curid=112979509,https://upload.wikimedia.org/wikipedia/commons/f/f1/Korean_bibimbap_at_Food_Court_TST.jpg
+3,gimbap,김밥,Gimbap,OK,003_gimbap.jpg,CC BY-SA 2.0,"bryan... from Taipei, Taiwan",https://commons.wikimedia.org/w/index.php?curid=77846800,https://upload.wikimedia.org/wikipedia/commons/d/d5/Gimbap_and_danmuji.jpg
+4,japchae,잡채,Japchae,OK,004_japchae.jpg,CC0,최광모 (Choe Kwangmo),https://commons.wikimedia.org/w/index.php?curid=49397918,https://upload.wikimedia.org/wikipedia/commons/b/b8/2016%EB%85%84_5%EC%9B%94_31%EC%9D%BC_%ED%95%9C%EA%B5%AD_%EC%9A%94%EB%A6%AC_DSC01415.jpg
+5,doenjang_jjigae,된장찌개,Doenjang-jjigae,OK,005_doenjang_jjigae.jpg,CC0,Suohros,https://commons.wikimedia.org/w/index.php?curid=141512388,https://upload.wikimedia.org/wikipedia/commons/f/f9/Doenjang_Jjigae.jpg
+6,spicy_pork_stir_fry,제육볶음,Spicy Pork Stir-fry,OK,006_spicy_pork_stir_fry.jpg,CC BY-SA 2.0 kr,국립국어원,https://commons.wikimedia.org/w/index.php?curid=61585700,https://upload.wikimedia.org/wikipedia/commons/4/4b/Jeyuk-bokkeum_3.jpg
+7,tteokbokki,떡볶이,Tteokbokki,OK,007_tteokbokki.jpg,CC0,Syced,https://commons.wikimedia.org/w/index.php?curid=146624976,https://upload.wikimedia.org/wikipedia/commons/b/b2/Korean_food_at_Tteokbokki_restaurant_in_Shin-Okubo_2.jpg
+8,kimchi_jjigae,김치찌개,Kimchi-jjigae,OK,008_kimchi_jjigae.jpg,CC BY-SA 4.0,Agus Damanik,https://commons.wikimedia.org/w/index.php?curid=146913222,https://upload.wikimedia.org/wikipedia/commons/4/48/Budae_jjigae_indonesia.jpg
+9,samgyeopsal,삼겹살,Samgyeopsal,OK,009_samgyeopsal.jpg,CC BY 2.0,Geoff Peters,https://commons.wikimedia.org/w/index.php?curid=6192613,https://upload.wikimedia.org/wikipedia/commons/3/37/Korean_pork_belly-Samgyeopsal-01.jpg
+10,sundubu_jjigae,순두부찌개,Sundubu-jjigae,OK,010_sundubu_jjigae.jpg,CC BY-SA 4.0,Pacamah,https://commons.wikimedia.org/w/index.php?curid=141993263,https://upload.wikimedia.org/wikipedia/commons/8/8d/Sundubu-jjigae_in_Hawaii.jpg
+11,kalguksu,칼국수,Kalguksu,OK,011_kalguksu.jpg,CC BY-SA 4.0,Mobius6,https://commons.wikimedia.org/w/index.php?curid=118298990,https://upload.wikimedia.org/wikipedia/commons/5/59/Jangkalguksu_20220501_001.jpg
+12,bibim_naengmyeon,비빔냉면,Bibim-naengmyeon,OK,012_bibim_naengmyeon.jpg,CC BY-SA 2.0,ayustety (a flickr user),https://commons.wikimedia.org/w/index.php?curid=1643530,https://upload.wikimedia.org/wikipedia/commons/6/64/Korean.food-Bibim.naengmyen-01.jpg
+13,galbitang,갈비탕,Galbitang,FAIL,,,,,
+14,buchimgae,부침개,Buchimgae,OK,014_buchimgae.jpg,CC0,Jo Hanshin,https://commons.wikimedia.org/w/index.php?curid=163757315,https://upload.wikimedia.org/wikipedia/commons/1/1a/Buchimgae%2C_Korean_Food_%28Korean_Style_Pizza%29.jpg
+15,dak_galbi,닭갈비,Dak-galbi,FAIL,,,,,
+16,kimchi_jeon,김치전,Kimchi-jeon,OK,016_kimchi_jeon.jpg,CC BY-SA 2.0 kr,국립국어원,https://commons.wikimedia.org/w/index.php?curid=54809875,https://upload.wikimedia.org/wikipedia/commons/7/71/Bapsang.jpg
+17,bean_sprout_soup,콩나물국,Bean Sprout Soup,OK,017_bean_sprout_soup.jpg,CC BY 2.0,naotakem,https://commons.wikimedia.org/w/index.php?curid=83010914,https://upload.wikimedia.org/wikipedia/commons/5/58/Pork%2C_kimchee%2C_and_bean_sprout_stir_fry%2C_assorted_Korean_sides%2C_miso_soup_with_daikon_radish%2C_brown_rice_%E8%B1%9A%E3%83%92%E3%83%AC%E3%81%A8%E3%82%AD%E3%83%A0%E3%83%81%E3%81%A8%E3%82%82%E3%82%84%E3%81%97%E7%82%92%E3%82%81%E3%80%81%E9%9F%93%E5%9B%BD%E6%83%A3%E8%8F%9C%E3%80%81%E5%A4%A7%E6%A0%B9%E3%81%AE%E5%91%B3%E5%99%8C%E6%B1%81%E3%80%81%E7%8E%84%E7%B1%B3.jpg
+18,seasoned_cucumber,오이무침,Seasoned Cucumber,OK,018_seasoned_cucumber.jpg,CC BY-SA 2.0,by ~Nisa at Flickr,https://commons.wikimedia.org/w/index.php?curid=4680527,https://upload.wikimedia.org/wikipedia/commons/d/dc/Korean_cuisine-Oimuchim-01.jpg
+19,kimchi_fried_rice,김치볶음밥,Kimchi Fried Rice,OK,019_kimchi_fried_rice.jpg,CC0,Andy Li,https://commons.wikimedia.org/w/index.php?curid=182974724,https://upload.wikimedia.org/wikipedia/commons/7/7d/Kimchi_and_beef_fried_rice_-_Kogi_Korean_cuisine_2026-02-02.jpg
+20,bossam,보쌈,Bossam,OK,020_bossam.jpg,CC BY-SA 2.0,by ayustety (a flickr user),https://commons.wikimedia.org/w/index.php?curid=1675563,https://upload.wikimedia.org/wikipedia/commons/4/48/Korean.food-Bossam-02.jpg
+21,ssambap,쌈밥,Ssambap,OK,021_ssambap.jpg,CC BY-SA 3.0,by Junho Jung at Flickr from South Korea,https://commons.wikimedia.org/w/index.php?curid=7854132,https://upload.wikimedia.org/wikipedia/commons/d/d9/Korea-Gyeongju-Ssambap_leaves-01.jpg
+22,seaweed_soup,미역국,Seaweed Soup,OK,022_seaweed_soup.jpg,CC BY-SA 2.0,"Republic of  Korea from Seoul, Republic of Korea",https://commons.wikimedia.org/w/index.php?curid=109095450,https://upload.wikimedia.org/wikipedia/commons/6/6b/Jeju_Island_20141129_29_%2815742663109%29.jpg
+23,yukgaejang,육개장,Yukgaejang,OK,023_yukgaejang.jpg,CC BY-SA 2.0,"Alpha from Melbourne, Australia",https://commons.wikimedia.org/w/index.php?curid=83152128,https://upload.wikimedia.org/wikipedia/commons/2/20/Yuk_Gae_Jang_-_Oriental_Spoon_AUD10_%283646806652%29.jpg
+24,gamjatang,감자탕,Gamjatang,OK,024_gamjatang.jpg,CC BY 2.0,comicpie (a flickr user),https://commons.wikimedia.org/w/index.php?curid=1644135,https://upload.wikimedia.org/wikipedia/commons/7/7e/Korean.food-Gamjatang-01.jpg
+25,budae_jjigae,부대찌개,Budae-jjigae,OK,025_budae_jjigae.jpg,CC0,Suohros,https://commons.wikimedia.org/w/index.php?curid=141512292,https://upload.wikimedia.org/wikipedia/commons/9/92/Budae_Jjigae.jpg
+26,jajangmyeon,짜장면,Jajangmyeon,OK,026_jajangmyeon.jpg,CC BY-SA 4.0,Mobius6,https://commons.wikimedia.org/w/index.php?curid=132935924,https://upload.wikimedia.org/wikipedia/commons/f/f5/Jajangmyeon_Museum_20230430_001.jpg
+27,multigrain_rice,잡곡밥,Multigrain Rice,FAIL,,,,,
+28,seafood_pancake,해물파전,Seafood Pancake,OK,028_seafood_pancake.jpg,CC BY 2.0,yearofeats,https://commons.wikimedia.org/w/index.php?curid=3803183,https://upload.wikimedia.org/wikipedia/commons/0/08/Korean_pancakes.jpg
+29,rolled_omelet,계란말이,Rolled Omelet,OK,029_rolled_omelet.jpg,CC BY-SA 2.0,Jens Ohlig,https://commons.wikimedia.org/w/index.php?curid=87748150,https://upload.wikimedia.org/wikipedia/commons/d/d8/Gyeran-mari_1.jpg
+30,korean_fried_chicken,치킨,Korean Fried Chicken,OK,030_korean_fried_chicken.jpg,CC0,Andy Li,https://commons.wikimedia.org/w/index.php?curid=177035083,https://upload.wikimedia.org/wikipedia/commons/6/69/Fried_chicken_and_rice_with_Korean_curry_-_Kogi_Korean_cuisine_2025-10-19.jpg
+31,buldak,불닭,Buldak,OK,031_buldak.jpg,CC BY-SA 4.0,,https://commons.wikimedia.org/w/index.php?curid=151946987,https://upload.wikimedia.org/wikipedia/commons/7/7a/Buldak_Ramen_casserole1.jpg
+32,jjimdak,찜닭,Jjimdak,OK,032_jjimdak.jpg,CC BY 2.0,ebifry,https://commons.wikimedia.org/w/index.php?curid=2689308,https://upload.wikimedia.org/wikipedia/commons/d/d6/Korean.food-Andong-Jjimdakk.jpg
+33,kong_guksu,콩국수,Kong-guksu,OK,033_kong_guksu.jpg,CC BY-SA 2.0,"Republic of  Korea from Seoul, Republic of Korea",https://commons.wikimedia.org/w/index.php?curid=109098846,https://upload.wikimedia.org/wikipedia/commons/5/56/Kongguksu_06_%2827198316894%29.jpg
+34,grilled_eel,장어구이,Grilled Eel,OK,034_grilled_eel.jpg,CC BY-SA 2.0,"Alpha from Melbourne, Australia",https://commons.wikimedia.org/w/index.php?curid=83151997,https://upload.wikimedia.org/wikipedia/commons/f/ff/Chicken_Teriyaki_Don_-_J-Pub_Shogun_AUD11_%283428018378%29.jpg
+35,maeun_tang,매운탕,Maeun-tang,FAIL,,,,,
+36,raw_fish,회,Raw Fish,OK,036_raw_fish.jpg,CC BY 2.0,suksim,https://commons.wikimedia.org/w/index.php?curid=4219945,https://upload.wikimedia.org/wikipedia/commons/4/45/Korean_cuisine-Saengseon_hoe-02.jpg
+37,gejang,게장,Gejang,OK,037_gejang.jpg,CC0,kimsco,https://commons.wikimedia.org/w/index.php?curid=65345686,https://upload.wikimedia.org/wikipedia/commons/f/fc/Gejang.jpg
+38,jeotgal,젓갈,Jeotgal,OK,038_jeotgal.jpg,CC0,Jo Hanshin,https://commons.wikimedia.org/w/index.php?curid=163699213,https://upload.wikimedia.org/wikipedia/commons/2/22/Jeotgal_%28Salted_Seafood%29%2C_Koean_Food.jpg
+39,cheonggukjang,청국장,Cheonggukjang,OK,039_cheonggukjang.jpg,CC BY 3.0,Shene81,https://commons.wikimedia.org/w/index.php?curid=51920803,https://upload.wikimedia.org/wikipedia/commons/3/3e/Korean_Cheonggukjang_Foods.jpg
+40,doenjang_guk,된장국,Doenjang-guk,FAIL,,,,,
+41,kimchi,김치,Kimchi,OK,041_kimchi.jpg,CC BY-SA 2.0,korea.net,https://commons.wikimedia.org/w/index.php?curid=82804129,https://upload.wikimedia.org/wikipedia/commons/4/44/Triple_White_Kimchi_05.jpg
+42,white_kimchi,백김치,White Kimchi,OK,042_white_kimchi.jpg,CC BY-SA 2.0,korea.net,https://commons.wikimedia.org/w/index.php?curid=82804019,https://upload.wikimedia.org/wikipedia/commons/a/a1/Triple_White_Kimchi_04.jpg
+43,steamed_aged_kimchi,묵은지찜,Steamed Aged Kimchi,FAIL,,,,,
+44,songpyeon,송편,Songpyeon,OK,044_songpyeon.jpg,CC BY-SA 2.0,korea.net,https://commons.wikimedia.org/w/index.php?curid=82802467,https://upload.wikimedia.org/wikipedia/commons/9/96/Chuseok_Songpyeon.jpg
+45,injeolmi,인절미,Injeolmi,OK,045_injeolmi.jpg,CC BY 4.0,허허 그림,https://commons.wikimedia.org/w/index.php?curid=116429359,https://upload.wikimedia.org/wikipedia/commons/5/51/%EC%9D%B8%EC%A0%88%EB%AF%B8%ED%86%A0%EC%8A%A4%ED%8A%B8_%28%EB%B6%80%EC%82%B0%29.jpg
+46,bingsu,팥빙수,Bingsu,OK,046_bingsu.jpg,CC BY-SA 2.0,bryan...,https://commons.wikimedia.org/w/index.php?curid=88472808,https://upload.wikimedia.org/wikipedia/commons/9/93/Melon-bingsu_1.jpg
+47,korean_sweets,한과,Korean Sweets,OK,047_korean_sweets.jpg,CC BY-SA 4.0,Petar Milošević,https://commons.wikimedia.org/w/index.php?curid=65642131,https://upload.wikimedia.org/wikipedia/commons/8/8b/Christmas_table_%28Serbian_cuisine%29.jpg
+48,hotteok,호떡,Hotteok,OK,048_hotteok.jpg,CC BY 2.0,Sandra Vallaure,https://commons.wikimedia.org/w/index.php?curid=59724072,https://upload.wikimedia.org/wikipedia/commons/b/b1/Hotteok_2.jpg
+49,traditional_tea,전통차,Traditional Tea,OK,049_traditional_tea.jpg,CC BY-SA 2.0,"pelican from Tokyo, Japan",https://commons.wikimedia.org/w/index.php?curid=77827775,https://upload.wikimedia.org/wikipedia/commons/a/ad/Korean_tea_set_%289547876230%29.jpg
+50,sikhye,식혜,Sikhye,OK,050_sikhye.jpg,CC BY-SA 3.0,User:Drpepper000,https://commons.wikimedia.org/w/index.php?curid=1648064,https://upload.wikimedia.org/wikipedia/commons/c/c3/Korean.food-Sikhye-01.jpg
+51,sujeonggwa,수정과,Sujeonggwa,FAIL,,,,,
+52,pollack_stew,동태찌개,Pollack Stew,FAIL,,,,,
+53,braised_mackerel,고등어조림,Braised Mackerel,OK,053_braised_mackerel.jpg,CC BY-SA 2.0,by shizu k (shezzz) at Flickr,https://commons.wikimedia.org/w/index.php?curid=4688847,https://upload.wikimedia.org/wikipedia/commons/2/2f/Korean_cuisine-Godeungeo_jorim-01.jpg
+54,braised_potato,감자조림,Braised Potato,OK,054_braised_potato.jpg,CC BY 2.0,"egg (Hong, Yun Seon)",https://commons.wikimedia.org/w/index.php?curid=4219750,https://upload.wikimedia.org/wikipedia/commons/8/86/Korean_cuisine-Banchan-09.jpg
+55,seasoned_spinach,시금치나물,Seasoned Spinach,FAIL,,,,,
+56,seasoned_bracken,고사리나물,Seasoned Bracken,OK,056_seasoned_bracken.jpg,CC BY 2.0,"David  Eickhoff from Pearl City, Hawaii, USA",https://commons.wikimedia.org/w/index.php?curid=22702144,https://upload.wikimedia.org/wikipedia/commons/4/42/Pteridium_aquilinum_subsp._decompositum_%284943209526%29.jpg
+57,stir_fried_anchovies,멸치볶음,Stir-fried Anchovies,OK,057_stir_fried_anchovies.jpg,CC BY 4.0,차차PD,https://commons.wikimedia.org/w/index.php?curid=69460322,https://upload.wikimedia.org/wikipedia/commons/9/9c/Kkwari-gochu-myeolchi-bokkeum.jpg
+58,spicy_marinated_crab,양념게장,Spicy Marinated Crab,FAIL,,,,,
+59,fermented_skate,홍어회,Fermented Skate,OK,059_fermented_skate.jpg,CC BY 2.0 kr,자유로,https://commons.wikimedia.org/w/index.php?curid=57983747,https://upload.wikimedia.org/wikipedia/commons/5/5b/Hongeo.jpg
+60,live_octopus,산낙지,Live Octopus,OK,060_live_octopus.jpg,CC BY-SA 2.0,johl,https://commons.wikimedia.org/w/index.php?curid=1630014,https://upload.wikimedia.org/wikipedia/commons/4/43/Seoul-Street.food-01.jpg
+61,sundae_soup,순대국,Sundae Soup,FAIL,,,,,
+62,raw_beef,육회,Raw Beef,OK,062_raw_beef.jpg,CC0,BEien Sahwo TAoo MMP,https://commons.wikimedia.org/w/index.php?curid=178756866,https://upload.wikimedia.org/wikipedia/commons/b/b6/SZ_%E6%B7%B1%E5%9C%B3_Shenzhen_%E5%85%89%E6%98%8E%E6%96%B0%E5%8D%80_Guangming_N_%E6%AC%A1%E6%96%B9%E5%85%AC%E5%9C%92%E5%95%86%E5%A0%B4_N_Square_Park_Mall_shop_%E8%81%96%E7%90%BC%E9%9F%93%E5%BC%8F%E7%83%A4%E8%82%89%E8%87%AA%E5%8A%A9%E9%A4%90%E5%BB%B3_Saint_Joan_Korean_Barbecue_Beef_Buffet_Restaurant_pork_n_raw_beef_November_2025_R12S_02.jpg
+63,beef_tripe_hotpot,곱창전골,Beef Tripe Hotpot,FAIL,,,,,
+64,jokbal,족발,Jokbal,OK,064_jokbal.jpg,CC0,wizdata,https://commons.wikimedia.org/w/index.php?curid=65339997,https://upload.wikimedia.org/wikipedia/commons/3/36/Jokbal_3.jpg
+65,spicy_chicken_stew,닭볶음탕,Spicy Chicken Stew,FAIL,,,,,
+66,hanjeongsik,한정식,Hanjeongsik,OK,066_hanjeongsik.jpg,CC BY-SA 2.0,Alan Chan,https://commons.wikimedia.org/w/index.php?curid=4538265,https://upload.wikimedia.org/wikipedia/commons/8/89/Korean_table_setting-01.jpg
+67,acorn_jelly,도토리묵,Acorn Jelly,OK,067_acorn_jelly.jpg,CC BY-SA 4.0,최광모,https://commons.wikimedia.org/w/index.php?curid=38477452,https://upload.wikimedia.org/wikipedia/commons/8/8f/Dotorimuk_Muchim.jpg
+68,seasoned_mung_bean_jelly,청포묵무침,Seasoned Mung Bean Jelly,FAIL,,,,,
+69,soy_braised_beans,콩자반,Soy-braised Beans,FAIL,,,,,
+70,simple_dosirak,도시락,Simple Dosirak,FAIL,,,,,
+71,bindaetteok,빈대떡,Bindaetteok,OK,071_bindaetteok.jpg,CC BY-SA 2.0,hojusaram from Seoul,https://commons.wikimedia.org/w/index.php?curid=7281038,https://upload.wikimedia.org/wikipedia/commons/b/b2/Seoul-Insadong-Bindaetteok_and_makgeolli-01.jpg
+72,bibim_guksu,비빔국수,Bibim-guksu,FAIL,,,,,
+73,mussel_soup,홍합탕,Mussel Soup,OK,073_mussel_soup.jpg,CC BY 3.0,"Mar del Este
+
+ This photo was taken with Samsung Galaxy S4",https://commons.wikimedia.org/w/index.php?curid=46809328,https://upload.wikimedia.org/wikipedia/commons/b/b2/Jeju_food_ramyun_with_ginseng%2Bcoastalfood.jpg
+74,dak_han_mari,닭한마리,Dak-han-mari,OK,074_dak_han_mari.jpg,CC BY-SA 2.0,bryan...,https://commons.wikimedia.org/w/index.php?curid=88472755,https://upload.wikimedia.org/wikipedia/commons/c/c1/Dak-han-mari_1.jpg
+75,braised_cutlassfish,갈치조림,Braised Cutlassfish,FAIL,,,,,
+76,abalone_porridge,전복죽,Abalone Porridge,OK,076_abalone_porridge.jpg,CC BY-SA 3.0,SEEMS to be at Flickr,https://commons.wikimedia.org/w/index.php?curid=9013868,https://upload.wikimedia.org/wikipedia/commons/2/20/Korean_cuisine-Jeonbokjuk-Abalone_porridge-03.jpg
+77,bamboo_shoot,죽순나물,Bamboo Shoot,OK,077_bamboo_shoot.jpg,CC BY-SA 4.0,Chiring chandan,https://commons.wikimedia.org/w/index.php?curid=111541046,https://upload.wikimedia.org/wikipedia/commons/e/e1/Bamboo_shoot_pickles_with_%28left%29_and_without_%28right%29_chilli.jpg
+78,suyuk,수육,Suyuk,OK,078_suyuk.jpg,CC BY 2.0,lazy fri13th,https://commons.wikimedia.org/w/index.php?curid=88226284,https://upload.wikimedia.org/wikipedia/commons/0/01/Sundae_pyeonyuk_meori-gogi-suyuk.jpg
+79,bellflower_root_salad,도라지무침,Bellflower Root Salad,FAIL,,,,,
+80,multigrain_porridge,잡곡죽,Multigrain Porridge,OK,080_multigrain_porridge.jpg,CC BY-SA 2.0,"Matt @ PEK from Taipei, Taiwan",https://commons.wikimedia.org/w/index.php?curid=29756271,https://upload.wikimedia.org/wikipedia/commons/c/cf/In_suite_breakfast_experience_%283119861609%29.jpg
+81,raw_gizzard_shad,전어회,Raw Gizzard Shad,FAIL,,,,,
+82,dried_pollack_soup,북엇국,Dried Pollack Soup,OK,082_dried_pollack_soup.jpg,CC BY-SA 2.0,Pachinee Buathong,https://commons.wikimedia.org/w/index.php?curid=4212590,https://upload.wikimedia.org/wikipedia/commons/1/18/Korean_soup-Bugeoguk-01.jpg
+83,soy_pulp_stew,콩비지찌개,Soy Pulp Stew,OK,083_soy_pulp_stew.jpg,CC BY 4.0,차차PD,https://commons.wikimedia.org/w/index.php?curid=69460329,https://upload.wikimedia.org/wikipedia/commons/b/be/Biji-jjigae_1.jpg
+84,seafood_stew,해물탕,Seafood Stew,OK,084_seafood_stew.jpg,CC BY-SA 2.0,stuart_spivack (a flickr user),https://commons.wikimedia.org/w/index.php?curid=1654192,https://upload.wikimedia.org/wikipedia/commons/7/7a/Korean.food-Haemultang-01.jpg
+85,kimchi_hotpot,김치전골,Kimchi Hotpot,OK,085_kimchi_hotpot.jpg,CC BY-SA 4.0,Donald Trung,https://commons.wikimedia.org/w/index.php?curid=66892896,https://upload.wikimedia.org/wikipedia/commons/f/f8/C%C6%A1m_ch%E1%BA%A3o_n%C3%B3ng_th%E1%BB%8Bt_ba_ch%E1%BB%89_Kimchi%2C_Ecopark_%282018%29.jpg
+86,tofu_with_kimchi,두부김치,Tofu with Kimchi,OK,086_tofu_with_kimchi.jpg,CC BY 2.0,gamene,https://commons.wikimedia.org/w/index.php?curid=110251984,https://upload.wikimedia.org/wikipedia/commons/f/ff/Homage_to_hapa_bento_%283970926302%29.jpg
+87,soft_octopus_soup,연포탕,Soft Octopus Soup,FAIL,,,,,
+88,cold_soy_noodle,냉콩국수,Cold Soy Noodle,OK,088_cold_soy_noodle.jpg,CC BY-SA 2.0,"Republic of  Korea from Seoul, Republic of Korea",https://commons.wikimedia.org/w/index.php?curid=109098846,https://upload.wikimedia.org/wikipedia/commons/5/56/Kongguksu_06_%2827198316894%29.jpg
+89,young_radish_noodle,열무국수,Young Radish Noodle,FAIL,,,,,
+90,pork_soup,수육국밥,Pork Soup,OK,090_pork_soup.jpg,CC BY-SA 2.0,"Republic of  Korea from Seoul, Republic of Korea",https://commons.wikimedia.org/w/index.php?curid=109095951,https://upload.wikimedia.org/wikipedia/commons/4/42/Jeju_Island_20141128_63_%2815918691091%29.jpg
+91,crab_meat_porridge,게살죽,Crab Meat Porridge,FAIL,,,,,
+92,spicy_sea_bream_soup,도미매운탕,Spicy Sea Bream Soup,FAIL,,,,,
+93,chicken_noodle_soup,닭칼국수,Chicken Noodle Soup,OK,093_chicken_noodle_soup.jpg,CC BY-SA 3.0,Hoyabird8,https://commons.wikimedia.org/w/index.php?curid=25318098,https://upload.wikimedia.org/wikipedia/commons/b/b3/Chicken_Noodle_Soup.jpg
+94,fish_cake_soup,어묵탕,Fish Cake Soup,OK,094_fish_cake_soup.jpg,CC BY 2.0,"Chloe Lim from Seoul, South Korea",https://commons.wikimedia.org/w/index.php?curid=87528991,https://upload.wikimedia.org/wikipedia/commons/9/90/Korea_fish_cake_soup-Eomuk-Tang_%EC%96%B4%EB%AC%B5%ED%83%95-_%286768498759%29.jpg
+95,perilla_soup,들깨탕,Perilla Soup,OK,095_perilla_soup.jpg,CC BY-SA 3.0,by 아침꿀물 at Flickr,https://commons.wikimedia.org/w/index.php?curid=8535444,https://upload.wikimedia.org/wikipedia/commons/3/33/Korean_lunch-Bap_and_Banchan-Soup_and_Jeotgal-01.jpg
+96,soy_sauce_master,간장 마스터,Soy Sauce Master,FAIL,,,,,
+97,doenjang_master,된장 마스터,Doenjang Master,OK,097_doenjang_master.jpg,CC0,이동원,https://commons.wikimedia.org/w/index.php?curid=70049966,https://upload.wikimedia.org/wikipedia/commons/a/ac/Doenjang-jjigae_3.jpg
+98,gochujang_master,고추장 마스터,Gochujang Master,OK,098_gochujang_master.jpg,CC BY-SA 4.0,Aerous,https://commons.wikimedia.org/w/index.php?curid=186203682,https://upload.wikimedia.org/wikipedia/commons/f/f6/Bibimbap_in_a_metal_tray.jpg
+99,traditional_fermented_paste,전통장 체험,Traditional Fermented Paste,OK,099_traditional_fermented_paste.jpg,CC BY-SA 4.0,JioeyKun,https://commons.wikimedia.org/w/index.php?curid=129665107,https://upload.wikimedia.org/wikipedia/commons/4/48/Paste_Noodles.jpg
+100,k_food_course_master,한식 코스 마스터,K-Food Course Master,OK,100_k_food_course_master.jpg,Public domain,Unknown authorUnknown author,https://commons.wikimedia.org/w/index.php?curid=165484834,https://upload.wikimedia.org/wikipedia/commons/3/3c/Worldly_Woes_of_the_Great_I_Am%27s_Saintly_Heir_in_The_Atlanta_Journal_of_Atlanta%2C_Georgia_on_September_15%2C_1940.jpg

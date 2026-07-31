@@ -1,33 +1,65 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
-
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Tabs } from "expo-router";
+import { Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
+  // 갤럭시 등 안드로이드 제스처바/네비게이션 바와 앱 자체 탭바가 겹치지 않도록
+  // 기기의 실제 하단 세이프에어리어(insets.bottom)만큼 여백을 더해줍니다.
+  const tabBarBottomPadding = Math.max(insets.bottom, 8);
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+        tabBarStyle: {
+          backgroundColor: "#fff",
+          borderTopWidth: 0.5,
+          borderTopColor: "#eee",
+          paddingBottom: tabBarBottomPadding,
+          paddingTop: 8,
+          height: 52 + tabBarBottomPadding,
+        },
+        tabBarActiveTintColor: "#FF5722",
+        tabBarInactiveTintColor: "#aaa",
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: "Home",
+          tabBarIcon: () => <Text style={{ fontSize: 20 }}>🏠</Text>,
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: "Explore",
+          tabBarIcon: () => <Text style={{ fontSize: 20 }}>🍽️</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="camera"
+        options={{
+          title: "",
+          // 카메라 버튼 — 가운데 튀어나오는 스타일
+          tabBarIcon: () => (
+            <View style={{
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: "#FF5722",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 24,
+              borderWidth: 3,
+              borderColor: "#F5F5F5",
+            }}>
+              <Text style={{ fontSize: 22 }}>📷</Text>
+            </View>
+          ),
+          // 탭바 숨김 제거 ← 이게 문제였어요
+          tabBarLabel: () => null,
         }}
       />
     </Tabs>
