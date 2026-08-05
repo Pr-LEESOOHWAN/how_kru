@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   StyleSheet,
   Text,
@@ -33,6 +34,7 @@ export default function VerifyScreen() {
   const [activeShot, setActiveShot] = useState<ShotKey | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
+  const [capturing, setCapturing] = useState(false);
 
   const openScan = async (key: ShotKey) => {
     if (!permission?.granted) {
@@ -43,12 +45,21 @@ export default function VerifyScreen() {
   };
 
   const capturePhoto = async () => {
-    if (!cameraRef.current || !activeShot) return;
-    const photo = await cameraRef.current.takePictureAsync({ quality: 0.6 });
-    if (photo?.uri) {
-      setShots((prev) => ({ ...prev, [activeShot]: photo.uri }));
+    // capturing 가드: 촬영 중 버튼을 연타해도 takePictureAsync가 중복 실행되지 않도록 방지.
+    if (!cameraRef.current || !activeShot || capturing) return;
+    setCapturing(true);
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.6 });
+      if (photo?.uri) {
+        setShots((prev) => ({ ...prev, [activeShot]: photo.uri }));
+      }
+      setActiveShot(null);
+    } catch {
+      // 카메라 촬영 실패(디바이스 이슈 등) 시 스캔 화면을 유지해 다시 시도할 수 있게 함.
+      Alert.alert("촬영 실패", "사진을 찍지 못했어요. 다시 시도해주세요.");
+    } finally {
+      setCapturing(false);
     }
-    setActiveShot(null);
   };
 
   const bothTaken = !!shots.sign && !!shots.food;
@@ -88,8 +99,17 @@ export default function VerifyScreen() {
           </View>
 
           <View style={s.scanBottomBar}>
-            <TouchableOpacity style={s.captureBtn} activeOpacity={0.8} onPress={capturePhoto}>
-              <View style={s.captureBtnInner} />
+            <TouchableOpacity
+              style={s.captureBtn}
+              activeOpacity={0.8}
+              onPress={capturePhoto}
+              disabled={capturing}
+            >
+              {capturing ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <View style={s.captureBtnInner} />
+              )}
             </TouchableOpacity>
           </View>
         </View>

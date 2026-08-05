@@ -1,9 +1,10 @@
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   // 갤럭시 등 안드로이드 제스처바/네비게이션 바와 앱 자체 탭바가 겹치지 않도록
   // 기기의 실제 하단 세이프에어리어(insets.bottom)만큼 여백을 더해줍니다.
   const tabBarBottomPadding = Math.max(insets.bottom, 8);
@@ -36,6 +37,22 @@ export default function TabLayout() {
         options={{
           title: "Explore",
           tabBarIcon: () => <Text style={{ fontSize: 20 }}>🍽️</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="levels-tab"
+        options={{
+          title: "Level",
+          tabBarIcon: () => <Text style={{ fontSize: 20 }}>🏆</Text>,
+        }}
+        listeners={{
+          // 탭 자체는 실제 화면을 렌더링하지 않고, 기존 레벨 화면(뒤로가기 있는
+          // 스택 화면)으로 바로 이동시킵니다. 하단 바 어디서든 레벨 화면에
+          // 바로 접근할 수 있게 하기 위한 용도입니다.
+          tabPress: (e) => {
+            e.preventDefault();
+            router.push("/levels");
+          },
         }}
       />
       <Tabs.Screen

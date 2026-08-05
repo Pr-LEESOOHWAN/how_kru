@@ -10,9 +10,14 @@ const USER = {
   streak: 7,
 };
 
+// id는 Firestore "dishes" 컬렉션의 실제 문서 ID와 일치해야 합니다.
+// (이전에는 "1"/"2"였는데, 이러면 mission/kick.tsx의 getDish()와
+// mission/complete.tsx의 markDishCompleted()가 존재하지 않는 요리 ID로
+// 동작해서 킥 질문이 항상 기본값으로 뜨고, levels.tsx의 완료 스탬프도
+// 절대 표시되지 않는 문제가 있었습니다.)
 const TODAY_CHALLENGES = [
-  { id: "1", name: "Bibimbap", name_kr: "비빔밥", desc: "Mixed rice with vegetables & gochujang", spice: 1 },
-  { id: "2", name: "Tteokbokki", name_kr: "떡볶이", desc: "Spicy rice cakes in gochujang sauce", spice: 3 },
+  { id: "bibimbap", name: "Bibimbap", name_kr: "비빔밥", desc: "Mixed rice with vegetables & gochujang", spice: 2 },
+  { id: "tteokbokki", name: "Tteokbokki", name_kr: "떡볶이", desc: "Spicy rice cakes in gochujang sauce", spice: 7 },
 ];
 
 const SpiceIcon = ({ level }: { level: number }) => (

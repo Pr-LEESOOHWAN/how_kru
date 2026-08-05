@@ -1,0 +1,34 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // users/{userId}: 본인 문서만 읽고 쓸 수 있음 (authService.signUp이 uid로 문서를 생성함)
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // dishes / dishes_800 / levels: 로그인한 사용자는 읽기만 가능 (explore.tsx, levels.tsx,
+    // dishService.ts가 참조). 쓰기는 클라이언트에서 막고, 시딩/이미지 업로드는
+    // Admin SDK(서비스 계정)로 진행할 것.
+    match /dishes/{dishId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /dishes_800/{dishId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /levels/{levelId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // 그 외 모든 문서는 기본 차단
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
