@@ -1,3 +1,4 @@
+import { useAuth } from "@/src/contexts/AuthContext";
 import { getUser } from "@/src/firebase/dishService";
 import { db } from "@/src/firebase/firebaseConfig";
 import { Image } from "expo-image";
@@ -13,10 +14,7 @@ import {
   View,
 } from "react-native";
 
-// TODO: 로그인 연동 후 실제 유저의 current_level(dishService.getUser)로 교체.
-const MY_LEVEL = 3;
-// TODO: 실제 로그인 연동 후 로그인된 유저 id로 교체.
-const DEMO_USER_ID = "guest";
+const DEFAULT_LEVEL = 1;
 
 type Dish = {
   id: string;
@@ -45,22 +43,26 @@ type Section = {
 
 export default function LevelsScreen() {
   const router = useRouter();
+  const { user: authUser } = useAuth();
   const listRef = useRef<SectionList<Dish, Section>>(null);
   const [dishesByLevel, setDishesByLevel] = useState<Record<number, Dish[]>>({});
   const [levelInfo, setLevelInfo] = useState<Record<number, LevelInfo>>({});
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
+  const [myLevel, setMyLevel] = useState(DEFAULT_LEVEL);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!authUser) return;
     const load = async () => {
       try {
         const [dishSnap, levelSnap, user] = await Promise.all([
           getDocs(collection(db, "dishes")),
           getDocs(collection(db, "levels")),
-          getUser(DEMO_USER_ID).catch(() => null),
+          getUser(authUser.uid).catch(() => null),
         ]);
 
         setCompletedIds(new Set(user?.completed_dishes ?? []));
+        setMyLevel(user?.current_level ?? DEFAULT_LEVEL);
 
         const grouped: Record<number, Dish[]> = {};
         dishSnap.docs.forEach((d) => {
@@ -88,7 +90,7 @@ export default function LevelsScreen() {
       }
     };
     load();
-  }, []);
+  }, [authUser]);
 
   const levels = useMemo(
     () => Object.keys(dishesByLevel).map(Number).sort((a, b) => a - b),
@@ -100,11 +102,11 @@ export default function LevelsScreen() {
       levels.map((lvl) => ({
         level: lvl,
         title: levelInfo[lvl]?.title,
-        isMine: lvl === MY_LEVEL,
-        isDone: lvl < MY_LEVEL,
+        isMine: lvl === myLevel,
+        isDone: lvl < myLevel,
         data: dishesByLevel[lvl] ?? [],
       })),
-    [levels, levelInfo, dishesByLevel]
+    [levels, levelInfo, dishesByLevel, myLevel]
   );
 
   // 처음 들어오면 내 레벨 섹션으로 자동 스크롤 (계속 스크롤하면 다른 레벨이 이어서 보임)

@@ -1,3 +1,4 @@
+import { useAuth } from "@/src/contexts/AuthContext";
 import { Dish, getDish, saveKickChoice } from "@/src/firebase/dishService";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -12,15 +13,13 @@ import {
   View,
 } from "react-native";
 
-// TODO: 실제 로그인 연동 후 로그인된 유저 id로 교체.
-const DEMO_USER_ID = "guest";
-
 const FALLBACK_QUESTION = "이 요리의 '킥'은 무엇이었나요?";
 const FALLBACK_OPTIONS = ["맛", "식감", "냄새", "생김새"];
 const CUSTOM_KEY = "__custom__";
 
 export default function KickScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const params = useLocalSearchParams<{
     dishId: string;
     name_kr: string;
@@ -70,8 +69,8 @@ export default function KickScreen() {
     const answer = selected === CUSTOM_KEY ? customText.trim() : (selected as string);
     setSaving(true);
     try {
-      if (params.dishId) {
-        await saveKickChoice(DEMO_USER_ID, params.dishId, answer);
+      if (params.dishId && user) {
+        await saveKickChoice(user.uid, params.dishId, answer);
       }
     } catch {
       // 오프라인 등은 조용히 무시 (추후 에러 처리 보강)

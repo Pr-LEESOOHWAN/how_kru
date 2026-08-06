@@ -2,13 +2,12 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+import { useAuth } from "@/src/contexts/AuthContext";
 import { markDishCompleted } from "@/src/firebase/dishService";
-
-// TODO: 실제 로그인 연동 후 로그인된 유저 id로 교체.
-const DEMO_USER_ID = "guest";
 
 export default function MissionCompleteScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const params = useLocalSearchParams<{
     dishId: string;
     name_kr: string;
@@ -17,12 +16,12 @@ export default function MissionCompleteScreen() {
   const saved = useRef(false);
 
   useEffect(() => {
-    if (saved.current || !params.dishId) return;
+    if (saved.current || !params.dishId || !user) return;
     saved.current = true;
-    markDishCompleted(DEMO_USER_ID, params.dishId).catch(() => {
+    markDishCompleted(user.uid, params.dishId).catch(() => {
       // 오프라인/유저 미생성 등은 조용히 무시 (추후 에러 처리 보강)
     });
-  }, [params.dishId]);
+  }, [params.dishId, user]);
 
   const handleNext = () => {
     router.push({ pathname: "/mission/kick", params });

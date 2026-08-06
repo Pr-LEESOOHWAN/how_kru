@@ -16,12 +16,20 @@ export async function signUp(email: string, password: string, name: string): Pro
   await setDoc(doc(db, "users", user.uid), {
     name,
     email,
+    // 프로필/홈 화면용 표시 필드
     level: 1,
     levelName: "Rookie",
     xp: 0,
     badges: 0,
     streak: 0,
     createdAt: serverTimestamp(),
+    // src/firebase/dishService.ts(getUser/markDishCompleted/saveKickChoice/
+    // getProgressInLevel 등)가 기대하는 필드. 이게 없으면 로그인 직후
+    // 첫 미션에서 레벨/완료 목록이 비어있는 게 아니라 아예 undefined라
+    // 화면별 방어 코드에 의존하게 됨 -> 가입 시점에 명시적으로 초기화.
+    current_level: 1,
+    completed_dishes: [],
+    kick_choices: [],
   });
 
   return user;
