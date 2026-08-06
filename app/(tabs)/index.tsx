@@ -17,7 +17,7 @@ const USER = {
 // 절대 표시되지 않는 문제가 있었습니다.)
 const TODAY_CHALLENGES = [
   { id: "bibimbap", name: "Bibimbap", name_kr: "비빔밥", desc: "Mixed rice with vegetables & gochujang", spice: 2 },
-  { id: "tteokbokki", name: "Tteokbokki", name_kr: "떡볶이", desc: "Spicy rice cakes in gochujang sauce", spice: 7 },
+  { id: "tteokbokki", name: "Tteokbokki", name_kr: "떡볶이", desc: "Spicy rice cakes in gochujang sauce", spice: 4 },
 ];
 
 const SpiceIcon = ({ level }: { level: number }) => (

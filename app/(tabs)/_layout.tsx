@@ -75,7 +75,6 @@ export default function TabLayout() {
               <Text style={{ fontSize: 22 }}>📷</Text>
             </View>
           ),
-          // 탭바 숨김 제거 ← 이게 문제였어요
           tabBarLabel: () => null,
         }}
       />

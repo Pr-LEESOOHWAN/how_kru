@@ -72,8 +72,9 @@ export default function KickScreen() {
       if (params.dishId && user) {
         await saveKickChoice(user.uid, params.dishId, answer);
       }
-    } catch {
-      // 오프라인 등은 조용히 무시 (추후 에러 처리 보강)
+    } catch (err) {
+      // 화면은 그대로 진행하되(사용자 경험 방해 X), 콘솔에는 남겨서 저장 실패를 추적 가능하게 함
+      console.error("[mission/kick] saveKickChoice failed:", err);
     } finally {
       setSaving(false);
       router.push({ pathname: "/mission/level-progress", params });
