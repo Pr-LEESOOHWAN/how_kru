@@ -70,6 +70,18 @@ export default function MissionStartScreen() {
         <View style={s.rewardPill}>
           <Text style={s.rewardText}>완료 시 보상 +50 XP 🏅</Text>
         </View>
+
+        <TouchableOpacity
+          style={s.reviewLink}
+          onPress={() =>
+            router.push({
+              pathname: "/dish-reviews",
+              params: { dishId: params.dishId, name_kr: params.name_kr },
+            })
+          }
+        >
+          <Text style={s.reviewLinkText}>💬 이 요리 리뷰 보기</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={s.footer}>
@@ -118,6 +130,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 18, paddingVertical: 10,
   },
   rewardText: { color: "#FF5722", fontWeight: "bold", fontSize: 13 },
+  reviewLink: { marginTop: 14, paddingVertical: 8 },
+  reviewLinkText: { color: "#888", fontWeight: "600", fontSize: 13, textDecorationLine: "underline" },
   footer: { padding: 20, paddingBottom: 32 },
   startBtn: { backgroundColor: "#FF5722", borderRadius: 16, paddingVertical: 16, alignItems: "center" },
   startBtnText: { color: "#fff", fontSize: 17, fontWeight: "bold" },

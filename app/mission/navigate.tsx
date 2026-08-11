@@ -133,11 +133,11 @@ export default function NavigateScreen() {
             <View style={s.mapLegend}>
               <View style={s.legendRow}>
                 <View style={[s.legendDot, { backgroundColor: "#3E7FC1" }]} />
-                <Text style={s.legendText}>내 위치</Text>
+                <Text style={s.legendText}>내 위치 (U)</Text>
               </View>
               <View style={s.legendRow}>
                 <View style={[s.legendDot, { backgroundColor: "#FF5722" }]} />
-                <Text style={s.legendText} numberOfLines={1}>{params.restaurantName}</Text>
+                <Text style={s.legendText} numberOfLines={1}>{params.restaurantName} (R)</Text>
               </View>
             </View>
           </ImageBackground>

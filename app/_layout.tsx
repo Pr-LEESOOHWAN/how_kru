@@ -30,6 +30,7 @@ function RootNavigator() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="mission" options={{ headerShown: false, presentation: 'card' }} />
         <Stack.Screen name="levels" options={{ headerShown: false, presentation: 'card' }} />
+        <Stack.Screen name="dish-reviews" options={{ headerShown: false, presentation: 'card' }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack.Protected>
     </Stack>

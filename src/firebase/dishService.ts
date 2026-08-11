@@ -2,12 +2,15 @@
 // Firestore에서 음식 데이터 가져오기
 
 import {
+    addDoc,
     arrayUnion,
     collection,
     doc,
     getDoc,
     getDocs,
+    increment,
     query,
+    serverTimestamp,
     setDoc,
     where,
 } from "firebase/firestore";
@@ -121,6 +124,82 @@ export const levelUp = async (userId: string, currentLevel: number) => {
   await setDoc(
     doc(db, "users", userId),
     { current_level: currentLevel + 1 },
+    { merge: true }
+  );
+};
+
+// ─── 요리 리뷰 + 대댓글 ───────────────────────────
+// reviews/{reviewId}            : 요리 하나에 대한 리뷰
+// reviews/{reviewId}/replies/*  : 그 리뷰에 달린 대댓글
+
+export type Review = {
+  id: string;
+  dishId: string;
+  userId: string;
+  userName: string;
+  content: string;
+  createdAt: { seconds: number; nanoseconds: number } | null;
+  replyCount: number;
+};
+
+export type ReviewReply = {
+  id: string;
+  userId: string;
+  userName: string;
+  content: string;
+  createdAt: { seconds: number; nanoseconds: number } | null;
+};
+
+// 특정 요리의 리뷰 목록 (최신순)
+export const getReviews = async (dishId: string): Promise<Review[]> => {
+  const q = query(collection(db, "reviews"), where("dishId", "==", dishId));
+  const snap = await getDocs(q);
+  const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Review));
+  list.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+  return list;
+};
+
+// 리뷰 작성
+export const addReview = async (
+  dishId: string,
+  userId: string,
+  userName: string,
+  content: string
+) => {
+  await addDoc(collection(db, "reviews"), {
+    dishId,
+    userId,
+    userName,
+    content,
+    createdAt: serverTimestamp(),
+    replyCount: 0,
+  });
+};
+
+// 특정 리뷰의 대댓글 목록 (오래된순 - 대화 순서대로)
+export const getReplies = async (reviewId: string): Promise<ReviewReply[]> => {
+  const snap = await getDocs(collection(db, "reviews", reviewId, "replies"));
+  const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ReviewReply));
+  list.sort((a, b) => (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0));
+  return list;
+};
+
+// 대댓글 작성 (리뷰 문서의 replyCount도 함께 증가)
+export const addReply = async (
+  reviewId: string,
+  userId: string,
+  userName: string,
+  content: string
+) => {
+  await addDoc(collection(db, "reviews", reviewId, "replies"), {
+    userId,
+    userName,
+    content,
+    createdAt: serverTimestamp(),
+  });
+  await setDoc(
+    doc(db, "reviews", reviewId),
+    { replyCount: increment(1) },
     { merge: true }
   );
 };

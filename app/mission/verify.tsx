@@ -11,11 +11,12 @@ import {
   View,
 } from "react-native";
 
-type ShotKey = "sign" | "food";
+type ShotKey = "sign" | "food" | "receipt";
 
 const SHOT_META: Record<ShotKey, { label: string; sub: string; guide: string }> = {
   sign: { label: "상호", sub: "(Restaurant Sign)", guide: "식당 간판/상호가 잘 보이게 비춰주세요" },
   food: { label: "요리", sub: "(Food)", guide: "주문한 요리가 잘 보이게 비춰주세요" },
+  receipt: { label: "영수증", sub: "(Receipt)", guide: "영수증 전체가 잘 보이게 비춰주세요" },
 };
 
 export default function VerifyScreen() {
@@ -27,7 +28,7 @@ export default function VerifyScreen() {
     restaurantName: string;
   }>();
 
-  const [shots, setShots] = useState<Record<ShotKey, string | null>>({ sign: null, food: null });
+  const [shots, setShots] = useState<Record<ShotKey, string | null>>({ sign: null, food: null, receipt: null });
   const [verifying, setVerifying] = useState(false);
 
   // 앱 자체 카메라 스캔 오버레이 상태
@@ -149,6 +150,39 @@ export default function VerifyScreen() {
         />
       </View>
 
+      <View style={s.receiptSection}>
+        <View style={s.receiptHeaderRow}>
+          <Text style={s.receiptTitle}>🧾 영수증 스캔</Text>
+          <Text style={s.receiptOptionalTag}>선택사항 · 추가 인증</Text>
+        </View>
+        <Text style={s.receiptDesc}>
+          영수증을 함께 인증하면 신뢰도가 더 높아져요. (필수는 아니에요)
+        </Text>
+        <TouchableOpacity
+          style={s.receiptBox}
+          activeOpacity={0.7}
+          onPress={() => openScan("receipt")}
+        >
+          {shots.receipt ? (
+            <Image source={{ uri: shots.receipt }} style={s.receiptImage} />
+          ) : (
+            <>
+              <Text style={{ fontSize: 22 }}>📷</Text>
+              <Text style={s.receiptBoxText}>영수증 스캔하기</Text>
+            </>
+          )}
+        </TouchableOpacity>
+        {shots.receipt && (
+          <TouchableOpacity
+            style={s.retakeBtn}
+            activeOpacity={0.75}
+            onPress={() => openScan("receipt")}
+          >
+            <Text style={s.retakeBtnText}>🔄 다시 촬영하기</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       <View style={s.footer}>
         <TouchableOpacity
           style={[s.verifyBtn, !bothTaken && s.verifyBtnDisabled]}
@@ -230,6 +264,21 @@ const s = StyleSheet.create({
     alignItems: "center", borderWidth: 1, borderColor: "#FF5722",
   },
   retakeBtnText: { color: "#FF5722", fontSize: 12, fontWeight: "bold" },
+  receiptSection: { paddingHorizontal: 20, paddingTop: 22 },
+  receiptHeaderRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  receiptTitle: { fontSize: 14, fontWeight: "bold", color: "#222" },
+  receiptOptionalTag: {
+    fontSize: 10, fontWeight: "bold", color: "#888", backgroundColor: "#eee",
+    borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2,
+  },
+  receiptDesc: { fontSize: 12, color: "#999", marginTop: 4, marginBottom: 10 },
+  receiptBox: {
+    width: "100%", height: 110, borderRadius: 14, backgroundColor: "#F5F5F5",
+    borderWidth: 1.5, borderColor: "#ccc", borderStyle: "dashed",
+    alignItems: "center", justifyContent: "center", overflow: "hidden", gap: 4,
+  },
+  receiptBoxText: { fontSize: 13, color: "#888", fontWeight: "600" },
+  receiptImage: { width: "100%", height: "100%" },
   footer: { padding: 20, paddingTop: 26 },
   verifyBtn: { backgroundColor: "#FF5722", borderRadius: 16, paddingVertical: 16, alignItems: "center" },
   verifyBtnDisabled: { backgroundColor: "#FFC3AC" },

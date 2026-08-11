@@ -183,7 +183,22 @@ export default function LevelsScreen() {
                     {dishes.map((dish) => {
                       const isCompleted = completedIds.has(dish.id);
                       return (
-                        <View key={dish.id} style={s.dishRow}>
+                        <TouchableOpacity
+                          key={dish.id}
+                          style={s.dishRow}
+                          activeOpacity={0.6}
+                          onPress={() =>
+                            router.push({
+                              pathname: "/mission/start",
+                              params: {
+                                dishId: dish.id,
+                                name_kr: dish.name_kr,
+                                name_en: dish.name_en,
+                                spice: String(dish.spice_level ?? 1),
+                              },
+                            })
+                          }
+                        >
                           <View style={s.dishThumb}>
                             {dish.image ? (
                               <Image
@@ -211,7 +226,8 @@ export default function LevelsScreen() {
                           <Text style={s.spiceText}>
                             {"🌶️".repeat(Math.max(1, Math.min(5, dish.spice_level || 1)))}
                           </Text>
-                        </View>
+                          <Text style={s.dishArrow}>›</Text>
+                        </TouchableOpacity>
                       );
                     })}
                   </View>
@@ -239,12 +255,15 @@ const s = StyleSheet.create({
   loadingText: { color: "#888", fontSize: 14 },
   sectionHeader: {
     flexDirection: "row", alignItems: "center", gap: 12,
-    backgroundColor: "#F5F5F5", paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 0.5, borderBottomColor: "#e8e8e8",
+    backgroundColor: "#E4E4E4", paddingHorizontal: 14, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: "#cfcfcf",
+    // 음식 목록(흰 배경)과 레벨 바 사이 명암 차이를 뚜렷하게 주기 위한 그림자
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2,
+    elevation: 2,
   },
-  sectionHeaderMine: { backgroundColor: "#FFF7F4" },
+  sectionHeaderMine: { backgroundColor: "#FFE0D2", borderBottomColor: "#FFB894" },
   levelBadge: {
-    width: 42, height: 42, borderRadius: 11, backgroundColor: "#F0F0F0",
+    width: 42, height: 42, borderRadius: 11, backgroundColor: "#D8D8D8",
     alignItems: "center", justifyContent: "center",
   },
   levelBadgeMine: { backgroundColor: "#FF5722" },
@@ -282,4 +301,5 @@ const s = StyleSheet.create({
   dishNameKr: { fontSize: 14, fontWeight: "600", color: "#222" },
   dishNameEn: { fontSize: 12, color: "#888", marginTop: 1 },
   spiceText: { fontSize: 10 },
+  dishArrow: { fontSize: 18, color: "#ccc", marginLeft: 2 },
 });
