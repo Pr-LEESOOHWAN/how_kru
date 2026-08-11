@@ -7,7 +7,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  SectionList,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -33,23 +33,17 @@ type LevelInfo = {
   required_count?: number;
 };
 
-type Section = {
-  level: number;
-  title: string | undefined;
-  isMine: boolean;
-  isDone: boolean;
-  data: Dish[];
-};
-
 export default function LevelsScreen() {
   const router = useRouter();
   const { user: authUser } = useAuth();
-  const listRef = useRef<SectionList<Dish, Section>>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const sectionY = useRef<Record<number, number>>({});
   const [dishesByLevel, setDishesByLevel] = useState<Record<number, Dish[]>>({});
   const [levelInfo, setLevelInfo] = useState<Record<number, LevelInfo>>({});
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [myLevel, setMyLevel] = useState(DEFAULT_LEVEL);
   const [loading, setLoading] = useState(true);
+  const [openLevels, setOpenLevels] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (!authUser) return;
@@ -62,7 +56,9 @@ export default function LevelsScreen() {
         ]);
 
         setCompletedIds(new Set(user?.completed_dishes ?? []));
-        setMyLevel(user?.current_level ?? DEFAULT_LEVEL);
+        const resolvedLevel = user?.current_level ?? DEFAULT_LEVEL;
+        setMyLevel(resolvedLevel);
+        setOpenLevels(new Set([resolvedLevel]));
 
         const grouped: Record<number, Dish[]> = {};
         dishSnap.docs.forEach((d) => {
@@ -97,38 +93,33 @@ export default function LevelsScreen() {
     [dishesByLevel]
   );
 
-  const sections: Section[] = useMemo(
-    () =>
-      levels.map((lvl) => ({
-        level: lvl,
-        title: levelInfo[lvl]?.title,
-        isMine: lvl === myLevel,
-        isDone: lvl < myLevel,
-        data: dishesByLevel[lvl] ?? [],
-      })),
-    [levels, levelInfo, dishesByLevel, myLevel]
-  );
+  const scrollToLevel = (lvl: number) => {
+    const y = sectionY.current[lvl];
+    if (y === undefined) return;
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+  };
 
-  // 처음 들어오면 내 레벨 섹션으로 자동 스크롤 (계속 스크롤하면 다른 레벨이 이어서 보임)
+  // 처음 들어오면 내 레벨 섹션으로 자동 스크롤
   useEffect(() => {
-    if (loading || sections.length === 0) return;
-    const myIndex = sections.findIndex((s) => s.isMine);
-    if (myIndex === -1) return;
-    const timer = setTimeout(() => {
-      try {
-        listRef.current?.scrollToLocation({
-          sectionIndex: myIndex,
-          itemIndex: 0,
-          viewOffset: 0,
-          animated: false,
-        });
-      } catch {
-        // 아직 레이아웃 전이면 조용히 무시
-      }
-    }, 50);
+    if (loading || levels.length === 0) return;
+    const timer = setTimeout(() => scrollToLevel(myLevel), 80);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, sections.length]);
+  }, [loading, levels.length]);
+
+  const toggleLevel = (lvl: number) => {
+    setOpenLevels((prev) => {
+      const next = new Set(prev);
+      if (next.has(lvl)) {
+        next.delete(lvl);
+      } else {
+        next.add(lvl);
+      }
+      return next;
+    });
+    // 펼침/접힘으로 바뀐 onLayout 좌표가 반영될 시간을 준 다음 스크롤한다.
+    setTimeout(() => scrollToLevel(lvl), 60);
+  };
 
   return (
     <View style={s.root}>
@@ -146,83 +137,89 @@ export default function LevelsScreen() {
           <Text style={s.loadingText}>레벨 데이터 불러오는 중...</Text>
         </View>
       ) : (
-        <SectionList
-          ref={listRef}
-          sections={sections}
-          keyExtractor={(dish) => dish.id}
-          stickySectionHeadersEnabled
-          contentContainerStyle={{ paddingBottom: 30 }}
-          onScrollToIndexFailed={() => {
-            // 레이아웃이 아직 안 잡혔을 때 재시도
-            setTimeout(() => {
-              const myIndex = sections.findIndex((sec) => sec.isMine);
-              if (myIndex !== -1) {
-                listRef.current?.scrollToLocation({
-                  sectionIndex: myIndex,
-                  itemIndex: 0,
-                  animated: false,
-                });
-              }
-            }, 100);
-          }}
-          renderSectionHeader={({ section }) => (
-            <View style={[s.sectionHeader, section.isMine && s.sectionHeaderMine]}>
-              <View style={[s.levelBadge, section.isMine && s.levelBadgeMine]}>
-                <Text style={[s.levelBadgeText, section.isMine && s.levelBadgeTextMine]}>
-                  Lv.{section.level}
-                </Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Text style={s.levelTitle} numberOfLines={1}>
-                    {section.title ?? `Level ${section.level}`}
-                  </Text>
-                  {section.isMine && (
-                    <View style={s.mineTag}>
-                      <Text style={s.mineTagText}>내 레벨</Text>
-                    </View>
-                  )}
-                  {section.isDone && <Text style={s.doneCheck}>✓</Text>}
-                </View>
-                <Text style={s.levelSub}>{section.data.length}개 요리</Text>
-              </View>
-            </View>
-          )}
-          renderItem={({ item: dish }) => {
-            const isCompleted = completedIds.has(dish.id);
+        <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 30 }}>
+          {levels.map((lvl) => {
+            const isMine = lvl === myLevel;
+            const isDone = lvl < myLevel;
+            const isOpen = openLevels.has(lvl);
+            const dishes = dishesByLevel[lvl] ?? [];
+
             return (
-              <View style={s.dishRow}>
-                <View style={s.dishThumb}>
-                  {dish.image ? (
-                    <Image
-                      source={{ uri: dish.image }}
-                      style={s.dishThumbImg}
-                      contentFit="cover"
-                      transition={150}
-                    />
-                  ) : (
-                    <Text style={s.dishThumbFallback}>🍽️</Text>
-                  )}
-                  <View style={s.dishNoBadge}>
-                    <Text style={s.dishNoBadgeText}>{dish.no}</Text>
+              <View
+                key={lvl}
+                onLayout={(e) => {
+                  sectionY.current[lvl] = e.nativeEvent.layout.y;
+                }}
+              >
+                <TouchableOpacity
+                  style={[s.sectionHeader, isMine && s.sectionHeaderMine]}
+                  activeOpacity={0.7}
+                  onPress={() => toggleLevel(lvl)}
+                >
+                  <View style={[s.levelBadge, isMine && s.levelBadgeMine]}>
+                    <Text style={[s.levelBadgeText, isMine && s.levelBadgeTextMine]}>
+                      Lv.{lvl}
+                    </Text>
                   </View>
-                  {isCompleted && (
-                    <View style={s.completedStamp}>
-                      <Text style={s.completedStampText}>완료</Text>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Text style={s.levelTitle} numberOfLines={1}>
+                        {levelInfo[lvl]?.title ?? `Level ${lvl}`}
+                      </Text>
+                      {isMine && (
+                        <View style={s.mineTag}>
+                          <Text style={s.mineTagText}>내 레벨</Text>
+                        </View>
+                      )}
+                      {isDone && <Text style={s.doneCheck}>✓</Text>}
                     </View>
-                  )}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.dishNameKr}>{dish.name_kr}</Text>
-                  <Text style={s.dishNameEn} numberOfLines={1}>{dish.name_en}</Text>
-                </View>
-                <Text style={s.spiceText}>
-                  {"🌶️".repeat(Math.max(1, Math.min(5, dish.spice_level || 1)))}
-                </Text>
+                    <Text style={s.levelSub}>{dishes.length}개 요리</Text>
+                  </View>
+                  <Text style={s.chevron}>{isOpen ? "▲" : "▼"}</Text>
+                </TouchableOpacity>
+
+                {isOpen && (
+                  <View>
+                    {dishes.map((dish) => {
+                      const isCompleted = completedIds.has(dish.id);
+                      return (
+                        <View key={dish.id} style={s.dishRow}>
+                          <View style={s.dishThumb}>
+                            {dish.image ? (
+                              <Image
+                                source={{ uri: dish.image }}
+                                style={s.dishThumbImg}
+                                contentFit="cover"
+                                transition={150}
+                              />
+                            ) : (
+                              <Text style={s.dishThumbFallback}>🍽️</Text>
+                            )}
+                            <View style={s.dishNoBadge}>
+                              <Text style={s.dishNoBadgeText}>{dish.no}</Text>
+                            </View>
+                            {isCompleted && (
+                              <View style={s.completedStamp}>
+                                <Text style={s.completedStampText}>완료</Text>
+                              </View>
+                            )}
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={s.dishNameKr}>{dish.name_kr}</Text>
+                            <Text style={s.dishNameEn} numberOfLines={1}>{dish.name_en}</Text>
+                          </View>
+                          <Text style={s.spiceText}>
+                            {"🌶️".repeat(Math.max(1, Math.min(5, dish.spice_level || 1)))}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             );
-          }}
-        />
+          })}
+        </ScrollView>
       )}
     </View>
   );
@@ -258,6 +255,7 @@ const s = StyleSheet.create({
   mineTag: { backgroundColor: "#FF5722", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
   mineTagText: { color: "#fff", fontSize: 10, fontWeight: "bold" },
   doneCheck: { color: "#4CAF50", fontWeight: "bold", fontSize: 13 },
+  chevron: { fontSize: 11, color: "#888" },
   dishRow: {
     flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 11,
     backgroundColor: "#fff", gap: 12,

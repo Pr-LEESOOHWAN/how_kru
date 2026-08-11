@@ -1,47 +1,128 @@
+import { useAuth } from "@/src/contexts/AuthContext";
+import { getProgressInLevel, getUser, levelUp } from "@/src/firebase/dishService";
+import { db } from "@/src/firebase/firebaseConfig";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { doc, getDoc } from "firebase/firestore";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-// TODO: 실제 유저 진행률(dishService.getProgressInLevel 등)로 교체. 지금은 데모용 고정 값입니다.
-const CURRENT_LEVEL = 3;
-const LEVEL_NAME = "Real Local Starter";
-const PREV_XP = 65;
-const NEW_XP = 80;
-const BADGES = 5;
+const MAX_LEVEL = 12;
+// 데이터를 못 불러온 경우(비로그인 게스트 등)를 위한 안전한 기본값
+const FALLBACK = { level: 3, title: "Real Local Starter", prevPct: 65, newPct: 65, badges: 0 };
+
+type LevelDoc = { title?: string; required_count?: number };
 
 export default function LevelProgressScreen() {
   const router = useRouter();
+  const { user: authUser } = useAuth();
   const params = useLocalSearchParams<{ name_kr: string }>();
+
+  const [loading, setLoading] = useState(true);
+  const [display, setDisplay] = useState(FALLBACK);
+  const [leveledUp, setLeveledUp] = useState(false);
+
+  useEffect(() => {
+    if (!authUser) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const user = await getUser(authUser.uid);
+        const level = Math.min(user?.current_level ?? 1, MAX_LEVEL);
+
+        const [levelSnap, progress] = await Promise.all([
+          getDoc(doc(db, "levels", String(level))),
+          getProgressInLevel(authUser.uid, level),
+        ]);
+        const levelData = (levelSnap.exists() ? levelSnap.data() : {}) as LevelDoc;
+        const requiredCount = levelData.required_count ?? Math.max(progress, 1);
+
+        const prevProgress = Math.max(0, progress - 1);
+        const prevPct = Math.min(100, Math.round((prevProgress / requiredCount) * 100));
+        const newPct = Math.min(100, Math.round((progress / requiredCount) * 100));
+        const didLevelUp = progress >= requiredCount && level < MAX_LEVEL;
+
+        let shownLevel = level;
+        let shownTitle = levelData.title ?? `Level ${level}`;
+
+        if (didLevelUp) {
+          try {
+            await levelUp(authUser.uid, level);
+            shownLevel = level + 1;
+            const nextSnap = await getDoc(doc(db, "levels", String(shownLevel)));
+            shownTitle = nextSnap.exists() ? (nextSnap.data() as LevelDoc).title ?? shownTitle : shownTitle;
+          } catch (err) {
+            // 레벨업 저장에 실패해도 화면은 그대로 진행(사용자 경험 방해 X), 콘솔에는 남김
+            console.error("[mission/level-progress] levelUp failed:", err);
+          }
+        }
+
+        if (!cancelled) {
+          setDisplay({
+            level: shownLevel,
+            title: shownTitle,
+            prevPct: didLevelUp ? newPct : prevPct,
+            newPct: didLevelUp ? 100 : newPct,
+            badges: user?.completed_dishes?.length ?? 0,
+          });
+          setLeveledUp(didLevelUp);
+        }
+      } catch (err) {
+        console.error("[mission/level-progress] 진행률 로딩 오류:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authUser]);
 
   const goHome = () => {
     router.dismissAll();
     router.replace("/(tabs)");
   };
 
+  if (loading) {
+    return (
+      <View style={s.root}>
+        <View style={s.center}>
+          <ActivityIndicator color="#FF5722" />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={s.root}>
       <View style={s.center}>
-        <Text style={s.kicker}>LEVEL {CURRENT_LEVEL}</Text>
-        <Text style={s.levelName}>{LEVEL_NAME}</Text>
+        <Text style={s.kicker}>LEVEL {display.level}</Text>
+        <Text style={s.levelName}>{display.title}</Text>
 
         <View style={s.card}>
           <View style={s.xpRow}>
             <Text style={s.xpLabel}>XP Progress</Text>
-            <Text style={s.xpValue}>{NEW_XP}%</Text>
+            <Text style={s.xpValue}>{display.newPct}%</Text>
           </View>
           <View style={s.xpBg}>
-            <View style={[s.xpFillOld, { width: `${PREV_XP}%` as any }]} />
-            <View style={[s.xpFillNew, { left: `${PREV_XP}%` as any, width: `${NEW_XP - PREV_XP}%` as any }]} />
+            <View style={[s.xpFillOld, { width: `${display.prevPct}%` as any }]} />
+            <View
+              style={[
+                s.xpFillNew,
+                { left: `${display.prevPct}%` as any, width: `${Math.max(0, display.newPct - display.prevPct)}%` as any },
+              ]}
+            />
           </View>
-          <Text style={s.xpDelta}>+{NEW_XP - PREV_XP}% 상승했어요 🎉</Text>
+          <Text style={s.xpDelta}>
+            {leveledUp ? "레벨 업! 🎉" : `+${Math.max(0, display.newPct - display.prevPct)}% 상승했어요 🎉`}
+          </Text>
 
           <View style={s.metaRow}>
             <View style={s.metaItem}>
-              <Text style={s.metaValue}>🏅 {BADGES}</Text>
-              <Text style={s.metaLabel}>Badges</Text>
-            </View>
-            <View style={s.metaItem}>
-              <Text style={s.metaValue}>🔥 7</Text>
-              <Text style={s.metaLabel}>Day Streak</Text>
+              <Text style={s.metaValue}>🏅 {display.badges}</Text>
+              <Text style={s.metaLabel}>완료한 요리</Text>
             </View>
           </View>
         </View>

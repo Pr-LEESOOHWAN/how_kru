@@ -42,7 +42,8 @@ export default function LoginScreen() {
 
       <TextInput
         style={styles.input}
-        placeholder="Email"
+        placeholder="아이디(이메일)를 입력하세요"
+        placeholderTextColor="#999"
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -52,7 +53,8 @@ export default function LoginScreen() {
 
       <TextInput
         style={styles.input}
-        placeholder="Password"
+        placeholder="비밀번호를 입력하세요"
+        placeholderTextColor="#999"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -90,7 +92,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 36, fontWeight: "bold", color: "#E63946", marginBottom: 4 },
   subtitle: { fontSize: 16, color: "#888", marginBottom: 40 },
   input: {
-    width: "100%", borderWidth: 1, borderColor: "#ddd",
+    width: "100%", borderWidth: 1, borderColor: "#ddd", color: "#222",
     borderRadius: 12, padding: 14, fontSize: 16, marginBottom: 16,
   },
   errorText: { color: "#E63946", fontSize: 14, marginBottom: 16, alignSelf: "flex-start" },

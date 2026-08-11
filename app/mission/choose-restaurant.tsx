@@ -57,35 +57,43 @@ export default function ChooseRestaurantScreen() {
     }
   };
 
-  // 최초 진입: 위치 권한 + 내 위치 확보 후 기본 반경으로 검색
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") {
-          if (!cancelled) {
-            setErrorMsg("위치 권한이 없으면 근처 식당을 찾을 수 없어요. 설정에서 위치 권한을 허용해주세요.");
-            setState("error");
-          }
-          return;
-        }
-        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        if (cancelled) return;
-        setMyLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        await runSearch(pos.coords.latitude, pos.coords.longitude, radiusM);
-      } catch (err: any) {
-        if (!cancelled) {
-          setErrorMsg(err?.message ?? "식당을 불러오는 중 오류가 발생했어요.");
+  // 위치 권한 + 내 위치 확보 후 주어진 반경으로 검색 (최초 진입/재시도 공용)
+  const acquireLocationAndSearch = async (radius: number, cancelledRef?: { current: boolean }) => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        if (!cancelledRef?.current) {
+          setErrorMsg("위치 권한이 없으면 근처 식당을 찾을 수 없어요. 설정에서 위치 권한을 허용해주세요.");
           setState("error");
         }
+        return;
       }
-    })();
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      if (cancelledRef?.current) return;
+      setMyLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      await runSearch(pos.coords.latitude, pos.coords.longitude, radius);
+    } catch (err: any) {
+      if (!cancelledRef?.current) {
+        setErrorMsg(err?.message ?? "식당을 불러오는 중 오류가 발생했어요.");
+        setState("error");
+      }
+    }
+  };
+
+  // 최초 진입: 위치 권한 + 내 위치 확보 후 기본 반경으로 검색
+  useEffect(() => {
+    const cancelledRef = { current: false };
+    acquireLocationAndSearch(radiusM, cancelledRef);
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.name_kr]);
+
+  // 위치를 못 가져온 채 에러 화면에 머물러 있을 때 다시 시도
+  const handleRetryLocation = () => {
+    acquireLocationAndSearch(radiusM);
+  };
 
   // 슬라이더로 반경을 바꾸면(손 뗄 때) 같은 위치 기준으로 재검색
   const handleRadiusCommit = (value: number) => {
@@ -150,21 +158,23 @@ export default function ChooseRestaurantScreen() {
         <Text style={s.introSub}>내 위치 반경 {formatDistance(radiusM)} 이내, 가까운 곳부터 정렬했어요</Text>
       </View>
 
-      <View style={s.radiusRow}>
-        <Text style={s.radiusLabel}>반경 조절</Text>
-        <Slider
-          style={s.radiusSlider}
-          minimumValue={MIN_RADIUS_M}
-          maximumValue={MAX_RADIUS_M}
-          step={RADIUS_STEP_M}
-          value={radiusM}
-          minimumTrackTintColor="#FF5722"
-          maximumTrackTintColor="#eee"
-          thumbTintColor="#FF5722"
-          onSlidingComplete={handleRadiusCommit}
-        />
-        <Text style={s.radiusValue}>{formatDistance(radiusM)}</Text>
-      </View>
+      {myLoc && (
+        <View style={s.radiusRow}>
+          <Text style={s.radiusLabel}>반경 조절</Text>
+          <Slider
+            style={s.radiusSlider}
+            minimumValue={MIN_RADIUS_M}
+            maximumValue={MAX_RADIUS_M}
+            step={RADIUS_STEP_M}
+            value={radiusM}
+            minimumTrackTintColor="#FF5722"
+            maximumTrackTintColor="#eee"
+            thumbTintColor="#FF5722"
+            onSlidingComplete={handleRadiusCommit}
+          />
+          <Text style={s.radiusValue}>{formatDistance(radiusM)}</Text>
+        </View>
+      )}
 
       {state === "ok" && (
         <View style={s.controlsRow}>
@@ -205,6 +215,9 @@ export default function ChooseRestaurantScreen() {
         <View style={s.centerBox}>
           <Text style={{ fontSize: 32 }}>⚠️</Text>
           <Text style={[s.centerText, { paddingHorizontal: 30, textAlign: "center" }]}>{errorMsg}</Text>
+          <TouchableOpacity style={s.retryBtn} onPress={handleRetryLocation}>
+            <Text style={s.retryBtnText}>다시 시도</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -298,6 +311,11 @@ const s = StyleSheet.create({
   openOnlyChipTextActive: { color: "#FF5722" },
   centerBox: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   centerText: { color: "#888", fontSize: 14 },
+  retryBtn: {
+    marginTop: 4, backgroundColor: "#FF5722", borderRadius: 20,
+    paddingHorizontal: 20, paddingVertical: 10,
+  },
+  retryBtnText: { color: "#fff", fontSize: 13, fontWeight: "bold" },
   list: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 30, gap: 12 },
   card: {
     flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderRadius: 14,

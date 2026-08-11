@@ -34,12 +34,12 @@ export default function CameraScreen() {
     return (
       <View style={s.permissionBox}>
         <Text style={s.permissionEmoji}>📷</Text>
-        <Text style={s.permissionTitle}>Camera Permission Needed</Text>
+        <Text style={s.permissionTitle}>카메라 권한이 필요해요</Text>
         <Text style={s.permissionDesc}>
-          HOW KRU needs camera access to scan restaurants and food.
+          식당과 요리를 스캔하려면 카메라 접근 권한이 필요해요.
         </Text>
         <TouchableOpacity style={s.permissionBtn} onPress={requestPermission}>
-          <Text style={s.permissionBtnText}>Allow Camera</Text>
+          <Text style={s.permissionBtnText}>카메라 허용하기</Text>
         </TouchableOpacity>
       </View>
     );
@@ -54,15 +54,15 @@ export default function CameraScreen() {
     // 스캔 완료 처리 (추후 인식 로직 추가)
     setScanned(true);
     Alert.alert(
-      scanMode === "restaurant" ? "🏪 Restaurant Scanned!" : "🍽️ Food Scanned!",
-      "Recognition feature coming soon!\nScan saved successfully.",
+      scanMode === "restaurant" ? "🏪 식당 스캔 완료!" : "🍽️ 음식 스캔 완료!",
+      "인식 기능은 준비 중이에요.\n스캔이 저장됐어요.",
       [
         {
-          text: "Scan Again",
+          text: "다시 스캔하기",
           onPress: () => setScanned(false),
         },
         {
-          text: "Done",
+          text: "완료",
           onPress: () => router.back(),
         },
       ]
@@ -86,7 +86,7 @@ export default function CameraScreen() {
             <Text style={s.iconBtnText}>✕</Text>
           </TouchableOpacity>
           <Text style={s.topTitle}>
-            {scanMode === "restaurant" ? "🏪 Scan Restaurant" : "🍽️ Scan Food"}
+            {scanMode === "restaurant" ? "🏪 식당 스캔" : "🍽️ 음식 스캔"}
           </Text>
           <TouchableOpacity
             style={s.iconBtn}
@@ -99,8 +99,8 @@ export default function CameraScreen() {
         {/* 가이드 텍스트 */}
         <Text style={s.guideText}>
           {scanMode === "restaurant"
-            ? "Point at the restaurant sign or entrance"
-            : "Point at the dish you want to record"}
+            ? "식당 간판이나 입구를 비춰주세요"
+            : "기록하고 싶은 요리를 비춰주세요"}
         </Text>
 
         {/* 스캔 프레임 */}
@@ -114,11 +114,11 @@ export default function CameraScreen() {
           {/* 스캔 라인 애니메이션 대신 상태 표시 */}
           {scanned ? (
             <View style={s.scannedBadge}>
-              <Text style={s.scannedText}>✓ Scanned</Text>
+              <Text style={s.scannedText}>✓ 스캔 완료</Text>
             </View>
           ) : (
             <View style={s.scanningBadge}>
-              <Text style={s.scanningText}>Scanning...</Text>
+              <Text style={s.scanningText}>스캔 중...</Text>
             </View>
           )}
         </View>
@@ -130,7 +130,7 @@ export default function CameraScreen() {
             onPress={() => { setScanMode("restaurant"); setScanned(false); }}
           >
             <Text style={[s.modeBtnText, scanMode === "restaurant" && s.modeBtnTextActive]}>
-              🏪 Restaurant
+              🏪 식당
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -138,7 +138,7 @@ export default function CameraScreen() {
             onPress={() => { setScanMode("food"); setScanned(false); }}
           >
             <Text style={[s.modeBtnText, scanMode === "food" && s.modeBtnTextActive]}>
-              🍽️ Food
+              🍽️ 음식
             </Text>
           </TouchableOpacity>
         </View>

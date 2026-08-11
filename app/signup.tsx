@@ -52,7 +52,8 @@ export default function SignupScreen() {
 
       <TextInput
         style={styles.input}
-        placeholder="Name"
+        placeholder="이름을 입력하세요"
+        placeholderTextColor="#999"
         value={name}
         onChangeText={setName}
         autoCapitalize="words"
@@ -61,7 +62,8 @@ export default function SignupScreen() {
 
       <TextInput
         style={styles.input}
-        placeholder="Email"
+        placeholder="이메일을 입력하세요"
+        placeholderTextColor="#999"
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -71,7 +73,8 @@ export default function SignupScreen() {
 
       <TextInput
         style={styles.input}
-        placeholder="Password"
+        placeholder="비밀번호를 입력하세요 (6자 이상)"
+        placeholderTextColor="#999"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -80,7 +83,8 @@ export default function SignupScreen() {
 
       <TextInput
         style={styles.input}
-        placeholder="Confirm Password"
+        placeholder="비밀번호를 다시 입력하세요"
+        placeholderTextColor="#999"
         value={confirmPassword}
         onChangeText={setConfirmPassword}
         secureTextEntry
@@ -118,7 +122,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 36, fontWeight: "bold", color: "#E63946", marginBottom: 4 },
   subtitle: { fontSize: 16, color: "#888", marginBottom: 40 },
   input: {
-    width: "100%", borderWidth: 1, borderColor: "#ddd",
+    width: "100%", borderWidth: 1, borderColor: "#ddd", color: "#222",
     borderRadius: 12, padding: 14, fontSize: 16, marginBottom: 16,
   },
   errorText: { color: "#E63946", fontSize: 14, marginBottom: 16, alignSelf: "flex-start" },

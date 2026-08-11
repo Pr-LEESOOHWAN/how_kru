@@ -9,7 +9,6 @@ import {
     getDocs,
     query,
     setDoc,
-    updateDoc,
     where,
 } from "firebase/firestore";
 import { db } from "./firebaseConfig";
@@ -116,10 +115,14 @@ export const saveKickChoice = async (
 };
 
 // 레벨업 처리
+// 다른 쓰기 함수들과 마찬가지로 setDoc(merge: true) 사용.
+// updateDoc은 유저 문서가 아직 없으면 "No document to update" 오류로 실패한다.
 export const levelUp = async (userId: string, currentLevel: number) => {
-  await updateDoc(doc(db, "users", userId), {
-    current_level: currentLevel + 1,
-  });
+  await setDoc(
+    doc(db, "users", userId),
+    { current_level: currentLevel + 1 },
+    { merge: true }
+  );
 };
 
 // 현재 레벨에서 완료된 음식 수 계산
@@ -133,5 +136,5 @@ export const getProgressInLevel = async (
   const levelDishes = await getDishesByLevel(level);
   const levelDishIds = levelDishes.map((d) => d.id);
 
-  return user.completed_dishes.filter((id) => levelDishIds.includes(id)).length;
+  return (user.completed_dishes ?? []).filter((id) => levelDishIds.includes(id)).length;
 };
