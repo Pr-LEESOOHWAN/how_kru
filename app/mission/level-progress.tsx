@@ -128,7 +128,13 @@ export default function LevelProgressScreen() {
         </View>
 
         <Text style={s.footNote}>
-          {params.name_kr ? `${params.name_kr} 미션 완료로 레벨이 올랐어요!` : "미션 완료로 레벨이 올랐어요!"}
+          {leveledUp
+            ? params.name_kr
+              ? `${params.name_kr} 미션 완료로 레벨이 올랐어요!`
+              : "미션 완료로 레벨이 올랐어요!"
+            : params.name_kr
+              ? `${params.name_kr} 미션 완료! 다음 레벨까지 조금 더 남았어요.`
+              : "미션 완료! 다음 레벨까지 조금 더 남았어요."}
         </Text>
       </View>
 

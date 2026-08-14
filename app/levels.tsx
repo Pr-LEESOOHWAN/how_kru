@@ -194,6 +194,11 @@ export default function LevelsScreen() {
                                 dishId: dish.id,
                                 name_kr: dish.name_kr,
                                 name_en: dish.name_en,
+                                // index.tsx의 startMission()과 동일한 형식으로 desc를 채워서
+                                // 미션 시작 화면 설명 텍스트가 빈 값으로 보이지 않게 함.
+                                desc: dish.category
+                                  ? `${dish.category} · Lv.${dish.level}`
+                                  : `Lv.${dish.level}`,
                                 spice: String(dish.spice_level ?? 1),
                               },
                             })

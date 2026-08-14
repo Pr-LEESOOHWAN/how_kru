@@ -44,3 +44,6 @@ app-example
 /android
 newtest123.moved.txt
 testfile_check.txt
+t.txt
+app/t.txt
+testfile_outside.txt

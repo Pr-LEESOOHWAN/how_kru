@@ -166,7 +166,9 @@ export default function DishReviewsScreen() {
 
                   <TouchableOpacity onPress={() => toggleReplies(review.id)} style={s.replyToggle}>
                     <Text style={s.replyToggleText}>
-                      {isOpen ? "▲ 답글 숨기기" : `▼ 답글 ${review.replyCount > 0 ? review.replyCount : ""} 보기`}
+                      {isOpen
+                        ? "▲ 답글 숨기기"
+                        : `▼ 답글${review.replyCount > 0 ? ` ${review.replyCount}` : ""} 보기`}
                     </Text>
                   </TouchableOpacity>
 
