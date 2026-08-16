@@ -228,9 +228,13 @@ export default function LevelsScreen() {
                             <Text style={s.dishNameKr}>{dish.name_kr}</Text>
                             <Text style={s.dishNameEn} numberOfLines={1}>{dish.name_en}</Text>
                           </View>
-                          <Text style={s.spiceText}>
-                            {"🌶️".repeat(Math.max(1, Math.min(5, dish.spice_level || 1)))}
-                          </Text>
+                          {dish.spice_level ? (
+                            <Text style={s.spiceText}>
+                              {"🌶️".repeat(Math.max(1, Math.min(5, dish.spice_level)))}
+                            </Text>
+                          ) : (
+                            <Text style={s.spiceTextMild}>안매움</Text>
+                          )}
                           <Text style={s.dishArrow}>›</Text>
                         </TouchableOpacity>
                       );
@@ -306,5 +310,6 @@ const s = StyleSheet.create({
   dishNameKr: { fontSize: 14, fontWeight: "600", color: "#222" },
   dishNameEn: { fontSize: 12, color: "#888", marginTop: 1 },
   spiceText: { fontSize: 10 },
+  spiceTextMild: { fontSize: 10, color: "#4CAF50", fontWeight: "700" },
   dishArrow: { fontSize: 18, color: "#ccc", marginLeft: 2 },
 });

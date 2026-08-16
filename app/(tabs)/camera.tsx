@@ -55,7 +55,7 @@ export default function CameraScreen() {
     setScanned(true);
     Alert.alert(
       scanMode === "restaurant" ? "🏪 식당 스캔 완료!" : "🍽️ 음식 스캔 완료!",
-      "인식 기능은 준비 중이에요.\n스캔이 저장됐어요.",
+      "인식 기능은 준비 중이에요.\n곧 만나볼 수 있어요!",
       [
         {
           text: "다시 스캔하기",
