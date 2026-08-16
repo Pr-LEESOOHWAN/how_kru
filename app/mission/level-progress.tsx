@@ -46,15 +46,20 @@ export default function LevelProgressScreen() {
 
         let shownLevel = level;
         let shownTitle = levelData.title ?? `Level ${level}`;
+        // DB 저장이 실제로 성공했을 때만 "레벨 업" UI를 보여주기 위한 플래그.
+        // (didLevelUp만 보고 판단하면 levelUp() 저장이 실패해도 축하 메시지가 뜨는 버그가 있었음)
+        let levelUpSaved = false;
 
         if (didLevelUp) {
           try {
             await levelUp(authUser.uid, level);
+            levelUpSaved = true;
             shownLevel = level + 1;
             const nextSnap = await getDoc(doc(db, "levels", String(shownLevel)));
             shownTitle = nextSnap.exists() ? (nextSnap.data() as LevelDoc).title ?? shownTitle : shownTitle;
           } catch (err) {
-            // 레벨업 저장에 실패해도 화면은 그대로 진행(사용자 경험 방해 X), 콘솔에는 남김
+            // 레벨업 저장에 실패한 경우, 화면은 그대로 진행하되(사용자 경험 방해 X)
+            // "레벨 업" 표시는 하지 않고 기존 레벨 진행률만 보여줌. 콘솔에는 남김
             console.error("[mission/level-progress] levelUp failed:", err);
           }
         }
@@ -63,11 +68,11 @@ export default function LevelProgressScreen() {
           setDisplay({
             level: shownLevel,
             title: shownTitle,
-            prevPct: didLevelUp ? newPct : prevPct,
-            newPct: didLevelUp ? 100 : newPct,
+            prevPct: levelUpSaved ? newPct : prevPct,
+            newPct: levelUpSaved ? 100 : newPct,
             badges: user?.completed_dishes?.length ?? 0,
           });
-          setLeveledUp(didLevelUp);
+          setLeveledUp(levelUpSaved);
         }
       } catch (err) {
         console.error("[mission/level-progress] 진행률 로딩 오류:", err);

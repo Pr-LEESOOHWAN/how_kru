@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   ImageBackground,
   Linking,
   Platform,
@@ -96,7 +97,10 @@ export default function NavigateScreen() {
       const fallback = `https://www.google.com/maps/dir/?api=1&destination=${
         hasDestCoords ? `${params.lat},${params.lng}` : query
       }&travelmode=walking`;
-      Linking.openURL(fallback).catch(() => {});
+      Linking.openURL(fallback).catch(() => {
+        // 웹 브라우저 길찾기까지 실패한 경우 사용자에게 알려줌(기존엔 아무 반응 없이 조용히 실패했음)
+        Alert.alert("길찾기를 열 수 없어요", "지도 앱을 열지 못했어요. 잠시 후 다시 시도해주세요.");
+      });
     });
   };
 

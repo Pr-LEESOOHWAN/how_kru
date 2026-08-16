@@ -40,7 +40,14 @@ export default function VerifyScreen() {
   const openScan = async (key: ShotKey) => {
     if (!permission?.granted) {
       const res = await requestPermission();
-      if (!res.granted) return;
+      if (!res.granted) {
+        // 권한 거부 시 아무 반응 없이 조용히 끝나던 부분 - 이유를 알려줌
+        Alert.alert(
+          "카메라 권한이 필요해요",
+          "촬영 인증을 위해 카메라 권한을 허용해주세요. 설정에서 권한을 변경할 수 있어요."
+        );
+        return;
+      }
     }
     setActiveShot(key);
   };
