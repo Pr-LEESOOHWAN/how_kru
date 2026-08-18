@@ -8,7 +8,7 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "rea
 
 const MAX_LEVEL = 12;
 // 데이터를 못 불러온 경우(비로그인 게스트 등)를 위한 안전한 기본값
-const FALLBACK = { level: 3, title: "Real Local Starter", prevPct: 65, newPct: 65, badges: 0 };
+const FALLBACK = { level: 3, title: "Real Local Starter", prevPct: 65, newPct: 65, badges: 0, isMaxLevel: false };
 
 type LevelDoc = { title?: string; required_count?: number };
 
@@ -71,6 +71,10 @@ export default function LevelProgressScreen() {
             prevPct: levelUpSaved ? newPct : prevPct,
             newPct: levelUpSaved ? 100 : newPct,
             badges: user?.completed_dishes?.length ?? 0,
+            // 이미 최고 레벨(12)에 도달한 유저는 더 이상 "다음 레벨"이 없으므로
+            // 별도 문구를 보여주기 위한 플래그. (기존엔 이 경우에도 "다음 레벨까지
+            // 조금 더 남았어요"라는 잘못된 안내가 계속 떴음)
+            isMaxLevel: shownLevel >= MAX_LEVEL,
           });
           setLeveledUp(levelUpSaved);
         }
@@ -133,13 +137,17 @@ export default function LevelProgressScreen() {
         </View>
 
         <Text style={s.footNote}>
-          {leveledUp
+          {display.isMaxLevel
             ? params.name_kr
-              ? `${params.name_kr} 미션 완료로 레벨이 올랐어요!`
-              : "미션 완료로 레벨이 올랐어요!"
-            : params.name_kr
-              ? `${params.name_kr} 미션 완료! 다음 레벨까지 조금 더 남았어요.`
-              : "미션 완료! 다음 레벨까지 조금 더 남았어요."}
+              ? `${params.name_kr} 미션 완료! 이미 최고 레벨을 달성했어요 🏆`
+              : "이미 최고 레벨을 달성했어요 🏆"
+            : leveledUp
+              ? params.name_kr
+                ? `${params.name_kr} 미션 완료로 레벨이 올랐어요!`
+                : "미션 완료로 레벨이 올랐어요!"
+              : params.name_kr
+                ? `${params.name_kr} 미션 완료! 다음 레벨까지 조금 더 남았어요.`
+                : "미션 완료! 다음 레벨까지 조금 더 남았어요."}
         </Text>
       </View>
 

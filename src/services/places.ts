@@ -10,6 +10,7 @@
 
 const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
 const TEXT_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText";
+const PLACE_DETAILS_URL = "https://places.googleapis.com/v1/places";
 
 const FIELD_MASK = [
   "places.id",
@@ -124,4 +125,69 @@ export async function searchNearbyRestaurants(
   const withinRadius = results.filter((r) => r.distanceM <= radiusM);
   withinRadius.sort((a, b) => a.distanceM - b.distanceM);
   return withinRadius;
+}
+
+// ─── 구글 리뷰 (Place Details) ────────────────────────────────
+//
+// 주의: Google Maps Platform 약관상 리뷰 콘텐츠는 캐싱/저장이 금지되어 있어요.
+// 그래서 이 함수는 항상 그 자리에서 실시간으로만 조회하고, 결과를 Firestore나
+// AsyncStorage 등에 저장하면 안 됩니다. 화면에 표시할 때도 작성자명을 함께
+// 보여줘서(저작자 표시) 약관을 지켜주세요.
+
+export type GoogleReview = {
+  id: string;
+  authorName: string;
+  authorPhotoUrl?: string;
+  rating: number;
+  text: string;
+  relativeTime: string;
+};
+
+const DETAILS_FIELD_MASK = ["rating", "userRatingCount", "reviews"].join(",");
+
+/**
+ * 특정 식당(placeId)의 구글 평점 + 최근 리뷰(최대 5개, 구글 API 자체 제한)를
+ * 실시간으로 가져옵니다. 저장하지 않고 화면에 그때그때만 표시하는 용도입니다.
+ */
+export async function getPlaceReviews(placeId: string): Promise<{
+  rating?: number;
+  userRatingsTotal?: number;
+  reviews: GoogleReview[];
+}> {
+  if (!GOOGLE_PLACES_API_KEY) {
+    throw new PlacesApiError(
+      "Google Places API 키가 설정되지 않았어요. .env 파일에 EXPO_PUBLIC_GOOGLE_PLACES_API_KEY를 추가해주세요."
+    );
+  }
+
+  const res = await fetch(`${PLACE_DETAILS_URL}/${placeId}`, {
+    method: "GET",
+    headers: {
+      "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
+      "X-Goog-FieldMask": DETAILS_FIELD_MASK,
+    },
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new PlacesApiError(
+      `Places API 오류 (${data.error?.status ?? res.status}): ${data.error?.message ?? "알 수 없는 오류"}`
+    );
+  }
+
+  const reviews: GoogleReview[] = (data.reviews ?? []).map((r: any, i: number) => ({
+    id: r.name ?? String(i),
+    authorName: r.authorAttribution?.displayName ?? "익명",
+    authorPhotoUrl: r.authorAttribution?.photoUri,
+    rating: r.rating ?? 0,
+    text: r.text?.text ?? r.originalText?.text ?? "",
+    relativeTime: r.relativePublishTimeDescription ?? "",
+  }));
+
+  return {
+    rating: data.rating,
+    userRatingsTotal: data.userRatingCount,
+    reviews,
+  };
 }

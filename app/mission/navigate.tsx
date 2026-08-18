@@ -1,9 +1,11 @@
+import { getPlaceReviews, GoogleReview, PlacesApiError } from "@/src/services/places";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   ImageBackground,
   Linking,
   Platform,
@@ -38,6 +40,38 @@ export default function NavigateScreen() {
   const [myLoc, setMyLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [locError, setLocError] = useState(false);
   const [mapImgError, setMapImgError] = useState<string | null>(null);
+
+  // 구글 리뷰: 약관상 저장/캐싱이 금지되어 있어서 화면에 들어올 때마다 매번
+  // 실시간으로만 조회하고, 상태로만 잠깐 들고 있다가 화면을 벗어나면 버립니다.
+  const [googleReviews, setGoogleReviews] = useState<GoogleReview[] | null>(null);
+  const [googleRating, setGoogleRating] = useState<{ rating?: number; total?: number }>({});
+  const [reviewsState, setReviewsState] = useState<"loading" | "ok" | "empty" | "error">("loading");
+  const [reviewsError, setReviewsError] = useState("");
+
+  useEffect(() => {
+    if (!params.placeId) {
+      setReviewsState("empty");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setReviewsState("loading");
+      try {
+        const { rating, userRatingsTotal, reviews } = await getPlaceReviews(params.placeId!);
+        if (cancelled) return;
+        setGoogleRating({ rating, total: userRatingsTotal });
+        setGoogleReviews(reviews);
+        setReviewsState(reviews.length === 0 ? "empty" : "ok");
+      } catch (err) {
+        if (cancelled) return;
+        setReviewsError(err instanceof PlacesApiError ? err.message : "구글 리뷰를 불러오지 못했어요.");
+        setReviewsState("error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.placeId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -178,6 +212,52 @@ export default function NavigateScreen() {
         <Text style={s.sheetName}>{params.restaurantName}</Text>
         <Text style={s.sheetAddress}>{params.address} · {params.walk} · {params.distance}</Text>
 
+        <View style={s.reviewsBox}>
+          <View style={s.reviewsHeaderRow}>
+            <Text style={s.reviewsTitle}>Google 리뷰</Text>
+            {typeof googleRating.rating === "number" && (
+              <Text style={s.reviewsRatingText}>
+                ⭐ {googleRating.rating.toFixed(1)} ({googleRating.total ?? 0})
+              </Text>
+            )}
+          </View>
+
+          {reviewsState === "loading" && (
+            <ActivityIndicator color="#FF5722" style={{ marginVertical: 10 }} />
+          )}
+          {reviewsState === "error" && <Text style={s.reviewsEmptyText}>{reviewsError}</Text>}
+          {reviewsState === "empty" && (
+            <Text style={s.reviewsEmptyText}>표시할 구글 리뷰가 없어요.</Text>
+          )}
+          {reviewsState === "ok" && googleReviews && (
+            <>
+              {googleReviews.slice(0, 2).map((r) => (
+                <View key={r.id} style={s.reviewRow}>
+                  <View style={s.reviewRowHeader}>
+                    {r.authorPhotoUrl ? (
+                      <Image source={{ uri: r.authorPhotoUrl }} style={s.reviewAvatar} />
+                    ) : (
+                      <View style={[s.reviewAvatar, s.reviewAvatarFallback]}>
+                        <Text style={{ fontSize: 11, color: "#888" }}>{r.authorName.charAt(0)}</Text>
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.reviewAuthor} numberOfLines={1}>{r.authorName}</Text>
+                      <Text style={s.reviewMeta}>
+                        {"⭐".repeat(Math.max(0, Math.round(r.rating)))} · {r.relativeTime}
+                      </Text>
+                    </View>
+                  </View>
+                  {!!r.text && (
+                    <Text style={s.reviewText} numberOfLines={3}>{r.text}</Text>
+                  )}
+                </View>
+              ))}
+              <Text style={s.reviewsAttribution}>제공: Google</Text>
+            </>
+          )}
+        </View>
+
         <TouchableOpacity style={s.mapsBtn} onPress={openInMaps}>
           <Text style={s.mapsBtnText}>지도 앱으로 길찾기 열기 ↗</Text>
         </TouchableOpacity>
@@ -226,6 +306,25 @@ const s = StyleSheet.create({
   handle: { width: 36, height: 4, backgroundColor: "#e0e0e0", borderRadius: 2, alignSelf: "center", marginBottom: 14 },
   sheetName: { fontSize: 19, fontWeight: "bold", color: "#222" },
   sheetAddress: { fontSize: 13, color: "#888", marginTop: 4, marginBottom: 16 },
+  reviewsBox: {
+    marginBottom: 16, borderTopWidth: 0.5, borderTopColor: "#eee", paddingTop: 14,
+  },
+  reviewsHeaderRow: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6,
+  },
+  reviewsTitle: { fontSize: 13, fontWeight: "bold", color: "#222" },
+  reviewsRatingText: { fontSize: 12, color: "#B8860B", fontWeight: "600" },
+  reviewsEmptyText: { fontSize: 12, color: "#999", marginTop: 4 },
+  reviewRow: {
+    backgroundColor: "#F8F8F8", borderRadius: 10, padding: 10, marginTop: 8,
+  },
+  reviewRowHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  reviewAvatar: { width: 26, height: 26, borderRadius: 13 },
+  reviewAvatarFallback: { backgroundColor: "#eee", alignItems: "center", justifyContent: "center" },
+  reviewAuthor: { fontSize: 12, fontWeight: "bold", color: "#333" },
+  reviewMeta: { fontSize: 10, color: "#999", marginTop: 1 },
+  reviewText: { fontSize: 12, color: "#444", marginTop: 6, lineHeight: 17 },
+  reviewsAttribution: { fontSize: 10, color: "#bbb", marginTop: 8, textAlign: "right" },
   mapsBtn: {
     borderWidth: 1.5, borderColor: "#FF5722", borderRadius: 14,
     paddingVertical: 14, alignItems: "center", marginBottom: 10,

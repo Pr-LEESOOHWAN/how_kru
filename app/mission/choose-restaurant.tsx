@@ -155,7 +155,9 @@ export default function ChooseRestaurantScreen() {
 
       <View style={s.introBox}>
         <Text style={s.introTitle}>{params.name_kr} 인근 식당</Text>
-        <Text style={s.introSub}>내 위치 반경 {formatDistance(radiusM)} 이내, 가까운 곳부터 정렬했어요</Text>
+        <Text style={s.introSub}>
+          내 위치 반경 {formatDistance(radiusM)} 이내, {sortBy === "rating" ? "별점 높은 곳부터" : "가까운 곳부터"} 정렬했어요
+        </Text>
       </View>
 
       {myLoc && (
