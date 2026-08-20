@@ -1,8 +1,10 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ArrivedScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     dishId: string;
     name_kr: string;
@@ -28,7 +30,7 @@ export default function ArrivedScreen() {
         </Text>
       </View>
 
-      <View style={s.footer}>
+      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 32) }]}>
         <TouchableOpacity style={s.primaryBtn} onPress={handleNext}>
           <Text style={s.primaryBtnText}>사진으로 인증하기 📷</Text>
         </TouchableOpacity>

@@ -15,12 +15,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "케첩 찍어먹기",
+      "치즈 추가하기"
     ]
   },
   {
@@ -40,12 +38,10 @@
       "meat"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "상추쌈에 마늘 올리기",
+      "국물에 밥 비벼먹기"
     ]
   },
   {
@@ -64,12 +60,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "다대기 넣기",
+      "김치 곁들이기"
     ]
   },
   {
@@ -89,12 +83,10 @@
       "meat"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "양념 소스 찍기",
+      "무/피클 곁들이기"
     ]
   },
   {
@@ -113,12 +105,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "아이스크림 곁들이기",
+      "따뜻한 차와 함께"
     ]
   },
   {
@@ -138,12 +128,10 @@
       "meat"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "당면 추가하기",
+      "파 듬뿍 넣기"
     ]
   },
   {
@@ -163,12 +151,10 @@
       "meat"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "구운김치 곁들이기",
+      "파절이와 먹기"
     ]
   },
   {
@@ -187,12 +173,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "인절미 가루 추가",
+      "연유 곁들이기"
     ]
   },
   {
@@ -211,12 +195,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "고추장 한 스푼 더하기",
+      "참기름 한 스푼 더하기"
     ]
   },
   {
@@ -235,12 +217,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "소면 말아먹기",
+      "깍두기 국물 넣기"
     ]
   },
   {
@@ -259,12 +239,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "양파 간장 찍기",
+      "빠삭할때 바로 먹기"
     ]
   },
   {
@@ -284,12 +262,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "잣 띄워 마시기",
+      "시원하게 마시기"
     ]
   },
   {
@@ -309,12 +285,10 @@
       "seafood"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "김치 곁들이기",
+      "참기름 한 스푼 더하기"
     ]
   },
   {
@@ -333,12 +307,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "떡볶이 국물 찍기",
+      "단무지와 먹기"
     ]
   },
   {
@@ -357,12 +329,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "막걸리와 함께",
+      "초간장 찍기"
     ]
   },
   {
@@ -382,12 +352,10 @@
       "meat"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "칼국수 사리 넣기",
+      "죽으로 마무리"
     ]
   },
   {
@@ -407,12 +375,10 @@
       "meat"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "새우젓 찍기",
+      "보쌈김치 곁들이기"
     ]
   },
   {
@@ -432,12 +398,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "청양고추 넣기",
+      "밥 말아먹기"
     ]
   },
   {
@@ -457,12 +421,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "꿀 추가하기",
+      "한과자와 곁들이기"
     ]
   },
   {
@@ -481,12 +443,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "쌈장 듬뿍 올리기",
+      "마늘 추가하기"
     ]
   },
   {
@@ -505,12 +465,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "와사비 간장 찍기",
+      "고추 썰어 넣기"
     ]
   },
   {
@@ -529,12 +487,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "국물 마시기",
+      "오이채 곁들이기"
     ]
   },
   {
@@ -554,12 +510,10 @@
       "fermented"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "들기름 뿌리기",
+      "비빔국수와 먹기"
     ]
   },
   {
@@ -578,12 +532,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "밥 말아먹기",
+      "김치 곁들이기"
     ]
   },
   {
@@ -602,12 +554,10 @@
       "spicy"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "치즈 추가하기",
+      "볶음밥으로 마무리"
     ]
   },
   {
@@ -627,12 +577,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "밥 말아먹기",
+      "김치 곁들이기"
     ]
   },
   {
@@ -652,12 +600,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "계란 풀어넣기",
+      "밥 말아먹기"
     ]
   },
   {
@@ -676,12 +622,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "밥에 비벼먹기",
+      "청양고추 송송 썰어넣기"
     ]
   },
   {
@@ -700,12 +644,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "막걸리와 함께",
+      "초간장 찍기"
     ]
   },
   {
@@ -724,12 +666,10 @@
       "spicy"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "계란후라이와 함께",
+      "참기름 한스푼 더하기"
     ]
   },
   {
@@ -748,12 +688,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "초간장 찍기",
+      "빠삭할때 바로 먹기"
     ]
   },
   {
@@ -772,12 +710,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "삶은 계란 올리기",
+      "열무김치 듬뿍"
     ]
   },
   {
@@ -798,12 +734,10 @@
       "meat"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "생강절임과 함께",
+      "와사비 얹어먹기"
     ]
   },
   {
@@ -822,12 +756,10 @@
       "spicy"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "볶음김치와 먹기",
+      "구운 두부로 먹기"
     ]
   },
   {
@@ -849,12 +781,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "초고추장 찍기",
+      "간장과 와사비"
     ]
   },
   {
@@ -874,12 +804,10 @@
       "meat"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "쟁반막국수와 먹기",
+      "마늘 얹어먹기"
     ]
   },
   {
@@ -899,12 +827,10 @@
       "meat"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "보쌈김치 얹기",
+      "알배기 배추와"
     ]
   },
   {
@@ -924,12 +850,10 @@
       "seafood"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "청양고추 넣기",
+      "파 듬뿍 넣기"
     ]
   },
   {
@@ -948,12 +872,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "김치 곁들이기",
+      "밥 비벼먹기"
     ]
   },
   {
@@ -972,12 +894,10 @@
       "spicy"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "삶은 계란 올리기",
+      "상추에 싸먹기"
     ]
   },
   {
@@ -997,12 +917,10 @@
       "meat"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "상추쌈에 마늘",
+      "깻잎에 싸먹기"
     ]
   },
   {
@@ -1021,12 +939,10 @@
       "spicy"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "라면 사리 추가",
+      "두부 추가하기"
     ]
   },
   {
@@ -1047,12 +963,10 @@
       "unusual_look"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "배와 함께 먹기",
+      "참기름장에 찍기"
     ]
   },
   {
@@ -1072,12 +986,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "식초 살짝 넣기",
+      "와사비 간장 찍기"
     ]
   },
   {
@@ -1096,12 +1008,10 @@
       "spicy"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "우동 사리 추가",
+      "치즈 추가하기"
     ]
   },
   {
@@ -1123,12 +1033,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "된장 찍기",
+      "초고추장 찍기"
     ]
   },
   {
@@ -1147,12 +1055,10 @@
       "very_spicy"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "튀김 범벅하기",
+      "치즈 추가하기"
     ]
   },
   {
@@ -1171,12 +1077,10 @@
       "spicy"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "라면 사리 추가",
+      "참치캔 넣기"
     ]
   },
   {
@@ -1195,12 +1099,10 @@
       "very_spicy"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "날계란 풀어넣기",
+      "라면 사리 추가"
     ]
   },
   {
@@ -1219,12 +1121,10 @@
       "very_spicy"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "밥 말아먹기",
+      "깍두기 국물 넣기"
     ]
   },
   {
@@ -1243,12 +1143,10 @@
       "very_spicy"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "육수 부어먹기",
+      "겨자 추가하기"
     ]
   },
   {
@@ -1267,12 +1165,10 @@
       "spicy"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "우동 사리 추가",
+      "밥 볶아먹기"
     ]
   },
   {
@@ -1294,12 +1190,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "참기름장에 찍기",
+      "초고추장 찍기"
     ]
   },
   {
@@ -1318,12 +1212,10 @@
       "very_spicy"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "밥 볶아먹기",
+      "치즈 추가하기"
     ]
   },
   {
@@ -1343,12 +1235,10 @@
       "seafood"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "무조림과 먹기",
+      "국물에 밥 비비기"
     ]
   },
   {
@@ -1368,12 +1258,10 @@
       "seafood"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "무조림과 먹기",
+      "국물에 밥 비비기"
     ]
   },
   {
@@ -1392,12 +1280,10 @@
       "spicy"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "수제비 사리 추가",
+      "라면 사리 추가"
     ]
   },
   {
@@ -1416,12 +1302,10 @@
       "very_spicy"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "들깨가루 추가",
+      "볶음밥으로 마무리"
     ]
   },
   {
@@ -1442,12 +1326,10 @@
       "strong_smell"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "라면에 넣어먹기",
+      "참기름 듬뿍 넣기"
     ]
   },
   {
@@ -1468,12 +1350,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "밥 말아먹기",
+      "칼국수 사리 넣기"
     ]
   },
   {
@@ -1497,12 +1377,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "밥이랑 같이 먹기",
+      "냄새부터 느껴보기"
     ]
   },
   {
@@ -1521,12 +1399,10 @@
       "very_spicy"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "수제비 사리 추가",
+      "라면 사리 추가"
     ]
   },
   {
@@ -1546,12 +1422,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "들깨가루 듬뿍",
+      "다대기 듬뿍 넣기"
     ]
   },
   {
@@ -1572,12 +1446,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "와사비 간장 찍기",
+      "초고추장 찍기"
     ]
   },
   {
@@ -1597,12 +1469,10 @@
       "strong_smell"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "우동 사리 추가",
+      "볶음밥으로 마무리"
     ]
   },
   {
@@ -1625,12 +1495,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "두부 곁들이기",
+      "밥 비벼먹기"
     ]
   },
   {
@@ -1650,12 +1518,10 @@
       "seafood"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "수제비 사리 추가",
+      "볶음밥으로 마무리"
     ]
   },
   {
@@ -1679,12 +1545,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "밥 비벼먹기",
+      "김가루 뿌리기"
     ]
   },
   {
@@ -1706,12 +1570,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "밥 비벼먹기",
+      "비빔밥으로 먹기"
     ]
   },
   {
@@ -1732,12 +1594,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "치즈/주먹밥",
+      "계란찜 곁들이기"
     ]
   },
   {
@@ -1761,12 +1621,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "김가루 비벼먹기",
+      "참기름 비벼먹기"
     ]
   },
   {
@@ -1790,12 +1648,10 @@
       "exotic_ingredient"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "막걸리와 함께",
+      "초장 살짝 찍기"
     ]
   },
   {
@@ -1814,12 +1670,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "코스 순서대로 즐기기",
+      "가장 기억에 남는 요리 골라보기"
     ]
   },
   {
@@ -1838,12 +1692,10 @@
       "mild"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "숙성 기간 비교해보기",
+      "향 먼저 맡아보기"
     ]
   },
   {
@@ -1863,12 +1715,10 @@
       "strong_smell"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "장 종류별로 맛 비교하기",
+      "만드는 과정 구경하기"
     ]
   },
   {
@@ -1888,12 +1738,10 @@
       "strong_smell"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "숙성 연도별 맛 비교하기",
+      "향 먼저 맡아보기"
     ]
   },
   {
@@ -1912,12 +1760,10 @@
       "spicy"
     ],
     "image": "",
-    "kick_question": "What gave this dish its kick?",
+    "kick_question": "이 요리를 어떻게 즐겼나요?",
     "kick_options": [
-      "Flavor",
-      "Texture",
-      "Smell",
-      "Other"
+      "매운맛 단계별 비교하기",
+      "재료에 찍어먹어보기"
     ]
   }
 ]

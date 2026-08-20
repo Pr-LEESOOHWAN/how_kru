@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 import { markDishCompleted } from "@/src/firebase/dishService";
@@ -8,6 +9,7 @@ import { markDishCompleted } from "@/src/firebase/dishService";
 export default function MissionCompleteScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     dishId: string;
     name_kr: string;
@@ -47,7 +49,7 @@ export default function MissionCompleteScreen() {
         </View>
       </View>
 
-      <View style={s.footer}>
+      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 32) }]}>
         <TouchableOpacity style={s.primaryBtn} onPress={handleNext}>
           <Text style={s.primaryBtnText}>다음으로</Text>
         </TouchableOpacity>

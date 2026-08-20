@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function timeAgo(createdAt: Review["createdAt"]) {
   if (!createdAt) return "방금 전";
@@ -34,6 +35,7 @@ function timeAgo(createdAt: Review["createdAt"]) {
 
 export default function DishReviewsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const params = useLocalSearchParams<{ dishId: string; name_kr: string }>();
 
@@ -218,7 +220,7 @@ export default function DishReviewsScreen() {
           </ScrollView>
         )}
 
-        <View style={s.composer}>
+        <View style={[s.composer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
           <TextInput
             style={s.composerInput}
             placeholder={user ? "이 요리에 대한 리뷰를 남겨보세요" : "로그인 후 리뷰를 남길 수 있어요"}

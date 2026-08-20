@@ -283,40 +283,43 @@ export default function HomeScreen() {
               <Text style={s.closeBtnText}>✕</Text>
             </TouchableOpacity>
 
-            {/* 번호 배지 */}
-            <View style={s.modalNoBadge}>
-              <Text style={s.modalNoText}>No. {selectedDish.no}</Text>
-            </View>
-
-            {/* 요리명 */}
-            <Text style={s.modalNameKr}>{selectedDish.name_kr}</Text>
-            <Text style={s.modalNameEn}>{selectedDish.name_en}</Text>
-
-            {/* 카테고리 태그 */}
-            <View style={s.modalTagRow}>
-              <View style={s.modalTag}>
-                <Text style={s.modalTagText}>{selectedDish.category}</Text>
+            {/* 내용이 길면(설명 텍스트 등) 75% 높이 안에서 잘리지 않고 스크롤되도록 감쌈 */}
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* 번호 배지 */}
+              <View style={s.modalNoBadge}>
+                <Text style={s.modalNoText}>No. {selectedDish.no}</Text>
               </View>
-            </View>
 
-            {/* 구분선 */}
-            <View style={s.divider} />
+              {/* 요리명 */}
+              <Text style={s.modalNameKr}>{selectedDish.name_kr}</Text>
+              <Text style={s.modalNameEn}>{selectedDish.name_en}</Text>
 
-            {/* 한글 설명 */}
-            <View style={s.descBlock}>
-              <View style={s.descLangBadge}>
-                <Text style={s.descLangText}>한국어</Text>
+              {/* 카테고리 태그 */}
+              <View style={s.modalTagRow}>
+                <View style={s.modalTag}>
+                  <Text style={s.modalTagText}>{selectedDish.category}</Text>
+                </View>
               </View>
-              <Text style={s.descText}>{selectedDish.desc_kr}</Text>
-            </View>
 
-            {/* 영어 설명 */}
-            <View style={s.descBlock}>
-              <View style={[s.descLangBadge, s.descLangBadgeEn]}>
-                <Text style={[s.descLangText, s.descLangTextEn]}>English</Text>
+              {/* 구분선 */}
+              <View style={s.divider} />
+
+              {/* 한글 설명 */}
+              <View style={s.descBlock}>
+                <View style={s.descLangBadge}>
+                  <Text style={s.descLangText}>한국어</Text>
+                </View>
+                <Text style={s.descText}>{selectedDish.desc_kr}</Text>
               </View>
-              <Text style={s.descText}>{selectedDish.desc_en}</Text>
-            </View>
+
+              {/* 영어 설명 */}
+              <View style={[s.descBlock, { marginBottom: 4 }]}>
+                <View style={[s.descLangBadge, s.descLangBadgeEn]}>
+                  <Text style={[s.descLangText, s.descLangTextEn]}>English</Text>
+                </View>
+                <Text style={s.descText}>{selectedDish.desc_en}</Text>
+              </View>
+            </ScrollView>
 
           </View>
         )}

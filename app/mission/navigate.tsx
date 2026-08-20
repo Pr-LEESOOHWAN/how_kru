@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // TODO: 실제 서비스에서는 react-native-maps + 위치 API로 교체.
 // 자체 경로 안내(턴바이턴 내비게이션)는 지도 API 라이선스상 제공하지 않고,
@@ -24,6 +25,7 @@ const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
 
 export default function NavigateScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     dishId: string;
     name_kr: string;
@@ -207,7 +209,7 @@ export default function NavigateScreen() {
         )}
       </View>
 
-      <View style={s.sheet}>
+      <View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 32) }]}>
         <View style={s.handle} />
         <Text style={s.sheetName}>{params.restaurantName}</Text>
         <Text style={s.sheetAddress}>{params.address} · {params.walk} · {params.distance}</Text>

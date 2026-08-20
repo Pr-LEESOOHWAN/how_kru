@@ -2,6 +2,8 @@ import { Link, useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -36,7 +38,10 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
       <Text style={styles.title}>HOW KRU 🌶️</Text>
       <Text style={styles.subtitle}>Korean Are You?</Text>
 
@@ -80,7 +85,7 @@ export default function LoginScreen() {
           <Text style={styles.signupText}>처음이에요? Sign up</Text>
         </TouchableOpacity>
       </Link>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

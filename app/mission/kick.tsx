@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const FALLBACK_QUESTION = "이 요리의 '킥'은 무엇이었나요?";
 const FALLBACK_OPTIONS = ["맛", "식감", "냄새", "생김새"];
@@ -19,6 +20,7 @@ const CUSTOM_KEY = "__custom__";
 
 export default function KickScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const params = useLocalSearchParams<{
     dishId: string;
@@ -135,7 +137,7 @@ export default function KickScreen() {
         )}
       </View>
 
-      <View style={s.footer}>
+      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 32) }]}>
         <TouchableOpacity
           style={[s.primaryBtn, !canConfirm && s.primaryBtnDisabled]}
           disabled={!canConfirm || saving}

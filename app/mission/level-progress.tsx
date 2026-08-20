@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const MAX_LEVEL = 12;
 // 데이터를 못 불러온 경우(비로그인 게스트 등)를 위한 안전한 기본값
@@ -14,6 +15,7 @@ type LevelDoc = { title?: string; required_count?: number };
 
 export default function LevelProgressScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
   const params = useLocalSearchParams<{ name_kr: string }>();
 
@@ -151,7 +153,7 @@ export default function LevelProgressScreen() {
         </Text>
       </View>
 
-      <View style={s.footer}>
+      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 32) }]}>
         <TouchableOpacity style={s.primaryBtn} onPress={goHome}>
           <Text style={s.primaryBtnText}>다음 미션 보러가기</Text>
         </TouchableOpacity>

@@ -1,3 +1,4 @@
+import { extractTextFromImage, OcrApiError } from "@/src/services/ocr";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
@@ -10,6 +11,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+type OcrState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "done"; text: string }
+  | { status: "error"; message: string };
 
 type ShotKey = "sign" | "food" | "receipt";
 
@@ -21,6 +29,7 @@ const SHOT_META: Record<ShotKey, { label: string; sub: string; guide: string }> 
 
 export default function VerifyScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     dishId: string;
     name_kr: string;
@@ -30,6 +39,7 @@ export default function VerifyScreen() {
 
   const [shots, setShots] = useState<Record<ShotKey, string | null>>({ sign: null, food: null, receipt: null });
   const [verifying, setVerifying] = useState(false);
+  const [receiptOcr, setReceiptOcr] = useState<OcrState>({ status: "idle" });
 
   // 앱 자체 카메라 스캔 오버레이 상태
   const [activeShot, setActiveShot] = useState<ShotKey | null>(null);
@@ -49,6 +59,10 @@ export default function VerifyScreen() {
         return;
       }
     }
+    if (key === "receipt") {
+      // 다시 찍는 경우, 이전 인식 결과가 잠깐 남아있지 않도록 초기화
+      setReceiptOcr({ status: "idle" });
+    }
     setActiveShot(key);
   };
 
@@ -56,17 +70,38 @@ export default function VerifyScreen() {
     // capturing 가드: 촬영 중 버튼을 연타해도 takePictureAsync가 중복 실행되지 않도록 방지.
     if (!cameraRef.current || !activeShot || capturing) return;
     setCapturing(true);
+    const shotKey = activeShot;
     try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.6 });
+      // 영수증은 촬영 직후 OCR에 넣어야 하므로 base64도 함께 받아온다.
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.6,
+        base64: shotKey === "receipt",
+      });
       if (photo?.uri) {
-        setShots((prev) => ({ ...prev, [activeShot]: photo.uri }));
+        setShots((prev) => ({ ...prev, [shotKey]: photo.uri }));
       }
       setActiveShot(null);
+      if (shotKey === "receipt" && photo?.base64) {
+        runReceiptOcr(photo.base64);
+      }
     } catch {
       // 카메라 촬영 실패(디바이스 이슈 등) 시 스캔 화면을 유지해 다시 시도할 수 있게 함.
       Alert.alert("촬영 실패", "사진을 찍지 못했어요. 다시 시도해주세요.");
     } finally {
       setCapturing(false);
+    }
+  };
+
+  // 영수증 사진에서 텍스트를 추출한다. (상호명 매칭/인증 로직은 별도로 추후 구현 예정 - 지금은 추출까지만)
+  const runReceiptOcr = async (base64Image: string) => {
+    setReceiptOcr({ status: "loading" });
+    try {
+      const text = await extractTextFromImage(base64Image);
+      setReceiptOcr({ status: "done", text });
+    } catch (err) {
+      const message = err instanceof OcrApiError ? err.message : "텍스트를 인식하지 못했어요.";
+      console.error("영수증 OCR 오류:", err);
+      setReceiptOcr({ status: "error", message });
     }
   };
 
@@ -188,9 +223,29 @@ export default function VerifyScreen() {
             <Text style={s.retakeBtnText}>🔄 다시 촬영하기</Text>
           </TouchableOpacity>
         )}
+
+        {shots.receipt && receiptOcr.status === "loading" && (
+          <View style={[s.ocrBox, s.ocrLoadingRow]}>
+            <ActivityIndicator size="small" color="#FF5722" />
+            <Text style={s.ocrLoadingText}>영수증 글자 인식 중...</Text>
+          </View>
+        )}
+        {receiptOcr.status === "done" && (
+          <View style={s.ocrBox}>
+            <Text style={s.ocrLabel}>🔎 인식된 텍스트</Text>
+            <Text style={s.ocrText} numberOfLines={6}>
+              {receiptOcr.text.trim() || "인식된 글자가 없어요. 더 선명하게 다시 찍어보세요."}
+            </Text>
+          </View>
+        )}
+        {receiptOcr.status === "error" && (
+          <View style={s.ocrBox}>
+            <Text style={s.ocrErrorText}>⚠️ {receiptOcr.message}</Text>
+          </View>
+        )}
       </View>
 
-      <View style={s.footer}>
+      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
         <TouchableOpacity
           style={[s.verifyBtn, !bothTaken && s.verifyBtnDisabled]}
           disabled={!bothTaken || verifying}
@@ -286,6 +341,14 @@ const s = StyleSheet.create({
   },
   receiptBoxText: { fontSize: 13, color: "#888", fontWeight: "600" },
   receiptImage: { width: "100%", height: "100%" },
+  ocrBox: {
+    marginTop: 10, backgroundColor: "#F5F5F5", borderRadius: 12, padding: 12, gap: 4,
+  },
+  ocrLoadingRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  ocrLoadingText: { fontSize: 12, color: "#888" },
+  ocrLabel: { fontSize: 11, fontWeight: "bold", color: "#993C1D" },
+  ocrText: { fontSize: 12, color: "#444", lineHeight: 18 },
+  ocrErrorText: { fontSize: 12, color: "#C0392B" },
   footer: { padding: 20, paddingTop: 26 },
   verifyBtn: { backgroundColor: "#FF5722", borderRadius: 16, paddingVertical: 16, alignItems: "center" },
   verifyBtnDisabled: { backgroundColor: "#FFC3AC" },

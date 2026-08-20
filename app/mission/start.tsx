@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const SpiceIcon = ({ level }: { level: number }) => (
   <View style={{ flexDirection: "row" }}>
@@ -18,6 +19,7 @@ const STEPS = [
 
 export default function MissionStartScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     dishId: string;
     name_kr: string;
@@ -84,7 +86,7 @@ export default function MissionStartScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={s.footer}>
+      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 32) }]}>
         <TouchableOpacity style={s.startBtn} onPress={handleStart}>
           <Text style={s.startBtnText}>미션 시작하기</Text>
         </TouchableOpacity>

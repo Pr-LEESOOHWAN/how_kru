@@ -2,6 +2,9 @@ import { Link, useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -46,7 +49,14 @@ export default function SignupScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: "#fff" }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
       <Text style={styles.title}>HOW KRU 🌶️</Text>
       <Text style={styles.subtitle}>Create your account</Text>
 
@@ -110,13 +120,14 @@ export default function SignupScreen() {
           <Text style={styles.loginText}>이미 계정이 있어요? Log in</Text>
         </TouchableOpacity>
       </Link>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1, backgroundColor: "#fff",
+    flexGrow: 1, backgroundColor: "#fff",
     alignItems: "center", justifyContent: "center", padding: 24,
   },
   title: { fontSize: 36, fontWeight: "bold", color: "#E63946", marginBottom: 4 },

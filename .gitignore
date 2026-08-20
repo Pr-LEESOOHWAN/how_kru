@@ -34,6 +34,10 @@ yarn-error.*
 .env
 .env*.local
 
+# Firebase Admin SDK 서비스 계정 키 (절대 커밋 금지 - 프로젝트 전체 관리자 권한)
+serviceAccountKey.json
+*serviceAccount*.json
+
 # typescript
 *.tsbuildinfo
 
@@ -47,3 +51,5 @@ testfile_check.txt
 t.txt
 app/t.txt
 testfile_outside.txt
+zz_test.txt
+zzz_delete_test.txt
