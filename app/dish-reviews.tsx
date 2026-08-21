@@ -11,6 +11,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -41,6 +42,7 @@ export default function DishReviewsScreen() {
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [newReview, setNewReview] = useState("");
   const [posting, setPosting] = useState(false);
 
@@ -52,11 +54,14 @@ export default function DishReviewsScreen() {
   const load = async () => {
     if (!params.dishId) return;
     setLoading(true);
+    setLoadError(false);
     try {
       const list = await getReviews(params.dishId);
       setReviews(list);
     } catch (err) {
+      // 로딩 실패를 "아직 리뷰가 없어요"로 잘못 보여주지 않도록 별도 에러 상태로 구분
       console.error("리뷰 로딩 오류:", err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -81,7 +86,9 @@ export default function DishReviewsScreen() {
       setNewReview("");
       await load();
     } catch (err) {
+      // 실패 시 아무 반응 없이 조용히 끝나던 부분 - 이유를 알려주고 입력한 내용은 남겨서 재시도 가능하게 함
       console.error("리뷰 작성 오류:", err);
+      Alert.alert("리뷰 등록 실패", "리뷰를 등록하지 못했어요. 잠시 후 다시 시도해주세요.");
     } finally {
       setPosting(false);
     }
@@ -117,7 +124,9 @@ export default function DishReviewsScreen() {
         prev.map((r) => (r.id === reviewId ? { ...r, replyCount: r.replyCount + 1 } : r))
       );
     } catch (err) {
+      // 실패 시 아무 반응 없이 조용히 끝나던 부분 - 이유를 알려주고 입력한 내용은 남겨서 재시도 가능하게 함
       console.error("대댓글 작성 오류:", err);
+      Alert.alert("답글 등록 실패", "답글을 등록하지 못했어요. 잠시 후 다시 시도해주세요.");
     } finally {
       setPostingReplyFor(null);
     }
@@ -143,12 +152,20 @@ export default function DishReviewsScreen() {
           </View>
         ) : (
           <ScrollView contentContainerStyle={s.list} showsVerticalScrollIndicator={false}>
-            {reviews.length === 0 && (
+            {loadError ? (
+              <View style={s.emptyBox}>
+                <Text style={{ fontSize: 30 }}>⚠️</Text>
+                <Text style={s.emptyText}>리뷰를 불러오지 못했어요.</Text>
+                <TouchableOpacity style={s.retryBtn} onPress={load}>
+                  <Text style={s.retryBtnText}>다시 시도</Text>
+                </TouchableOpacity>
+              </View>
+            ) : reviews.length === 0 ? (
               <View style={s.emptyBox}>
                 <Text style={{ fontSize: 30 }}>💬</Text>
                 <Text style={s.emptyText}>아직 리뷰가 없어요. 첫 리뷰를 남겨보세요!</Text>
               </View>
-            )}
+            ) : null}
 
             {reviews.map((review) => {
               const replies = openReplies[review.id];
@@ -197,6 +214,7 @@ export default function DishReviewsScreen() {
                                 setReplyDrafts((prev) => ({ ...prev, [review.id]: t }))
                               }
                               editable={postingReplyFor !== review.id}
+                              maxLength={200}
                             />
                             <TouchableOpacity
                               style={s.replySendBtn}
@@ -229,6 +247,7 @@ export default function DishReviewsScreen() {
             onChangeText={setNewReview}
             editable={!!user && !posting}
             multiline
+            maxLength={500}
           />
           <TouchableOpacity
             style={[s.composerBtn, (!newReview.trim() || !user) && s.composerBtnDisabled]}
@@ -261,6 +280,11 @@ const s = StyleSheet.create({
   list: { padding: 16, paddingBottom: 24, gap: 12 },
   emptyBox: { alignItems: "center", justifyContent: "center", paddingVertical: 60, gap: 10 },
   emptyText: { color: "#999", fontSize: 13 },
+  retryBtn: {
+    marginTop: 4, backgroundColor: "#FF5722", borderRadius: 20,
+    paddingHorizontal: 20, paddingVertical: 10,
+  },
+  retryBtnText: { color: "#fff", fontSize: 13, fontWeight: "bold" },
   reviewCard: {
     backgroundColor: "#fff", borderRadius: 14, padding: 14, borderWidth: 0.5, borderColor: "#eee",
   },
