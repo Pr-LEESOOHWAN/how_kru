@@ -58,18 +58,10 @@ export const getDish = async (dishId: string): Promise<Dish | null> => {
 };
 
 // ─── 유저 관련 ────────────────────────────────────
-
-// 유저 생성 (최초 가입 시)
-export const createUser = async (userId: string, name: string) => {
-  await setDoc(doc(db, "users", userId), {
-    user_id: userId,
-    name,
-    current_level: 1,
-    completed_dishes: [],
-    kick_choices: [],
-    created_at: new Date().toISOString(),
-  });
-};
+// 유저 문서 생성은 src/firebase/authService.ts의 signUp()이 담당한다
+// (이전에는 이 파일에도 필드 구성이 다른 createUser()가 있었는데, 아무 데서도
+// 호출되지 않는 죽은 코드였고 스키마도 signUp()과 어긋나 있어 혼란을 줄 위험이
+// 있었다 — 삭제함).
 
 // 유저 정보 가져오기
 export const getUser = async (userId: string): Promise<User | null> => {

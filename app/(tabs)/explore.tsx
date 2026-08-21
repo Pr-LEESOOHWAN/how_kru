@@ -1,8 +1,7 @@
 import { useAuth } from "@/src/contexts/AuthContext";
 import { logOut } from "@/src/firebase/authService";
-import { getProgressInLevel, getUser } from "@/src/firebase/dishService";
 import { db } from "@/src/firebase/firebaseConfig";
-import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -30,35 +29,12 @@ type GroupedDishes = {
   [category: string]: Dish[];
 };
 
-type LevelDoc = { title?: string; required_count?: number };
-
-const MAX_LEVEL = 12;
-const DEFAULT_LEVEL = 1;
-
-// 헤더/레벨 카드용 실제 유저 상태 (예전에는 "Alex" 더미 값이 고정으로 표시됐음).
-type HeaderState = {
-  level: number;
-  levelTitle: string;
-  xpPct: number;
-  progress: number;
-  requiredCount: number;
-  badges: number;
-};
-
 export default function HomeScreen() {
   const { user: authUser } = useAuth();
   const [grouped, setGrouped] = useState<GroupedDishes>({});
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
   const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
   const [loading, setLoading] = useState(true);
-  const [header, setHeader] = useState<HeaderState>({
-    level: DEFAULT_LEVEL,
-    levelTitle: "",
-    xpPct: 0,
-    progress: 0,
-    requiredCount: 1,
-    badges: 0,
-  });
 
   // Firebase에서 dishes_800 데이터 가져오기
   useEffect(() => {
@@ -92,38 +68,6 @@ export default function HomeScreen() {
     };
     fetchDishes();
   }, []);
-
-  // 헤더/레벨 카드에 실제 로그인 유저의 레벨·진행률을 반영 (index.tsx와 동일한 방식)
-  useEffect(() => {
-    if (!authUser) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const user = await getUser(authUser.uid);
-        const level = Math.min(user?.current_level ?? DEFAULT_LEVEL, MAX_LEVEL);
-        const [levelSnap, progress] = await Promise.all([
-          getDoc(doc(db, "levels", String(level))),
-          getProgressInLevel(authUser.uid, level),
-        ]);
-        const levelData = (levelSnap.exists() ? levelSnap.data() : {}) as LevelDoc;
-        const requiredCount = levelData.required_count ?? Math.max(progress, 1);
-        if (cancelled) return;
-        setHeader({
-          level,
-          levelTitle: levelData.title ?? `Level ${level}`,
-          xpPct: Math.min(100, Math.round((progress / requiredCount) * 100)),
-          progress,
-          requiredCount,
-          badges: user?.completed_dishes?.length ?? 0,
-        });
-      } catch (err) {
-        console.error("[explore] 유저 진행률 로딩 오류:", err);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [authUser]);
 
   const displayName = authUser?.displayName || authUser?.email?.split("@")[0] || "친구";
   const avatarLetter = displayName.charAt(0).toUpperCase();
@@ -169,27 +113,6 @@ export default function HomeScreen() {
             <View style={s.avatar}>
               <Text style={s.avatarText}>{avatarLetter}</Text>
             </View>
-          </View>
-        </View>
-
-        {/* ── 레벨 카드 ── */}
-        <View style={s.levelCard}>
-          <View style={s.levelRow}>
-            <Text style={s.levelLabel}>Current Level</Text>
-            <Text style={s.levelBadge}>Lv.{header.level}</Text>
-          </View>
-          <Text style={s.levelTitle}>{header.levelTitle}</Text>
-          <Text style={s.xpLabel}>XP Progress</Text>
-          <View style={s.xpBg}>
-            <View style={[s.xpFill, { width: `${header.xpPct}%` as any }]} />
-          </View>
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <Text style={s.xpText}>Progress</Text>
-            <Text style={s.xpText}>{header.xpPct}%</Text>
-          </View>
-          <View style={s.metaRow}>
-            <Text style={s.metaText}>🏅 {header.badges} Badges</Text>
-            <Text style={s.metaText}>📍 이번 레벨 {header.progress}/{header.requiredCount}</Text>
           </View>
         </View>
 
@@ -342,19 +265,6 @@ const s = StyleSheet.create({
   avatarText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
   logoutBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, backgroundColor: "#F5F5F5" },
   logoutText: { fontSize: 12, color: "#888", fontWeight: "600" },
-
-  // 레벨 카드
-  levelCard: { margin: 14, borderRadius: 18, backgroundColor: "#FF5722", padding: 18 },
-  levelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
-  levelLabel: { fontSize: 12, color: "rgba(255,255,255,0.8)" },
-  levelBadge: { backgroundColor: "rgba(255,255,255,0.25)", color: "#fff", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, fontSize: 12, fontWeight: "bold" },
-  levelTitle: { fontSize: 20, fontWeight: "bold", color: "#fff", marginBottom: 14 },
-  xpLabel: { fontSize: 12, color: "rgba(255,255,255,0.7)", marginBottom: 6 },
-  xpBg: { height: 7, backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 4, overflow: "hidden", marginBottom: 4 },
-  xpFill: { height: "100%", backgroundColor: "#fff", borderRadius: 4 },
-  xpText: { fontSize: 12, color: "rgba(255,255,255,0.85)", marginBottom: 10 },
-  metaRow: { flexDirection: "row", gap: 16 },
-  metaText: { fontSize: 12, color: "rgba(255,255,255,0.9)" },
 
   // 섹션 헤더
   sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 4, paddingBottom: 10 },
