@@ -1,13 +1,32 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
+  browserLocalPersistence,
+  browserSessionPersistence,
   createUserWithEmailAndPassword,
+  inMemoryPersistence,
   onAuthStateChanged,
+  setPersistence,
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
   type User,
 } from "firebase/auth";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { Platform } from "react-native";
 import { auth, db } from "./firebaseConfig";
+
+// @ts-expect-error - firebaseConfig.ts와 동일한 이유(RN 빌드에만 존재, 타입 선언 누락)
+import { getReactNativePersistence } from "firebase/auth";
+
+// "로그인 상태 유지" 체크 여부에 따라 로그인 지속 방식을 바꾼다.
+//   - 체크함(기본값): 기기에 저장(AsyncStorage/localStorage) -> 앱을 껐다 켜도 로그인 유지
+//   - 체크 해제: 메모리에만 보관(inMemoryPersistence) -> 앱을 완전히 종료하면 로그아웃됨
+function persistenceFor(keepLoggedIn: boolean) {
+  if (Platform.OS === "web") {
+    return keepLoggedIn ? browserLocalPersistence : browserSessionPersistence;
+  }
+  return keepLoggedIn ? getReactNativePersistence(AsyncStorage) : inMemoryPersistence;
+}
 
 export async function signUp(email: string, password: string, name: string): Promise<User> {
   const { user } = await createUserWithEmailAndPassword(auth, email, password);
@@ -20,8 +39,6 @@ export async function signUp(email: string, password: string, name: string): Pro
     level: 1,
     levelName: "Rookie",
     xp: 0,
-    badges: 0,
-    streak: 0,
     createdAt: serverTimestamp(),
     // src/firebase/dishService.ts(getUser/markDishCompleted/saveKickChoice/
     // getProgressInLevel 등)가 기대하는 필드. 이게 없으면 로그인 직후
@@ -35,7 +52,12 @@ export async function signUp(email: string, password: string, name: string): Pro
   return user;
 }
 
-export async function signIn(email: string, password: string): Promise<User> {
+export async function signIn(
+  email: string,
+  password: string,
+  keepLoggedIn: boolean = true
+): Promise<User> {
+  await setPersistence(auth, persistenceFor(keepLoggedIn));
   const { user } = await signInWithEmailAndPassword(auth, email, password);
   return user;
 }

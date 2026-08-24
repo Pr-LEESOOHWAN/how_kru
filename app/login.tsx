@@ -17,6 +17,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [keepLoggedIn, setKeepLoggedIn] = useState(true);
   const router = useRouter();
 
   const handleLogin = async () => {
@@ -28,7 +29,7 @@ export default function LoginScreen() {
     setError("");
     setLoading(true);
     try {
-      await signIn(email.trim(), password);
+      await signIn(email.trim(), password, keepLoggedIn);
       router.replace("/(tabs)");
     } catch (err) {
       setError(getAuthErrorMessage(err));
@@ -66,6 +67,18 @@ export default function LoginScreen() {
         editable={!loading}
       />
 
+      <TouchableOpacity
+        style={styles.checkboxRow}
+        activeOpacity={0.7}
+        onPress={() => setKeepLoggedIn((v) => !v)}
+        disabled={loading}
+      >
+        <View style={[styles.checkbox, keepLoggedIn && styles.checkboxChecked]}>
+          {keepLoggedIn && <Text style={styles.checkboxMark}>✓</Text>}
+        </View>
+        <Text style={styles.checkboxLabel}>로그인 상태 유지</Text>
+      </TouchableOpacity>
+
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <TouchableOpacity
@@ -101,6 +114,16 @@ const styles = StyleSheet.create({
     borderRadius: 12, padding: 14, fontSize: 16, marginBottom: 16,
   },
   errorText: { color: "#E63946", fontSize: 14, marginBottom: 16, alignSelf: "flex-start" },
+  checkboxRow: {
+    flexDirection: "row", alignItems: "center", alignSelf: "flex-start", marginBottom: 16, gap: 8,
+  },
+  checkbox: {
+    width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: "#ccc",
+    alignItems: "center", justifyContent: "center", backgroundColor: "#fff",
+  },
+  checkboxChecked: { backgroundColor: "#E63946", borderColor: "#E63946" },
+  checkboxMark: { color: "#fff", fontSize: 13, fontWeight: "bold" },
+  checkboxLabel: { fontSize: 14, color: "#555" },
   button: {
     width: "100%", backgroundColor: "#E63946",
     padding: 16, borderRadius: 12, alignItems: "center", marginBottom: 16,

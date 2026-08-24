@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -170,6 +171,7 @@ export default function VerifyScreen() {
         <View style={{ width: 40 }} />
       </View>
 
+      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
       <View style={s.infoCard}>
         <Text style={{ fontSize: 18 }}>📷</Text>
         <Text style={s.infoText}>
@@ -233,7 +235,7 @@ export default function VerifyScreen() {
         {receiptOcr.status === "done" && (
           <View style={s.ocrBox}>
             <Text style={s.ocrLabel}>🔎 인식된 텍스트</Text>
-            <Text style={s.ocrText} numberOfLines={6}>
+            <Text style={s.ocrText}>
               {receiptOcr.text.trim() || "인식된 글자가 없어요. 더 선명하게 다시 찍어보세요."}
             </Text>
           </View>
@@ -244,6 +246,7 @@ export default function VerifyScreen() {
           </View>
         )}
       </View>
+      </ScrollView>
 
       <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
         <TouchableOpacity
@@ -299,6 +302,7 @@ function ShotColumn({
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#F5F5F5" },
+  scrollContent: { paddingBottom: 16 },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     backgroundColor: "#fff", paddingHorizontal: 12, paddingTop: 54, paddingBottom: 14,

@@ -112,10 +112,28 @@ export const saveKickChoice = async (
 // 레벨업 처리
 // 다른 쓰기 함수들과 마찬가지로 setDoc(merge: true) 사용.
 // updateDoc은 유저 문서가 아직 없으면 "No document to update" 오류로 실패한다.
+//
+// level / levelName 필드는 화면 계산에는 안 쓰이고(진짜 기준은 current_level) signUp()
+// 시점에만 한 번 써지던 죽은 필드였는데, Firestore 콘솔에서 문서를 볼 때 current_level과
+// 값이 달라 보여 혼란을 줬다. 그래서 레벨업할 때마다 함께 갱신해 항상 동기화되게 한다.
 export const levelUp = async (userId: string, currentLevel: number) => {
+  const nextLevel = currentLevel + 1;
+
+  let levelName: string | undefined;
+  try {
+    const levelSnap = await getDoc(doc(db, "levels", String(nextLevel)));
+    levelName = levelSnap.exists() ? (levelSnap.data() as { title?: string }).title : undefined;
+  } catch {
+    // levels 문서 조회 실패해도 레벨업 자체를 막지는 않음 (levelName만 못 채움)
+  }
+
   await setDoc(
     doc(db, "users", userId),
-    { current_level: currentLevel + 1 },
+    {
+      current_level: nextLevel,
+      level: nextLevel,
+      ...(levelName ? { levelName } : {}),
+    },
     { merge: true }
   );
 };
