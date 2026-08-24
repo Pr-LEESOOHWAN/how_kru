@@ -35,38 +35,46 @@ export default function HomeScreen() {
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
   const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
   const [loading, setLoading] = useState(true);
+  // 로딩 실패를 "메뉴가 없어요"로 잘못 보여주지 않도록 별도 에러 상태로 구분
+  // (dish-reviews.tsx 등 다른 화면에서 이미 쓰던 패턴을 여기에도 적용)
+  const [loadError, setLoadError] = useState(false);
 
   // Firebase에서 dishes_800 데이터 가져오기
+  const fetchDishes = async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const snapshot = await getDocs(collection(db, "dishes_800"));
+      const data: Dish[] = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as Omit<Dish, "id">),
+      }));
+
+      // 카테고리별로 그룹화
+      const groups: GroupedDishes = {};
+      data.forEach((dish) => {
+        const cat = dish.category || "기타";
+        if (!groups[cat]) groups[cat] = [];
+        groups[cat].push(dish);
+      });
+
+      // 카테고리 내 번호 순 정렬
+      Object.keys(groups).forEach((cat) => {
+        groups[cat].sort((a, b) => Number(a.no) - Number(b.no));
+      });
+
+      setGrouped(groups);
+    } catch (err) {
+      console.error("데이터 로딩 오류:", err);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchDishes = async () => {
-      try {
-        const snapshot = await getDocs(collection(db, "dishes_800"));
-        const data: Dish[] = snapshot.docs.map((d) => ({
-          id: d.id,
-          ...(d.data() as Omit<Dish, "id">),
-        }));
-
-        // 카테고리별로 그룹화
-        const groups: GroupedDishes = {};
-        data.forEach((dish) => {
-          const cat = dish.category || "기타";
-          if (!groups[cat]) groups[cat] = [];
-          groups[cat].push(dish);
-        });
-
-        // 카테고리 내 번호 순 정렬
-        Object.keys(groups).forEach((cat) => {
-          groups[cat].sort((a, b) => Number(a.no) - Number(b.no));
-        });
-
-        setGrouped(groups);
-      } catch (err) {
-        console.error("데이터 로딩 오류:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchDishes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const displayName = authUser?.displayName || authUser?.email?.split("@")[0] || "친구";
@@ -126,6 +134,19 @@ export default function HomeScreen() {
           <View style={s.loadingBox}>
             <ActivityIndicator size="large" color="#FF5722" />
             <Text style={s.loadingText}>Loading menus...</Text>
+          </View>
+        ) : loadError ? (
+          <View style={s.loadingBox}>
+            <Text style={{ fontSize: 30 }}>⚠️</Text>
+            <Text style={s.loadingText}>메뉴를 불러오지 못했어요.</Text>
+            <TouchableOpacity style={s.retryBtn} onPress={fetchDishes}>
+              <Text style={s.retryBtnText}>다시 시도</Text>
+            </TouchableOpacity>
+          </View>
+        ) : categories.length === 0 ? (
+          <View style={s.loadingBox}>
+            <Text style={{ fontSize: 30 }}>🍽️</Text>
+            <Text style={s.loadingText}>표시할 메뉴가 없어요.</Text>
           </View>
         ) : (
           categories.map((cat) => (
@@ -273,7 +294,12 @@ const s = StyleSheet.create({
 
   // 로딩
   loadingBox: { alignItems: "center", padding: 40, gap: 12 },
-  loadingText: { color: "#888", fontSize: 14 },
+  loadingText: { color: "#888", fontSize: 14, textAlign: "center" },
+  retryBtn: {
+    marginTop: 4, backgroundColor: "#FF5722", borderRadius: 20,
+    paddingHorizontal: 20, paddingVertical: 10,
+  },
+  retryBtnText: { color: "#fff", fontSize: 13, fontWeight: "bold" },
 
   // 카테고리 블록
   categoryBlock: { marginHorizontal: 14, marginBottom: 8, borderRadius: 14, overflow: "hidden", backgroundColor: "#fff", borderWidth: 0.5, borderColor: "#eee" },

@@ -46,7 +46,12 @@ export default function LevelsScreen() {
   const [openLevels, setOpenLevels] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    if (!authUser) return;
+    if (!authUser) {
+      // authUser가 없어지는 경우(예: 화면이 떠 있는 동안 로그아웃) 로딩 스피너가
+      // 영원히 멈추지 않는 것을 방지. index.tsx/level-progress.tsx와 동일한 패턴.
+      setLoading(false);
+      return;
+    }
     const load = async () => {
       try {
         const [dishSnap, levelSnap, user] = await Promise.all([
