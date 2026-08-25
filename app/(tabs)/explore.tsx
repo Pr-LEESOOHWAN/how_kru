@@ -15,14 +15,19 @@ import {
 } from "react-native";
 
 // ─── 타입 ──────────────────────────────────────────
+// dishService.ts의 Dish와 동일한 실제 Firestore "dishes" 컬렉션 스키마.
+// (이 화면은 예전에 없어진 "dishes_800" 컬렉션 + desc_kr/desc_en 필드를 기준으로
+// 작성돼 있었는데, 실제 데이터에는 그런 컬렉션/필드가 없어 항상 빈 목록만 떴었음)
 type Dish = {
   id: string;
-  no: string;
+  no: number;
   category: string;
   name_kr: string;
   name_en: string;
-  desc_kr: string;
-  desc_en: string;
+  spice_level?: number;
+  tags?: string[];
+  kick_question?: string;
+  image?: string;
 };
 
 type GroupedDishes = {
@@ -39,12 +44,12 @@ export default function HomeScreen() {
   // (dish-reviews.tsx 등 다른 화면에서 이미 쓰던 패턴을 여기에도 적용)
   const [loadError, setLoadError] = useState(false);
 
-  // Firebase에서 dishes_800 데이터 가져오기
+  // Firebase "dishes" 컬렉션에서 데이터 가져오기
   const fetchDishes = async () => {
     setLoading(true);
     setLoadError(false);
     try {
-      const snapshot = await getDocs(collection(db, "dishes_800"));
+      const snapshot = await getDocs(collection(db, "dishes"));
       const data: Dish[] = snapshot.docs.map((d) => ({
         id: d.id,
         ...(d.data() as Omit<Dish, "id">),
@@ -248,21 +253,43 @@ export default function HomeScreen() {
               {/* 구분선 */}
               <View style={s.divider} />
 
-              {/* 한글 설명 */}
+              {/* 맵기 */}
               <View style={s.descBlock}>
                 <View style={s.descLangBadge}>
-                  <Text style={s.descLangText}>한국어</Text>
+                  <Text style={s.descLangText}>맵기</Text>
                 </View>
-                <Text style={s.descText}>{selectedDish.desc_kr}</Text>
+                <Text style={s.descText}>
+                  {selectedDish.spice_level
+                    ? "🌶️".repeat(Math.max(1, Math.min(5, selectedDish.spice_level)))
+                    : "안매워요"}
+                </Text>
               </View>
 
-              {/* 영어 설명 */}
-              <View style={[s.descBlock, { marginBottom: 4 }]}>
-                <View style={[s.descLangBadge, s.descLangBadgeEn]}>
-                  <Text style={[s.descLangText, s.descLangTextEn]}>English</Text>
+              {/* 태그 */}
+              {!!selectedDish.tags?.length && (
+                <View style={s.descBlock}>
+                  <View style={[s.descLangBadge, s.descLangBadgeEn]}>
+                    <Text style={[s.descLangText, s.descLangTextEn]}>특징</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                    {selectedDish.tags.map((tag) => (
+                      <View key={tag} style={s.modalTag}>
+                        <Text style={s.modalTagText}>{tag}</Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
-                <Text style={s.descText}>{selectedDish.desc_en}</Text>
-              </View>
+              )}
+
+              {/* 킥(즐기는 방법) */}
+              {!!selectedDish.kick_question && (
+                <View style={[s.descBlock, { marginBottom: 4 }]}>
+                  <View style={[s.descLangBadge, s.descLangBadgeEn]}>
+                    <Text style={[s.descLangText, s.descLangTextEn]}>이렇게 즐겨보세요</Text>
+                  </View>
+                  <Text style={s.descText}>{selectedDish.kick_question}</Text>
+                </View>
+              )}
             </ScrollView>
 
           </View>

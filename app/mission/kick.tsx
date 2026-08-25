@@ -86,7 +86,7 @@ export default function KickScreen() {
   return (
     <KeyboardAvoidingView
       style={s.root}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={s.center}>
         <Text style={s.emoji}>✨</Text>
