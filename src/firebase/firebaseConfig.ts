@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initializeApp } from "firebase/app";
 import { getAuth, initializeAuth, type Auth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getFunctions } from "firebase/functions";
 import { Platform } from "react-native";
 
 // @ts-expect-error - getReactNativePersistence exists in the RN build (resolved by Metro's
@@ -25,6 +26,9 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+
+// functions/src/index.ts의 리전(asia-northeast3)과 반드시 일치해야 한다.
+export const functions = getFunctions(app, "asia-northeast3");
 
 // Native (iOS/Android) needs explicit AsyncStorage persistence; web falls back to the
 // SDK's default browser persistence via getAuth().

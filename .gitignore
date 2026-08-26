@@ -41,6 +41,9 @@ serviceAccountKey.json
 # typescript
 *.tsbuildinfo
 
+# Cloud Functions build output
+functions/lib/
+
 app-example
 
 # generated native folders

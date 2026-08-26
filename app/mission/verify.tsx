@@ -1,4 +1,5 @@
 import { extractTextFromImage, OcrApiError } from "@/src/services/ocr";
+import { MissionVerifyError, verifyMission } from "@/src/services/missionVerify";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
@@ -39,6 +40,12 @@ export default function VerifyScreen() {
   }>();
 
   const [shots, setShots] = useState<Record<ShotKey, string | null>>({ sign: null, food: null, receipt: null });
+  // verifyMission 호출용 base64 (URI는 화면 표시용, base64는 서버 전송용으로 따로 들고 있는다)
+  const [shotsBase64, setShotsBase64] = useState<Record<ShotKey, string | null>>({
+    sign: null,
+    food: null,
+    receipt: null,
+  });
   const [verifying, setVerifying] = useState(false);
   const [receiptOcr, setReceiptOcr] = useState<OcrState>({ status: "idle" });
 
@@ -73,13 +80,17 @@ export default function VerifyScreen() {
     setCapturing(true);
     const shotKey = activeShot;
     try {
-      // 영수증은 촬영 직후 OCR에 넣어야 하므로 base64도 함께 받아온다.
+      // 세 장 다 verifyMission(서버 인증)에 base64로 보내야 하고, 영수증은 추가로
+      // 촬영 직후 OCR 미리보기에도 쓴다.
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.6,
-        base64: shotKey === "receipt",
+        base64: true,
       });
       if (photo?.uri) {
         setShots((prev) => ({ ...prev, [shotKey]: photo.uri }));
+      }
+      if (photo?.base64) {
+        setShotsBase64((prev) => ({ ...prev, [shotKey]: photo.base64 ?? null }));
       }
       setActiveShot(null);
       if (shotKey === "receipt" && photo?.base64) {
@@ -108,14 +119,42 @@ export default function VerifyScreen() {
 
   const bothTaken = !!shots.sign && !!shots.food;
 
-  const handleVerify = () => {
-    if (!bothTaken) return;
+  const goToComplete = () => router.push({ pathname: "/mission/complete", params });
+
+  const handleVerify = async () => {
+    if (!bothTaken || !shotsBase64.sign || !shotsBase64.food) return;
     setVerifying(true);
-    // TODO: 실제 AI 인증(이미지 인식) 백엔드 연동 예정. 지금은 목업 딜레이입니다.
-    setTimeout(() => {
+    try {
+      const result = await verifyMission({
+        dishId: params.dishId,
+        restaurantName: params.restaurantName,
+        signPhotoBase64: shotsBase64.sign,
+        foodPhotoBase64: shotsBase64.food,
+        receiptPhotoBase64: shotsBase64.receipt ?? undefined,
+      });
+
+      if (result.verdict === "pass") {
+        goToComplete();
+        return;
+      }
+
+      // 관대한 정책: 상호/요리가 확실히 안 맞아도 완전히 막지는 않는다.
+      // 이유를 보여주고, 재촬영을 권하되 강행할지는 사용자가 선택한다.
+      Alert.alert(
+        result.verdict === "fail" ? "인증 사진을 다시 확인해주세요" : "확인이 더 필요해요",
+        result.reasons.join("\n") || "상호명 또는 요리 사진이 잘 안 맞는 것 같아요.",
+        [
+          { text: "다시 촬영하기", style: "cancel" },
+          { text: "그래도 인증할래요", onPress: goToComplete },
+        ]
+      );
+    } catch (err) {
+      const message =
+        err instanceof MissionVerifyError ? err.message : "인증 중 오류가 발생했어요. 다시 시도해주세요.";
+      Alert.alert("인증 실패", message);
+    } finally {
       setVerifying(false);
-      router.push({ pathname: "/mission/complete", params });
-    }, 1600);
+    }
   };
 
   // 스캔 오버레이가 열려 있으면 앱 자체 카메라 화면을 전체 화면으로 보여준다.
