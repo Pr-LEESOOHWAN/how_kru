@@ -69,24 +69,6 @@ export const getUser = async (userId: string): Promise<User | null> => {
   return snap.exists() ? (snap.data() as User) : null;
 };
 
-// 음식 완료 처리 + Kick 저장 (한 번에 처리하고 싶을 때)
-// setDoc(merge: true)를 사용해 유저 문서가 아직 없어도(예: guest 데모 유저) 자동 생성되도록 함.
-// updateDoc은 문서가 존재하지 않으면 "No document to update" 오류로 실패한다.
-export const completeDish = async (
-  userId: string,
-  dishId: string,
-  kickChoice: string
-) => {
-  await setDoc(
-    doc(db, "users", userId),
-    {
-      completed_dishes: arrayUnion(dishId),
-      kick_choices: arrayUnion({ dish: dishId, choice: kickChoice }),
-    },
-    { merge: true }
-  );
-};
-
 // 음식 완료만 먼저 처리 (Kick 답변은 별도 화면에서 나중에 받음)
 export const markDishCompleted = async (userId: string, dishId: string) => {
   await setDoc(

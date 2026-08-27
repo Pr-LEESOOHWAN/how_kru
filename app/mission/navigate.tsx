@@ -16,10 +16,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// TODO: 실제 서비스에서는 react-native-maps + 위치 API로 교체.
-// 자체 경로 안내(턴바이턴 내비게이션)는 지도 API 라이선스상 제공하지 않고,
-// 외부 지도 앱(길찾기)으로 연결하는 방식으로 처리합니다.
-// 대신 실제 내 위치 + 식당 위치를 보여주는 정적 미리보기 지도(Google Static Maps)는 제공합니다.
+// 정책: 자체 경로 안내(턴바이턴 내비게이션)는 지도 API 라이선스상 제공하지 않고,
+// 외부 지도 앱(길찾기)으로 연결하는 방식으로 처리한다. (react-native-maps 등으로
+// 자체 내비게이션을 붙이는 방향으로 바꾸지 말 것 - 의도적인 제품 결정임)
+// 대신 실제 내 위치 + 식당 위치를 보여주는 정적 미리보기 지도(Google Static Maps)는 제공한다.
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
 

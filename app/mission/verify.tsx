@@ -104,7 +104,10 @@ export default function VerifyScreen() {
     }
   };
 
-  // 영수증 사진에서 텍스트를 추출한다. (상호명 매칭/인증 로직은 별도로 추후 구현 예정 - 지금은 추출까지만)
+  // 영수증 사진에서 텍스트를 추출해 화면에 미리보기로 보여준다. 실제 상호명 매칭/인증
+  // 판정은 이 결과를 쓰지 않고, handleVerify()가 서버(verifyMission Cloud Function)에
+  // 사진을 다시 보내 그쪽에서 독립적으로 OCR + 판정한다 - 여기 결과는 사용자에게
+  // "이렇게 인식됐어요"를 미리 보여주는 용도일 뿐이다.
   const runReceiptOcr = async (base64Image: string) => {
     setReceiptOcr({ status: "loading" });
     try {

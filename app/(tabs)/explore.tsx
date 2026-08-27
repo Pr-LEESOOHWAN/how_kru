@@ -1,6 +1,7 @@
 import { useAuth } from "@/src/contexts/AuthContext";
 import { logOut } from "@/src/firebase/authService";
 import { db } from "@/src/firebase/firebaseConfig";
+import { useRouter } from "expo-router";
 import { collection, getDocs } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
@@ -35,6 +36,7 @@ type GroupedDishes = {
 };
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { user: authUser } = useAuth();
   const [grouped, setGrouped] = useState<GroupedDishes>({});
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
@@ -119,7 +121,10 @@ export default function HomeScreen() {
             <Text style={s.appTitle}>HOW KRU 🌶️</Text>
             <Text style={s.greeting}>Welcome back, {displayName}!</Text>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <TouchableOpacity onPress={() => router.push("/settings")} style={s.iconBtn}>
+              <Text style={s.iconBtnText}>⚙️</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={handleLogout} style={s.logoutBtn}>
               <Text style={s.logoutText}>로그아웃</Text>
             </TouchableOpacity>
@@ -313,6 +318,11 @@ const s = StyleSheet.create({
   avatarText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
   logoutBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, backgroundColor: "#F5F5F5" },
   logoutText: { fontSize: 12, color: "#888", fontWeight: "600" },
+  iconBtn: {
+    width: 32, height: 32, borderRadius: 16, backgroundColor: "#F5F5F5",
+    alignItems: "center", justifyContent: "center",
+  },
+  iconBtnText: { fontSize: 15 },
 
   // 섹션 헤더
   sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 4, paddingBottom: 10 },

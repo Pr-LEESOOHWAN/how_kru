@@ -105,8 +105,9 @@ export default function KickScreen() {
                   key={opt}
                   style={[s.optionBtn, selected === opt && s.optionBtnActive]}
                   onPress={() => selectOption(opt)}
-                  activeOpacity={0.75}
+                  activeOpacity={0.8}
                 >
+                  {selected === opt && <Text style={s.optionCheck}>✓</Text>}
                   <Text style={[s.optionText, selected === opt && s.optionTextActive]}>{opt}</Text>
                 </TouchableOpacity>
               ))}
@@ -114,8 +115,9 @@ export default function KickScreen() {
               <TouchableOpacity
                 style={[s.optionBtn, s.customBtn, selected === CUSTOM_KEY && s.optionBtnActive]}
                 onPress={selectCustom}
-                activeOpacity={0.75}
+                activeOpacity={0.8}
               >
+                {selected === CUSTOM_KEY && <Text style={s.optionCheck}>✓</Text>}
                 <Text style={[s.optionText, selected === CUSTOM_KEY && s.optionTextActive]}>
                   ✏️ 직접 입력
                 </Text>
@@ -163,12 +165,19 @@ const s = StyleSheet.create({
   question: { fontSize: 16, color: "#333", fontWeight: "600", textAlign: "center", marginBottom: 18 },
   optionsWrap: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 10 },
   optionBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6,
     paddingHorizontal: 18, paddingVertical: 12, borderRadius: 22,
     borderWidth: 1.5, borderColor: "#eee", backgroundColor: "#FAFAFA",
   },
-  optionBtnActive: { borderColor: "#FF5722", backgroundColor: "#FFF0EC" },
+  // 선택된 옵션은 연한 틴트가 아니라 진한 채움 배경 + 체크마크로 확실하게 구분되게 함
+  optionBtnActive: {
+    borderStyle: "solid", borderColor: "#FF5722", backgroundColor: "#FF5722",
+    shadowColor: "#FF5722", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4,
+    elevation: 3,
+  },
+  optionCheck: { color: "#fff", fontWeight: "bold", fontSize: 14 },
   optionText: { fontSize: 14, color: "#555", fontWeight: "600" },
-  optionTextActive: { color: "#FF5722" },
+  optionTextActive: { color: "#fff" },
   customBtn: { borderStyle: "dashed" },
   customInput: {
     width: "100%", marginTop: 16, borderWidth: 1.5, borderColor: "#FF5722", borderRadius: 14,

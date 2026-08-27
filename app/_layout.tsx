@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/src/contexts/AuthContext';
+import { LanguageProvider } from '@/src/contexts/LanguageContext';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -31,6 +32,7 @@ function RootNavigator() {
         <Stack.Screen name="mission" options={{ headerShown: false, presentation: 'card' }} />
         <Stack.Screen name="levels" options={{ headerShown: false, presentation: 'card' }} />
         <Stack.Screen name="dish-reviews" options={{ headerShown: false, presentation: 'card' }} />
+        <Stack.Screen name="settings" options={{ headerShown: false, presentation: 'card' }} />
       </Stack.Protected>
     </Stack>
   );
@@ -41,12 +43,14 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <RootNavigator />
-          <StatusBar style="auto" />
-        </ThemeProvider>
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <RootNavigator />
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </SafeAreaProvider>
   );
 }
