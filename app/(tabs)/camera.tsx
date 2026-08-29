@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import {
     Alert,
     Dimensions,
+    Linking,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from "react-native";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 const SCAN_SIZE = width * 0.75;
 
 type ScanMode = "restaurant" | "food";
@@ -40,6 +41,11 @@ export default function CameraScreen() {
         </Text>
         <TouchableOpacity style={s.permissionBtn} onPress={requestPermission}>
           <Text style={s.permissionBtnText}>카메라 허용하기</Text>
+        </TouchableOpacity>
+        {/* 한 번 거부한 뒤에는 requestPermission()이 OS 다이얼로그를 다시 띄워주지
+            않는 기기가 많아서(특히 Android), 설정 앱으로 바로 이동하는 경로도 함께 제공한다. */}
+        <TouchableOpacity onPress={() => Linking.openSettings()}>
+          <Text style={s.permissionSettingsText}>설정에서 권한 열기</Text>
         </TouchableOpacity>
       </View>
     );
@@ -169,6 +175,7 @@ const s = StyleSheet.create({
   permissionDesc: { fontSize: 14, color: "#aaa", textAlign: "center", lineHeight: 22, marginBottom: 24 },
   permissionBtn: { backgroundColor: "#FF5722", paddingHorizontal: 32, paddingVertical: 14, borderRadius: 14 },
   permissionBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  permissionSettingsText: { color: "#aaa", fontSize: 13, marginTop: 18, textDecorationLine: "underline" },
 
   // 오버레이
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)" },

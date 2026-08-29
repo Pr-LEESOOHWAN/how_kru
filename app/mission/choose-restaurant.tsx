@@ -10,6 +10,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -38,6 +39,9 @@ export default function ChooseRestaurantScreen() {
 
   const [state, setState] = useState<LoadState>("loading");
   const [errorMsg, setErrorMsg] = useState("");
+  // 위치 권한이 "거부"돼서 에러 상태가 된 경우인지 구분해서, 이 경우에만
+  // "다시 시도" 대신(또는 함께) 설정 앱으로 바로 이동하는 버튼을 보여준다.
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const [restaurants, setRestaurants] = useState<NearbyRestaurant[]>([]);
   const [sortBy, setSortBy] = useState<SortBy>("distance");
   const [openOnly, setOpenOnly] = useState(false);
@@ -63,11 +67,13 @@ export default function ChooseRestaurantScreen() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         if (!cancelledRef?.current) {
+          setPermissionDenied(true);
           setErrorMsg("위치 권한이 없으면 근처 식당을 찾을 수 없어요. 설정에서 위치 권한을 허용해주세요.");
           setState("error");
         }
         return;
       }
+      setPermissionDenied(false);
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       if (cancelledRef?.current) return;
       setMyLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
@@ -217,9 +223,18 @@ export default function ChooseRestaurantScreen() {
         <View style={s.centerBox}>
           <Text style={{ fontSize: 32 }}>⚠️</Text>
           <Text style={[s.centerText, { paddingHorizontal: 30, textAlign: "center" }]}>{errorMsg}</Text>
-          <TouchableOpacity style={s.retryBtn} onPress={handleRetryLocation}>
-            <Text style={s.retryBtnText}>다시 시도</Text>
-          </TouchableOpacity>
+          {permissionDenied ? (
+            // 권한을 한 번 거부하면 requestForegroundPermissionsAsync()가 OS 다이얼로그를
+            // 다시 띄워주지 않는 기기가 많아서(특히 Android), "다시 시도"보다 설정 앱으로
+            // 바로 이동하는 버튼이 실제로 더 도움이 된다.
+            <TouchableOpacity style={s.retryBtn} onPress={() => Linking.openSettings()}>
+              <Text style={s.retryBtnText}>설정 열기</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={s.retryBtn} onPress={handleRetryLocation}>
+              <Text style={s.retryBtnText}>다시 시도</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 

@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -59,10 +60,17 @@ export default function VerifyScreen() {
     if (!permission?.granted) {
       const res = await requestPermission();
       if (!res.granted) {
-        // 권한 거부 시 아무 반응 없이 조용히 끝나던 부분 - 이유를 알려줌
+        // 권한 거부 시 아무 반응 없이 조용히 끝나던 부분 - 이유를 알려줌.
+        // 한 번 거부하면 requestPermission()이 다시 OS 다이얼로그를 띄워주지
+        // 않는 기기가 많아서(특히 Android), 안내 문구뿐 아니라 설정 앱으로
+        // 바로 이동할 수 있는 버튼도 함께 제공한다.
         Alert.alert(
           "카메라 권한이 필요해요",
-          "촬영 인증을 위해 카메라 권한을 허용해주세요. 설정에서 권한을 변경할 수 있어요."
+          "촬영 인증을 위해 카메라 권한을 허용해주세요. 설정에서 권한을 변경할 수 있어요.",
+          [
+            { text: "취소", style: "cancel" },
+            { text: "설정 열기", onPress: () => Linking.openSettings() },
+          ]
         );
         return;
       }
