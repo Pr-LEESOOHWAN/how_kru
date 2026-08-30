@@ -1,7 +1,9 @@
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useLanguage } from "@/src/contexts/LanguageContext";
 import { Dish, getDishesByLevel, getProgressInLevel, getUser } from "@/src/firebase/dishService";
 import { db } from "@/src/firebase/firebaseConfig";
 import { logOut } from "@/src/firebase/authService";
+import { t } from "@/src/i18n/strings";
 import { useRouter } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
@@ -48,6 +50,7 @@ function pickTodayChallenges(levelDishes: Dish[], completedIds: Set<string>): Di
 export default function HomeScreen() {
   const router = useRouter();
   const { user: authUser } = useAuth();
+  const { language } = useLanguage();
 
   const [loading, setLoading] = useState(true);
   const [home, setHome] = useState<HomeState>({
@@ -150,9 +153,12 @@ export default function HomeScreen() {
         <View style={s.header}>
           <View>
             <Text style={s.appTitle}>HOW KRU 🌶️</Text>
-            <Text style={s.greeting}>Welcome back, {displayName}!</Text>
+            <Text style={s.greeting}>{t("homeGreeting", language)}, {displayName}!</Text>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <TouchableOpacity onPress={() => router.push("/settings")} style={s.iconBtn}>
+              <Text style={s.iconBtnText}>⚙️</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={handleLogout} style={s.logoutBtn}>
               <Text style={s.logoutText}>로그아웃</Text>
             </TouchableOpacity>
@@ -232,6 +238,11 @@ const s = StyleSheet.create({
   avatarText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
   logoutBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, backgroundColor: "#F5F5F5" },
   logoutText: { fontSize: 12, color: "#888", fontWeight: "600" },
+  iconBtn: {
+    width: 32, height: 32, borderRadius: 16, backgroundColor: "#F5F5F5",
+    alignItems: "center", justifyContent: "center",
+  },
+  iconBtnText: { fontSize: 15 },
   levelCard: { margin: 14, borderRadius: 18, backgroundColor: "#FF5722", padding: 18 },
   levelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
   levelLabel: { fontSize: 12, color: "rgba(255,255,255,0.8)" },

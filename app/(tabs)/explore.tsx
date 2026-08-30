@@ -1,6 +1,8 @@
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useLanguage } from "@/src/contexts/LanguageContext";
 import { logOut } from "@/src/firebase/authService";
 import { db } from "@/src/firebase/firebaseConfig";
+import { t } from "@/src/i18n/strings";
 import { useRouter } from "expo-router";
 import { collection, getDocs } from "firebase/firestore";
 import { useEffect, useState } from "react";
@@ -38,6 +40,7 @@ type GroupedDishes = {
 export default function HomeScreen() {
   const router = useRouter();
   const { user: authUser } = useAuth();
+  const { language } = useLanguage();
   const [grouped, setGrouped] = useState<GroupedDishes>({});
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
   const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
@@ -119,7 +122,7 @@ export default function HomeScreen() {
         <View style={s.header}>
           <View>
             <Text style={s.appTitle}>HOW KRU 🌶️</Text>
-            <Text style={s.greeting}>Welcome back, {displayName}!</Text>
+            <Text style={s.greeting}>{t("homeGreeting", language)}, {displayName}!</Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <TouchableOpacity onPress={() => router.push("/settings")} style={s.iconBtn}>
