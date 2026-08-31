@@ -1,0 +1,30 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // dishes/{fileName}: fetchMissingDishImages.mjs 같은 관리 스크립트(서비스 계정)가
+    // 올리는 요리 사진. 서비스 계정은 규칙과 무관하게 접근 가능하므로 클라이언트
+    // 쓰기는 막는다. 로그인한 사용자만 조회 가능.
+    match /dishes/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // review-photos/{userId}/{fileName}: 리뷰에 첨부하는 사진 (src/firebase/dishService.ts의
+    // uploadReviewPhoto). 리뷰 자체가 다른 로그인 사용자에게도 공개되므로 읽기는 모두 허용,
+    // 쓰기는 본인 폴더에만 - 5MB 이하 이미지 파일만.
+    match /review-photos/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // 그 외 모든 경로는 기본 차단
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

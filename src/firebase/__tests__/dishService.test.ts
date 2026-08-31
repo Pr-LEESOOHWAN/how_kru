@@ -26,7 +26,15 @@ jest.mock("firebase/firestore", () => ({
   serverTimestamp: jest.fn(() => ({ __type: "serverTimestamp" })),
 }));
 
-jest.mock("../firebaseConfig", () => ({ db: {} }));
+// firebase/storage의 실제 ESM 빌드는 jest의 CJS 트랜스폼으로 파싱이 안 되기 때문에
+// (uploadReviewPhoto가 이걸 import함) firestore와 마찬가지로 통째로 mock한다.
+jest.mock("firebase/storage", () => ({
+  ref: jest.fn((_storage: unknown, path: string) => ({ __type: "storageRef", path })),
+  uploadBytes: jest.fn(),
+  getDownloadURL: jest.fn(),
+}));
+
+jest.mock("../firebaseConfig", () => ({ db: {}, storage: {} }));
 
 const mockGetDoc = getDoc as jest.Mock;
 const mockGetDocs = getDocs as jest.Mock;

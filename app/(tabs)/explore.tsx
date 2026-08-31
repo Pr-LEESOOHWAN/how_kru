@@ -4,6 +4,7 @@ import { logOut } from "@/src/firebase/authService";
 import { db } from "@/src/firebase/firebaseConfig";
 import { t } from "@/src/i18n/strings";
 import { useRouter } from "expo-router";
+import { Image } from "expo-image";
 import { collection, getDocs } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
@@ -183,26 +184,47 @@ export default function HomeScreen() {
                 </Text>
               </TouchableOpacity>
 
-              {/* 음식 리스트 (토글 시 표시) */}
+              {/* 음식 카드 그리드 (토글 시 표시) - 타베로그 참고: 썸네일을 크게 */}
               {openCategories.has(cat) && (
-                <View style={s.dishList}>
+                <View style={s.dishGrid}>
                   {grouped[cat].map((dish) => (
                     <TouchableOpacity
                       key={dish.id}
-                      style={s.dishRow}
+                      style={s.dishCard}
                       onPress={() => setSelectedDish(dish)}
-                      activeOpacity={0.6}
+                      activeOpacity={0.85}
                     >
-                      <View style={s.dishNoBox}>
-                        <Text style={s.dishNo}>{dish.no}</Text>
+                      <View style={s.dishCardImageWrap}>
+                        {dish.image ? (
+                          <Image
+                            source={{ uri: dish.image }}
+                            style={s.dishCardImage}
+                            contentFit="cover"
+                            transition={150}
+                          />
+                        ) : (
+                          <View style={s.dishCardImageFallback}>
+                            <Text style={{ fontSize: 34 }}>🍽️</Text>
+                          </View>
+                        )}
+                        <View style={s.dishCardNoBadge}>
+                          <Text style={s.dishCardNoBadgeText}>No.{dish.no}</Text>
+                        </View>
                       </View>
-                      <View style={s.dishTextBox}>
-                        <Text style={s.dishNameKr}>{dish.name_kr}</Text>
-                        <Text style={s.dishNameEn} numberOfLines={1}>
-                          {dish.name_en}
-                        </Text>
+                      <View style={s.dishCardBody}>
+                        <Text style={s.dishCardNameKr} numberOfLines={1}>{dish.name_kr}</Text>
+                        <Text style={s.dishCardNameEn} numberOfLines={1}>{dish.name_en}</Text>
+                        <View style={s.dishCardSpiceRow}>
+                          {Array.from({ length: 5 }, (_, i) => (
+                            <Text
+                              key={i}
+                              style={[s.dishCardSpiceIcon, i >= (dish.spice_level ?? 0) && s.dishCardSpiceIconOff]}
+                            >
+                              🌶️
+                            </Text>
+                          ))}
+                        </View>
                       </View>
-                      <Text style={s.dishArrow}>›</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -351,15 +373,30 @@ const s = StyleSheet.create({
   countText: { fontSize: 11, color: "#FF5722", fontWeight: "600" },
   chevron: { fontSize: 11, color: "#888" },
 
-  // 음식 리스트
-  dishList: { borderTopWidth: 0.5, borderTopColor: "#f0f0f0" },
-  dishRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 0.5, borderBottomColor: "#f5f5f5", gap: 12 },
-  dishNoBox: { width: 30, height: 30, borderRadius: 8, backgroundColor: "#FFF0EC", alignItems: "center", justifyContent: "center" },
-  dishNo: { fontSize: 11, color: "#FF5722", fontWeight: "bold" },
-  dishTextBox: { flex: 1 },
-  dishNameKr: { fontSize: 14, fontWeight: "600", color: "#222" },
-  dishNameEn: { fontSize: 12, color: "#888", marginTop: 1 },
-  dishArrow: { fontSize: 18, color: "#ccc" },
+  // 음식 카드 그리드 (2열, 타베로그 참고 - 썸네일을 크게)
+  dishGrid: {
+    flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between",
+    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4,
+    borderTopWidth: 0.5, borderTopColor: "#f0f0f0",
+  },
+  dishCard: {
+    width: "48%", backgroundColor: "#fff", borderRadius: 14, overflow: "hidden",
+    marginBottom: 12, borderWidth: 0.5, borderColor: "#eee",
+  },
+  dishCardImageWrap: { width: "100%", aspectRatio: 1, backgroundColor: "#FFF0EC", position: "relative" },
+  dishCardImage: { width: "100%", height: "100%" },
+  dishCardImageFallback: { flex: 1, alignItems: "center", justifyContent: "center" },
+  dishCardNoBadge: {
+    position: "absolute", top: 8, left: 8, backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3,
+  },
+  dishCardNoBadgeText: { fontSize: 10, color: "#fff", fontWeight: "bold" },
+  dishCardBody: { padding: 10 },
+  dishCardNameKr: { fontSize: 14, fontWeight: "700", color: "#222" },
+  dishCardNameEn: { fontSize: 11, color: "#888", marginTop: 2 },
+  dishCardSpiceRow: { flexDirection: "row", marginTop: 6 },
+  dishCardSpiceIcon: { fontSize: 10 },
+  dishCardSpiceIconOff: { opacity: 0.2 },
 
   // 모달
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },

@@ -14,7 +14,8 @@ import {
     setDoc,
     where,
 } from "firebase/firestore";
-import { db } from "./firebaseConfig";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { db, storage } from "./firebaseConfig";
 
 // ─── 음식 타입 정의 ───────────────────────────────
 export type Dish = {
@@ -69,11 +70,20 @@ export const getUser = async (userId: string): Promise<User | null> => {
   return snap.exists() ? (snap.data() as User) : null;
 };
 
+// 미션 완료 시 보상 XP. app/mission/start.tsx, app/mission/complete.tsx의
+// "완료 시 보상 +50 XP" 안내 문구와 반드시 같은 값을 유지해야 한다.
+const MISSION_COMPLETE_XP = 50;
+
 // 음식 완료만 먼저 처리 (Kick 답변은 별도 화면에서 나중에 받음)
+// signUp() 시점에 users 문서에 xp: 0 필드를 만들어두는데도 이 필드를 갱신하는
+// 곳이 아무 데도 없어서, 미션 완료 화면에 "+50 XP" 보상을 보여줘 놓고 실제로는
+// 영구히 0으로 남아있던 문제가 있었다 (level/levelName을 나중에 동기화해준
+// levelUp()과 같은 종류의 문제). 화면에 이미 보여주고 있는 보상 값만큼
+// 실제로 xp 필드에 누적되도록 함께 저장한다.
 export const markDishCompleted = async (userId: string, dishId: string) => {
   await setDoc(
     doc(db, "users", userId),
-    { completed_dishes: arrayUnion(dishId) },
+    { completed_dishes: arrayUnion(dishId), xp: increment(MISSION_COMPLETE_XP) },
     { merge: true }
   );
 };
@@ -130,6 +140,7 @@ export type Review = {
   userId: string;
   userName: string;
   content: string;
+  imageUrl?: string;
   createdAt: { seconds: number; nanoseconds: number } | null;
   replyCount: number;
 };
@@ -151,18 +162,32 @@ export const getReviews = async (dishId: string): Promise<Review[]> => {
   return list;
 };
 
+// 리뷰 사진 업로드. 리뷰 문서가 생기기 전에 먼저 올려서 URL을 받아와야 하므로
+// (addDoc은 문서를 만들면서 동시에 id를 발급하기 때문) 경로는 review-photos/{userId}/...로
+// 잡는다 - storage.rules도 이 경로 기준으로 "본인 폴더에만 쓰기"를 검사한다.
+export const uploadReviewPhoto = async (userId: string, localUri: string): Promise<string> => {
+  const res = await fetch(localUri);
+  const blob = await res.blob();
+  const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const storageRef = ref(storage, `review-photos/${userId}/${fileName}`);
+  await uploadBytes(storageRef, blob, { contentType: "image/jpeg" });
+  return getDownloadURL(storageRef);
+};
+
 // 리뷰 작성
 export const addReview = async (
   dishId: string,
   userId: string,
   userName: string,
-  content: string
+  content: string,
+  imageUrl?: string
 ) => {
   await addDoc(collection(db, "reviews"), {
     dishId,
     userId,
     userName,
     content,
+    ...(imageUrl ? { imageUrl } : {}),
     createdAt: serverTimestamp(),
     replyCount: 0,
   });

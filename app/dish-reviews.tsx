@@ -6,8 +6,11 @@ import {
   getReviews,
   Review,
   ReviewReply,
+  uploadReviewPhoto,
 } from "@/src/firebase/dishService";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -45,6 +48,7 @@ export default function DishReviewsScreen() {
   const [loadError, setLoadError] = useState(false);
   const [newReview, setNewReview] = useState("");
   const [posting, setPosting] = useState(false);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
 
   const [openReplies, setOpenReplies] = useState<Record<string, ReviewReply[] | undefined>>({});
   const [loadingReplies, setLoadingReplies] = useState<Record<string, boolean>>({});
@@ -72,18 +76,57 @@ export default function DishReviewsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.dishId]);
 
+  // 카메라로 촬영 / 앨범에서 선택 중 고르게 한다. 둘 다 라이브러리 자체 권한 요청을
+  // 거치므로 여기서 별도로 권한을 먼저 체크하지 않고, 각 launch 함수의 결과로 판단한다.
+  const pickPhoto = () => {
+    Alert.alert("사진 추가", undefined, [
+      { text: "취소", style: "cancel" },
+      {
+        text: "카메라로 촬영",
+        onPress: async () => {
+          const perm = await ImagePicker.requestCameraPermissionsAsync();
+          if (!perm.granted) {
+            Alert.alert("카메라 권한이 필요해요", "설정에서 카메라 권한을 허용해주세요.");
+            return;
+          }
+          const res = await ImagePicker.launchCameraAsync({ quality: 0.6 });
+          if (!res.canceled && res.assets[0]) setPhotoUri(res.assets[0].uri);
+        },
+      },
+      {
+        text: "앨범에서 선택",
+        onPress: async () => {
+          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (!perm.granted) {
+            Alert.alert("사진 접근 권한이 필요해요", "설정에서 사진 접근 권한을 허용해주세요.");
+            return;
+          }
+          const res = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ["images"],
+            quality: 0.6,
+          });
+          if (!res.canceled && res.assets[0]) setPhotoUri(res.assets[0].uri);
+        },
+      },
+    ]);
+  };
+
   const handlePostReview = async () => {
     const content = newReview.trim();
     if (!content || !user || posting) return;
     setPosting(true);
     try {
+      // 사진을 골랐으면 리뷰 문서를 만들기 전에 먼저 Storage에 올려 URL을 받아온다.
+      const imageUrl = photoUri ? await uploadReviewPhoto(user.uid, photoUri) : undefined;
       await addReview(
         params.dishId,
         user.uid,
         user.displayName || "익명",
-        content
+        content,
+        imageUrl
       );
       setNewReview("");
+      setPhotoUri(null);
       await load();
     } catch (err) {
       // 실패 시 아무 반응 없이 조용히 끝나던 부분 - 이유를 알려주고 입력한 내용은 남겨서 재시도 가능하게 함
@@ -183,6 +226,15 @@ export default function DishReviewsScreen() {
                   </View>
                   <Text style={s.reviewContent}>{review.content}</Text>
 
+                  {review.imageUrl && (
+                    <Image
+                      source={{ uri: review.imageUrl }}
+                      style={s.reviewImage}
+                      contentFit="cover"
+                      transition={150}
+                    />
+                  )}
+
                   <TouchableOpacity onPress={() => toggleReplies(review.id)} style={s.replyToggle}>
                     <Text style={s.replyToggleText}>
                       {isOpen
@@ -239,27 +291,48 @@ export default function DishReviewsScreen() {
         )}
 
         <View style={[s.composer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-          <TextInput
-            style={s.composerInput}
-            placeholder={user ? "이 요리에 대한 리뷰를 남겨보세요" : "로그인 후 리뷰를 남길 수 있어요"}
-            placeholderTextColor="#aaa"
-            value={newReview}
-            onChangeText={setNewReview}
-            editable={!!user && !posting}
-            multiline
-            maxLength={500}
-          />
-          <TouchableOpacity
-            style={[s.composerBtn, (!newReview.trim() || !user) && s.composerBtnDisabled]}
-            onPress={handlePostReview}
-            disabled={!newReview.trim() || !user || posting}
-          >
-            {posting ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={s.composerBtnText}>등록</Text>
-            )}
-          </TouchableOpacity>
+          {photoUri && (
+            <View style={s.photoPreviewRow}>
+              <Image source={{ uri: photoUri }} style={s.photoPreviewThumb} contentFit="cover" />
+              <TouchableOpacity
+                style={s.photoPreviewRemove}
+                onPress={() => setPhotoUri(null)}
+                disabled={posting}
+              >
+                <Text style={s.photoPreviewRemoveText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          <View style={s.composerRow}>
+            <TouchableOpacity
+              style={s.photoPickBtn}
+              onPress={pickPhoto}
+              disabled={!user || posting}
+            >
+              <Text style={{ fontSize: 18 }}>📷</Text>
+            </TouchableOpacity>
+            <TextInput
+              style={s.composerInput}
+              placeholder={user ? "이 요리에 대한 리뷰를 남겨보세요" : "로그인 후 리뷰를 남길 수 있어요"}
+              placeholderTextColor="#aaa"
+              value={newReview}
+              onChangeText={setNewReview}
+              editable={!!user && !posting}
+              multiline
+              maxLength={500}
+            />
+            <TouchableOpacity
+              style={[s.composerBtn, (!newReview.trim() || !user) && s.composerBtnDisabled]}
+              onPress={handlePostReview}
+              disabled={!newReview.trim() || !user || posting}
+            >
+              {posting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={s.composerBtnText}>등록</Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </KeyboardAvoidingView>
@@ -318,9 +391,10 @@ const s = StyleSheet.create({
   },
   replySendText: { color: "#FF5722", fontWeight: "bold", fontSize: 12 },
   composer: {
-    flexDirection: "row", gap: 10, padding: 14, paddingBottom: 20, backgroundColor: "#fff",
-    borderTopWidth: 0.5, borderTopColor: "#eee", alignItems: "flex-end",
+    padding: 14, paddingBottom: 20, backgroundColor: "#fff",
+    borderTopWidth: 0.5, borderTopColor: "#eee",
   },
+  composerRow: { flexDirection: "row", gap: 10, alignItems: "flex-end" },
   composerInput: {
     flex: 1, backgroundColor: "#F5F5F5", borderRadius: 14, paddingHorizontal: 14,
     paddingVertical: 10, fontSize: 14, color: "#222", maxHeight: 90,
@@ -331,4 +405,17 @@ const s = StyleSheet.create({
   },
   composerBtnDisabled: { backgroundColor: "#FFC3AC" },
   composerBtnText: { color: "#fff", fontWeight: "bold", fontSize: 13 },
+  photoPickBtn: {
+    width: 44, height: 44, borderRadius: 14, backgroundColor: "#F5F5F5",
+    alignItems: "center", justifyContent: "center",
+  },
+  photoPreviewRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+  photoPreviewThumb: { width: 56, height: 56, borderRadius: 10, backgroundColor: "#eee" },
+  photoPreviewRemove: {
+    marginLeft: -14, marginTop: -34, width: 22, height: 22, borderRadius: 11,
+    backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center",
+  },
+  photoPreviewRemoveText: { color: "#fff", fontSize: 11, fontWeight: "bold" },
+  // 리뷰에 첨부된 사진 (타베로그처럼 리뷰에서도 사진이 크게 보이도록)
+  reviewImage: { width: "100%", aspectRatio: 4 / 3, borderRadius: 12, marginTop: 10, backgroundColor: "#F5F5F5" },
 });
