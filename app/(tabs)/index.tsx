@@ -53,6 +53,9 @@ export default function HomeScreen() {
   const { language } = useLanguage();
 
   const [loading, setLoading] = useState(true);
+  // 데이터 로딩 실패를 "이 레벨엔 요리가 없어요"로 잘못 보여주지 않도록 별도 에러 상태로
+  // 구분한다 (explore.tsx, dish-reviews.tsx, levels.tsx 등 다른 화면에서 이미 쓰던 패턴).
+  const [loadError, setLoadError] = useState(false);
   const [home, setHome] = useState<HomeState>({
     level: DEFAULT_LEVEL,
     levelTitle: "",
@@ -63,6 +66,8 @@ export default function HomeScreen() {
   });
   const [challenges, setChallenges] = useState<Dish[]>([]);
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
+  // authUser가 바뀌지 않아도 재시도 버튼으로 다시 불러올 수 있게 별도 트리거로 관리
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     if (!authUser) {
@@ -71,6 +76,8 @@ export default function HomeScreen() {
     }
     let cancelled = false;
     (async () => {
+      setLoading(true);
+      setLoadError(false);
       try {
         const user = await getUser(authUser.uid);
         const level = Math.min(user?.current_level ?? DEFAULT_LEVEL, MAX_LEVEL);
@@ -97,6 +104,7 @@ export default function HomeScreen() {
         setChallenges(pickTodayChallenges(levelDishes, completed));
       } catch (err) {
         console.error("[home] 유저/미션 데이터 로딩 오류:", err);
+        if (!cancelled) setLoadError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -104,7 +112,7 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [authUser]);
+  }, [authUser, reloadTick]);
 
   const displayName = authUser?.displayName || authUser?.email?.split("@")[0] || "친구";
   const avatarLetter = displayName.charAt(0).toUpperCase();
@@ -199,7 +207,14 @@ export default function HomeScreen() {
           <Text style={s.sectionSub}>Level {home.level}</Text>
         </View>
 
-        {challenges.length === 0 ? (
+        {loadError ? (
+          <View style={s.errorBox}>
+            <Text style={s.emptyText}>오늘의 미션을 불러오지 못했어요.</Text>
+            <TouchableOpacity style={s.retryBtn} onPress={() => setReloadTick((v) => v + 1)}>
+              <Text style={s.retryBtnText}>다시 시도</Text>
+            </TouchableOpacity>
+          </View>
+        ) : challenges.length === 0 ? (
           <Text style={s.emptyText}>이 레벨의 요리를 찾을 수 없어요.</Text>
         ) : (
           challenges.map((dish) => (
@@ -269,4 +284,10 @@ const s = StyleSheet.create({
     borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1,
   },
   emptyText: { fontSize: 13, color: "#999", textAlign: "center", marginTop: 20 },
+  errorBox: { alignItems: "center", marginTop: 20, gap: 12 },
+  retryBtn: {
+    backgroundColor: "#FF5722", borderRadius: 20,
+    paddingHorizontal: 20, paddingVertical: 10,
+  },
+  retryBtnText: { color: "#fff", fontSize: 13, fontWeight: "bold" },
 });
