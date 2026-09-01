@@ -39,12 +39,18 @@ export default function LevelProgressScreen() {
           getProgressInLevel(authUser.uid, level),
         ]);
         const levelData = (levelSnap.exists() ? levelSnap.data() : {}) as LevelDoc;
+        // levels/{level} 문서(또는 required_count)가 없으면 진행률 표시용으로만
+        // progress를 기준값으로 대신 쓴다. 이 fallback 값을 그대로 레벨업 판정에
+        // 쓰면 progress >= progress가 항상 참이 되어, 설정 문서가 비어 있을 때마다
+        // 실제로 레벨업이 발생해버리는 버그가 있었음 — 그래서 레벨업 판정은
+        // hasRequiredCount(실제 기준치를 아는 경우)로만 제한한다.
+        const hasRequiredCount = levelSnap.exists() && typeof levelData.required_count === "number";
         const requiredCount = levelData.required_count ?? Math.max(progress, 1);
 
         const prevProgress = Math.max(0, progress - 1);
         const prevPct = Math.min(100, Math.round((prevProgress / requiredCount) * 100));
         const newPct = Math.min(100, Math.round((progress / requiredCount) * 100));
-        const didLevelUp = progress >= requiredCount && level < MAX_LEVEL;
+        const didLevelUp = hasRequiredCount && progress >= requiredCount && level < MAX_LEVEL;
 
         let shownLevel = level;
         let shownTitle = levelData.title ?? `Level ${level}`;

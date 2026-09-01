@@ -43,54 +43,62 @@ export default function LevelsScreen() {
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [myLevel, setMyLevel] = useState(DEFAULT_LEVEL);
   const [loading, setLoading] = useState(true);
+  // 로딩 실패를 "표시할 요리가 없어요"로 잘못 보여주지 않도록 별도 에러 상태로 구분
+  // (explore.tsx, dish-reviews.tsx 등 다른 화면에서 이미 쓰던 패턴을 여기에도 적용)
+  const [loadError, setLoadError] = useState(false);
   const [openLevels, setOpenLevels] = useState<Set<number>>(new Set());
 
-  useEffect(() => {
+  const load = async () => {
     if (!authUser) {
       // authUser가 없어지는 경우(예: 화면이 떠 있는 동안 로그아웃) 로딩 스피너가
       // 영원히 멈추지 않는 것을 방지. index.tsx/level-progress.tsx와 동일한 패턴.
       setLoading(false);
       return;
     }
-    const load = async () => {
-      try {
-        const [dishSnap, levelSnap, user] = await Promise.all([
-          getDocs(collection(db, "dishes")),
-          getDocs(collection(db, "levels")),
-          getUser(authUser.uid).catch(() => null),
-        ]);
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const [dishSnap, levelSnap, user] = await Promise.all([
+        getDocs(collection(db, "dishes")),
+        getDocs(collection(db, "levels")),
+        getUser(authUser.uid).catch(() => null),
+      ]);
 
-        setCompletedIds(new Set(user?.completed_dishes ?? []));
-        const resolvedLevel = user?.current_level ?? DEFAULT_LEVEL;
-        setMyLevel(resolvedLevel);
-        setOpenLevels(new Set([resolvedLevel]));
+      setCompletedIds(new Set(user?.completed_dishes ?? []));
+      const resolvedLevel = user?.current_level ?? DEFAULT_LEVEL;
+      setMyLevel(resolvedLevel);
+      setOpenLevels(new Set([resolvedLevel]));
 
-        const grouped: Record<number, Dish[]> = {};
-        dishSnap.docs.forEach((d) => {
-          const dish = { id: d.id, ...(d.data() as Omit<Dish, "id">) };
-          const lvl = dish.level ?? 0;
-          if (!grouped[lvl]) grouped[lvl] = [];
-          grouped[lvl].push(dish);
-        });
-        Object.values(grouped).forEach((list) =>
-          list.sort((a, b) => Number(a.no) - Number(b.no))
-        );
+      const grouped: Record<number, Dish[]> = {};
+      dishSnap.docs.forEach((d) => {
+        const dish = { id: d.id, ...(d.data() as Omit<Dish, "id">) };
+        const lvl = dish.level ?? 0;
+        if (!grouped[lvl]) grouped[lvl] = [];
+        grouped[lvl].push(dish);
+      });
+      Object.values(grouped).forEach((list) =>
+        list.sort((a, b) => Number(a.no) - Number(b.no))
+      );
 
-        const infos: Record<number, LevelInfo> = {};
-        levelSnap.docs.forEach((d) => {
-          const data = d.data() as LevelInfo;
-          infos[data.level] = data;
-        });
+      const infos: Record<number, LevelInfo> = {};
+      levelSnap.docs.forEach((d) => {
+        const data = d.data() as LevelInfo;
+        infos[data.level] = data;
+      });
 
-        setDishesByLevel(grouped);
-        setLevelInfo(infos);
-      } catch (err) {
-        console.error("레벨 데이터 로딩 오류:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+      setDishesByLevel(grouped);
+      setLevelInfo(infos);
+    } catch (err) {
+      console.error("레벨 데이터 로딩 오류:", err);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser]);
 
   const levels = useMemo(
@@ -140,6 +148,14 @@ export default function LevelsScreen() {
         <View style={s.loadingBox}>
           <ActivityIndicator size="large" color="#FF5722" />
           <Text style={s.loadingText}>레벨 데이터 불러오는 중...</Text>
+        </View>
+      ) : loadError ? (
+        <View style={s.loadingBox}>
+          <Text style={{ fontSize: 30 }}>⚠️</Text>
+          <Text style={s.loadingText}>레벨 데이터를 불러오지 못했어요.</Text>
+          <TouchableOpacity style={s.retryBtn} onPress={load}>
+            <Text style={s.retryBtnText}>다시 시도</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 30 }}>
@@ -267,6 +283,11 @@ const s = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: "bold", color: "#222" },
   loadingBox: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   loadingText: { color: "#888", fontSize: 14 },
+  retryBtn: {
+    marginTop: 4, backgroundColor: "#FF5722", borderRadius: 20,
+    paddingHorizontal: 20, paddingVertical: 10,
+  },
+  retryBtnText: { color: "#fff", fontSize: 13, fontWeight: "bold" },
   sectionHeader: {
     flexDirection: "row", alignItems: "center", gap: 12,
     backgroundColor: "#E4E4E4", paddingHorizontal: 14, paddingVertical: 12,
