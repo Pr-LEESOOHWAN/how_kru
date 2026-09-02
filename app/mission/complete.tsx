@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef } from "react";
-import { Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -40,13 +40,30 @@ export default function MissionCompleteScreen() {
   );
   const confettiAnims = useRef(confetti.map(() => new Animated.Value(0))).current;
 
+  // 완료 기록 저장. 실패하면 조용히 넘어가지 않고 재시도 기회를 준다 —
+  // 여기서 저장이 안 되면 뒤이어 나오는 킥/레벨 진행 화면이 전부 "이 요리는
+  // 완료 안 됨" 기준으로 계산돼서, 축하 화면은 봤는데 레벨/완료 목록엔
+  // 반영이 안 되는 상황이 생긴다.
+  const saveCompletion = () => {
+    if (!params.dishId || !user) return;
+    markDishCompleted(user.uid, params.dishId).catch((err) => {
+      console.error("[mission/complete] markDishCompleted failed:", err);
+      Alert.alert(
+        "완료 기록 저장 실패",
+        "네트워크 문제로 미션 완료가 저장되지 않았어요. 다시 시도할까요?",
+        [
+          { text: "나중에", style: "cancel" },
+          { text: "다시 시도", onPress: saveCompletion },
+        ]
+      );
+    });
+  };
+
   useEffect(() => {
     if (saved.current || !params.dishId || !user) return;
     saved.current = true;
-    markDishCompleted(user.uid, params.dishId).catch((err) => {
-      // 화면은 그대로 진행하되(사용자 경험 방해 X), 콘솔에는 남겨서 저장 실패를 추적 가능하게 함
-      console.error("[mission/complete] markDishCompleted failed:", err);
-    });
+    saveCompletion();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.dishId, user]);
 
   useEffect(() => {

@@ -22,6 +22,10 @@ export default function LevelProgressScreen() {
   const [loading, setLoading] = useState(true);
   const [display, setDisplay] = useState(FALLBACK);
   const [leveledUp, setLeveledUp] = useState(false);
+  // 로딩 실패 시 FALLBACK(레벨 3 / 65%)을 그대로 보여주면 실제 레벨과 다른
+  // 엉뚱한 숫자가 뜨므로, 실패는 별도 상태로 구분해서 재시도 UI를 띄운다.
+  const [loadError, setLoadError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (!authUser) {
@@ -29,6 +33,8 @@ export default function LevelProgressScreen() {
       return;
     }
     let cancelled = false;
+    setLoading(true);
+    setLoadError(false);
     (async () => {
       try {
         const user = await getUser(authUser.uid);
@@ -88,6 +94,7 @@ export default function LevelProgressScreen() {
         }
       } catch (err) {
         console.error("[mission/level-progress] 진행률 로딩 오류:", err);
+        if (!cancelled) setLoadError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -95,7 +102,7 @@ export default function LevelProgressScreen() {
     return () => {
       cancelled = true;
     };
-  }, [authUser]);
+  }, [authUser, retryCount]);
 
   const goHome = () => {
     router.dismissAll();
@@ -107,6 +114,28 @@ export default function LevelProgressScreen() {
       <View style={s.root}>
         <View style={s.center}>
           <ActivityIndicator color="#FF5722" />
+        </View>
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View style={s.root}>
+        <View style={s.center}>
+          <Text style={s.emoji}>📡</Text>
+          <Text style={s.errorTitle}>진행률을 불러오지 못했어요</Text>
+          <Text style={s.errorDesc}>
+            미션 완료는 기록됐어요. 네트워크를 확인하고 다시 시도해주세요.
+          </Text>
+          <TouchableOpacity style={s.retryBtn} onPress={() => setRetryCount((c) => c + 1)}>
+            <Text style={s.retryBtnText}>다시 시도</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 32) }]}>
+          <TouchableOpacity style={s.primaryBtn} onPress={goHome}>
+            <Text style={s.primaryBtnText}>홈으로 돌아가기</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -188,6 +217,14 @@ const s = StyleSheet.create({
   metaValue: { color: "#fff", fontSize: 16, fontWeight: "bold" },
   metaLabel: { color: "rgba(255,255,255,0.85)", fontSize: 11, marginTop: 2 },
   footNote: { fontSize: 13, color: "#888", marginTop: 22, textAlign: "center" },
+  emoji: { fontSize: 48, marginBottom: 12 },
+  errorTitle: { fontSize: 18, fontWeight: "bold", color: "#222", textAlign: "center" },
+  errorDesc: { fontSize: 13, color: "#888", marginTop: 8, textAlign: "center", lineHeight: 19 },
+  retryBtn: {
+    marginTop: 20, paddingHorizontal: 22, paddingVertical: 10, borderRadius: 20,
+    borderWidth: 1.5, borderColor: "#FF5722", backgroundColor: "#FFF0EC",
+  },
+  retryBtnText: { color: "#FF5722", fontWeight: "bold", fontSize: 14 },
   footer: { padding: 20, paddingBottom: 32 },
   primaryBtn: { backgroundColor: "#FF5722", borderRadius: 16, paddingVertical: 16, alignItems: "center" },
   primaryBtnText: { color: "#fff", fontSize: 17, fontWeight: "bold" },
