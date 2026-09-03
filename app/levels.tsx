@@ -50,6 +50,15 @@ export default function LevelsScreen() {
   // 공식 사진(dish.image)이 없는 요리만, 유저 리뷰 사진으로 보완한 썸네일.
   // explore.tsx와 동일한 패턴 (dishId -> imageUrl).
   const [fallbackPhotos, setFallbackPhotos] = useState<Record<string, string>>({});
+  // getFallbackDishPhoto()는 화면이 언마운트된 뒤에도 응답이 올 수 있는 백그라운드 조회라,
+  // "컴포넌트가 마운트되지 않았는데 상태를 갱신하려 한다"는 React 경고를 막기 위해
+  // 언마운트 여부를 이 ref로 추적한다.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const load = async () => {
     if (!authUser) {
@@ -97,7 +106,7 @@ export default function LevelsScreen() {
       Object.values(grouped).flat().filter((d) => !d.image).forEach((d) => {
         getFallbackDishPhoto(d.id)
           .then((url) => {
-            if (url) setFallbackPhotos((prev) => ({ ...prev, [d.id]: url }));
+            if (url && mountedRef.current) setFallbackPhotos((prev) => ({ ...prev, [d.id]: url }));
           })
           .catch(() => {});
       });

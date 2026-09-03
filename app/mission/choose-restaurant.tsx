@@ -9,7 +9,7 @@ import Slider from "@react-native-community/slider";
 import * as Location from "expo-location";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -53,6 +53,15 @@ export default function ChooseRestaurantScreen() {
   // place_id -> 그 식당에서 찍힌 리뷰 사진 중 가장 최근 것. 우리 앱은 식당 자체 사진을
   // 갖고 있지 않아서(Google Places 사진 API 미연동) 이걸로 대신 보완한다.
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
+  // getRestaurantThumbnail()은 화면이 언마운트된 뒤에도 응답이 올 수 있는 백그라운드
+  // 조회라, "컴포넌트가 마운트되지 않았는데 상태를 갱신하려 한다"는 React 경고를
+  // 막기 위해 언마운트 여부를 이 ref로 추적한다.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const runSearch = async (lat: number, lng: number, radius: number) => {
     setState("loading");
@@ -148,7 +157,7 @@ export default function ChooseRestaurantScreen() {
     restaurants.forEach((r) => {
       getRestaurantThumbnail(r.id)
         .then((url) => {
-          if (!url) return;
+          if (!url || !mountedRef.current) return;
           setThumbnails((prev) => (r.id in prev ? prev : { ...prev, [r.id]: url }));
         })
         .catch(() => {});

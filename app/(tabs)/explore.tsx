@@ -7,7 +7,7 @@ import { t } from "@/src/i18n/strings";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { collection, getDocs } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -53,6 +53,15 @@ export default function HomeScreen() {
   // 공식 사진(dish.image)이 없는 요리만, 유저 리뷰 사진으로 보완한 썸네일.
   // dishId -> imageUrl. 메인 목록 로딩을 막지 않도록 별도로, 조용히 채워진다.
   const [fallbackPhotos, setFallbackPhotos] = useState<Record<string, string>>({});
+  // getFallbackDishPhoto()는 화면이 언마운트된 뒤에도 응답이 올 수 있는 백그라운드 조회라,
+  // "컴포넌트가 마운트되지 않았는데 상태를 갱신하려 한다"는 React 경고를 막기 위해
+  // 언마운트 여부를 이 ref로 추적한다.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Firebase "dishes" 컬렉션에서 데이터 가져오기
   const fetchDishes = async () => {
@@ -87,7 +96,7 @@ export default function HomeScreen() {
       missing.forEach((d) => {
         getFallbackDishPhoto(d.id)
           .then((url) => {
-            if (url) setFallbackPhotos((prev) => ({ ...prev, [d.id]: url }));
+            if (url && mountedRef.current) setFallbackPhotos((prev) => ({ ...prev, [d.id]: url }));
           })
           .catch(() => {});
       });
