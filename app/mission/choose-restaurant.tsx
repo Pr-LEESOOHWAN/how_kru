@@ -241,7 +241,23 @@ export default function ChooseRestaurantScreen() {
       {state === "empty" && (
         <View style={s.centerBox}>
           <Text style={{ fontSize: 32 }}>🔍</Text>
-          <Text style={s.centerText}>{formatDistance(radiusM)} 이내에 '{params.name_kr}' 관련 식당이 없어요.</Text>
+          <Text style={[s.centerText, { paddingHorizontal: 30, textAlign: "center" }]}>
+            {`${formatDistance(radiusM)} 이내에 '${params.name_kr}' 관련 식당이 없어요.`}
+          </Text>
+          {/* 슬라이더를 직접 찾지 않아도 한 번에 반경을 넓혀 재검색할 수 있게 함.
+              최대 반경까지 이미 넓힌 상태면 더 넓힐 수 없으니 버튼 대신 안내만 보여준다. */}
+          {radiusM < MAX_RADIUS_M ? (
+            <TouchableOpacity
+              style={s.retryBtn}
+              onPress={() => handleRadiusCommit(Math.min(MAX_RADIUS_M, radiusM + 1000))}
+            >
+              <Text style={s.retryBtnText}>
+                반경 {formatDistance(Math.min(MAX_RADIUS_M, radiusM + 1000))}로 넓혀서 찾기
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={s.centerHint}>다른 요리를 골라보거나 위치를 옮겨서 다시 찾아보세요.</Text>
+          )}
         </View>
       )}
 
@@ -328,6 +344,7 @@ const s = StyleSheet.create({
   openOnlyChipTextActive: { color: "#FF5722" },
   centerBox: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   centerText: { color: "#888", fontSize: 14 },
+  centerHint: { color: "#aaa", fontSize: 12, paddingHorizontal: 30, textAlign: "center" },
   retryBtn: {
     marginTop: 4, backgroundColor: "#FF5722", borderRadius: 20,
     paddingHorizontal: 20, paddingVertical: 10,

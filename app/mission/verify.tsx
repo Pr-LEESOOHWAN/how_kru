@@ -2,10 +2,11 @@ import { extractTextFromImage, OcrApiError } from "@/src/services/ocr";
 import { MissionVerifyError, verifyMission } from "@/src/services/missionVerify";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Image,
   Linking,
   ScrollView,
@@ -55,6 +56,18 @@ export default function VerifyScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const [capturing, setCapturing] = useState(false);
+
+  // Android 하드웨어 뒤로가기: 카메라 오버레이가 열려 있으면 화면 전체를 빠져나가는 대신
+  // 오버레이만 닫는다. 그동안은 뒤로가기가 인증 화면 자체를 pop해서 이미 찍어둔 사진이
+  // 전부 날아갔음. (촬영 중에는 무시해서 takePictureAsync가 중간에 끊기지 않게 함)
+  useEffect(() => {
+    if (!activeShot) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (!capturing) setActiveShot(null);
+      return true;
+    });
+    return () => sub.remove();
+  }, [activeShot, capturing]);
 
   const openScan = async (key: ShotKey) => {
     if (!permission?.granted) {
