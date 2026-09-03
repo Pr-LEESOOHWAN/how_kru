@@ -1,3 +1,4 @@
+import { getRestaurantThumbnail } from "@/src/firebase/dishService";
 import {
   formatDistance,
   formatWalkTime,
@@ -6,6 +7,7 @@ import {
 } from "@/src/services/places";
 import Slider from "@react-native-community/slider";
 import * as Location from "expo-location";
+import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -48,6 +50,9 @@ export default function ChooseRestaurantScreen() {
   const [radiusM, setRadiusM] = useState(DEFAULT_RADIUS_M);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [myLoc, setMyLoc] = useState<{ lat: number; lng: number } | null>(null);
+  // place_id -> 그 식당에서 찍힌 리뷰 사진 중 가장 최근 것. 우리 앱은 식당 자체 사진을
+  // 갖고 있지 않아서(Google Places 사진 API 미연동) 이걸로 대신 보완한다.
+  const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
 
   const runSearch = async (lat: number, lng: number, radius: number) => {
     setState("loading");
@@ -132,6 +137,24 @@ export default function ChooseRestaurantScreen() {
 
   const visibleRestaurants = sortedRestaurants.slice(0, visibleCount);
   const hasMore = visibleCount < sortedRestaurants.length;
+
+  // 검색 결과(최대 20개)마다 리뷰 사진을 조회. visibleRestaurants/sortedRestaurants는
+  // useMemo/slice로 매 렌더마다 새 배열 참조가 생겨 의존성으로 쓰면 무한 재조회로
+  // 이어지므로, 실제로 새 검색이 있을 때만 바뀌는 restaurants 자체에 걸어둔다.
+  // 식당 하나당 리뷰 쿼리 1번이라 리뷰가 아주 많이 쌓이면 비용이 늘긴 하지만, 지금
+  // 규모에서는 문제없다 - 나중에 부담되면 restaurants 컬렉션에 캐싱해두는 걸 고려.
+  useEffect(() => {
+    if (restaurants.length === 0) return;
+    restaurants.forEach((r) => {
+      getRestaurantThumbnail(r.id)
+        .then((url) => {
+          if (!url) return;
+          setThumbnails((prev) => (r.id in prev ? prev : { ...prev, [r.id]: url }));
+        })
+        .catch(() => {});
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurants]);
 
   const handleSelect = (r: NearbyRestaurant) => {
     router.push({
@@ -273,7 +296,16 @@ export default function ChooseRestaurantScreen() {
           {visibleRestaurants.map((r) => (
             <TouchableOpacity key={r.id} style={s.card} activeOpacity={0.7} onPress={() => handleSelect(r)}>
               <View style={s.cardIcon}>
-                <Text style={{ fontSize: 22 }}>🏪</Text>
+                {thumbnails[r.id] ? (
+                  <Image
+                    source={{ uri: thumbnails[r.id] }}
+                    style={s.cardIconImage}
+                    contentFit="cover"
+                    transition={150}
+                  />
+                ) : (
+                  <Text style={{ fontSize: 22 }}>🏪</Text>
+                )}
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.cardName} numberOfLines={1}>{r.name}</Text>
@@ -357,8 +389,9 @@ const s = StyleSheet.create({
   },
   cardIcon: {
     width: 46, height: 46, borderRadius: 12, backgroundColor: "#FFF0EC",
-    alignItems: "center", justifyContent: "center",
+    alignItems: "center", justifyContent: "center", overflow: "hidden",
   },
+  cardIconImage: { width: "100%", height: "100%" },
   cardName: { fontSize: 15, fontWeight: "bold", color: "#222" },
   cardAddress: { fontSize: 12, color: "#999", marginTop: 2 },
   cardMeta: { fontSize: 12, color: "#FF5722", fontWeight: "600" },

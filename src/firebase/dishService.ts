@@ -141,6 +141,11 @@ export type Review = {
   userName: string;
   content: string;
   imageUrl?: string;
+  // 미션 완료 직후 "이 식당에 리뷰 남기기" 흐름으로 작성된 리뷰에만 채워짐 (mission/complete.tsx
+  // 참고). restaurantId는 Google Places의 place_id. 일반적으로 요리 상세 > 리뷰 화면에서 바로
+  // 쓴 리뷰는 특정 식당과 무관하므로 없을 수 있다.
+  restaurantId?: string;
+  restaurantName?: string;
   createdAt: { seconds: number; nanoseconds: number } | null;
   replyCount: number;
 };
@@ -174,13 +179,15 @@ export const uploadReviewPhoto = async (userId: string, localUri: string): Promi
   return getDownloadURL(storageRef);
 };
 
-// 리뷰 작성
+// 리뷰 작성. restaurant을 넘기면(미션 완료 직후 흐름) 리뷰가 특정 식당에도 연결되어
+// getRestaurantThumbnail()의 후보 사진 풀에 들어간다.
 export const addReview = async (
   dishId: string,
   userId: string,
   userName: string,
   content: string,
-  imageUrl?: string
+  imageUrl?: string,
+  restaurant?: { id: string; name: string }
 ) => {
   await addDoc(collection(db, "reviews"), {
     dishId,
@@ -188,9 +195,32 @@ export const addReview = async (
     userName,
     content,
     ...(imageUrl ? { imageUrl } : {}),
+    ...(restaurant ? { restaurantId: restaurant.id, restaurantName: restaurant.name } : {}),
     createdAt: serverTimestamp(),
     replyCount: 0,
   });
+};
+
+// ─── 리뷰 사진을 썸네일로 재활용 ───────────────────
+// 큐레이션된 공식 사진(dish.image / Places 사진)이 없을 때만 유저 리뷰 사진으로
+// 보완한다 - 공식 사진이 있으면 그쪽이 항상 우선.
+
+// 공식 사진이 없는 요리의 대체 썸네일. 해당 요리의 리뷰 중 사진이 첨부된 가장 최근
+// 것을 사용한다. getReviews()가 이미 createdAt 최신순으로 정렬해주므로 그대로 재사용
+// (전용 복합 인덱스를 새로 만들 필요가 없음).
+export const getFallbackDishPhoto = async (dishId: string): Promise<string | null> => {
+  const reviews = await getReviews(dishId);
+  return reviews.find((r) => r.imageUrl)?.imageUrl ?? null;
+};
+
+// 식당(place_id) 썸네일. 우리 앱은 식당 사진을 자체적으로 갖고 있지 않으므로(Google Places
+// 사진 API는 아직 연동 안 함), 그 식당에서 작성된 리뷰 중 사진이 첨부된 가장 최근 것을 사용한다.
+export const getRestaurantThumbnail = async (restaurantId: string): Promise<string | null> => {
+  const q = query(collection(db, "reviews"), where("restaurantId", "==", restaurantId));
+  const snap = await getDocs(q);
+  const list = snap.docs.map((d) => d.data() as Review);
+  list.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+  return list.find((r) => r.imageUrl)?.imageUrl ?? null;
 };
 
 // 특정 리뷰의 대댓글 목록 (오래된순 - 대화 순서대로)

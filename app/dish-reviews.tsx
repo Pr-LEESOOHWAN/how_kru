@@ -41,7 +41,14 @@ export default function DishReviewsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const params = useLocalSearchParams<{ dishId: string; name_kr: string }>();
+  // restaurantId/restaurantName은 미션 완료 화면(mission/complete.tsx)의 "이 식당에 리뷰
+  // 남기기"에서 넘어올 때만 채워진다. 요리 상세 > 리뷰 화면으로 바로 들어온 경우 둘 다 없다.
+  const params = useLocalSearchParams<{
+    dishId: string;
+    name_kr: string;
+    restaurantId?: string;
+    restaurantName?: string;
+  }>();
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,7 +130,10 @@ export default function DishReviewsScreen() {
         user.uid,
         user.displayName || "익명",
         content,
-        imageUrl
+        imageUrl,
+        params.restaurantId && params.restaurantName
+          ? { id: params.restaurantId, name: params.restaurantName }
+          : undefined
       );
       setNewReview("");
       setPhotoUri(null);
@@ -189,6 +199,14 @@ export default function DishReviewsScreen() {
           <View style={{ width: 40 }} />
         </View>
 
+        {params.restaurantName && (
+          <View style={s.restaurantBanner}>
+            <Text style={s.restaurantBannerText} numberOfLines={1}>
+              📍 {params.restaurantName}에서 남기는 리뷰예요
+            </Text>
+          </View>
+        )}
+
         {loading ? (
           <View style={s.centerBox}>
             <ActivityIndicator size="large" color="#FF5722" />
@@ -225,6 +243,12 @@ export default function DishReviewsScreen() {
                     </View>
                   </View>
                   <Text style={s.reviewContent}>{review.content}</Text>
+
+                  {review.restaurantName && (
+                    <Text style={s.reviewRestaurantTag} numberOfLines={1}>
+                      📍 {review.restaurantName}
+                    </Text>
+                  )}
 
                   {review.imageUrl && (
                     <Image
@@ -349,6 +373,11 @@ const s = StyleSheet.create({
   backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   backText: { fontSize: 28, color: "#222" },
   headerTitle: { fontSize: 17, fontWeight: "bold", color: "#222", flex: 1, textAlign: "center", marginHorizontal: 8 },
+  restaurantBanner: {
+    backgroundColor: "#FFF0EC", paddingHorizontal: 16, paddingVertical: 8,
+    borderBottomWidth: 0.5, borderBottomColor: "#eee",
+  },
+  restaurantBannerText: { fontSize: 12, color: "#FF5722", fontWeight: "600" },
   centerBox: { flex: 1, alignItems: "center", justifyContent: "center" },
   list: { padding: 16, paddingBottom: 24, gap: 12 },
   emptyBox: { alignItems: "center", justifyContent: "center", paddingVertical: 60, gap: 10 },
@@ -370,6 +399,7 @@ const s = StyleSheet.create({
   reviewUser: { fontSize: 13, fontWeight: "bold", color: "#222" },
   reviewTime: { fontSize: 11, color: "#aaa", marginTop: 1 },
   reviewContent: { fontSize: 14, color: "#333", lineHeight: 20, marginTop: 10 },
+  reviewRestaurantTag: { fontSize: 11, color: "#FF5722", fontWeight: "600", marginTop: 6 },
   replyToggle: { marginTop: 10 },
   replyToggleText: { fontSize: 12, color: "#FF5722", fontWeight: "bold" },
   repliesBox: {

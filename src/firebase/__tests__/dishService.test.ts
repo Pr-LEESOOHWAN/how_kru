@@ -3,12 +3,16 @@
 // 없는 유저 문서에서 undefined.filter()로 죽는" 버그가 화면별 스크린샷으로만
 // 발견됐던 전례가 있어, 최소한 이 파일의 로직만이라도 유닛 테스트로 고정해둔다.
 
-import { getDoc, getDocs } from "firebase/firestore";
+import { addDoc, getDoc, getDocs } from "firebase/firestore";
 import {
+  addReview,
   Dish,
   getDishesByLevel,
+  getFallbackDishPhoto,
   getProgressInLevel,
+  getRestaurantThumbnail,
   getUser,
+  Review,
   User,
 } from "../dishService";
 
@@ -38,6 +42,16 @@ jest.mock("../firebaseConfig", () => ({ db: {}, storage: {} }));
 
 const mockGetDoc = getDoc as jest.Mock;
 const mockGetDocs = getDocs as jest.Mock;
+const mockAddDoc = addDoc as jest.Mock;
+
+function fakeReviewSnapshot(reviews: (Partial<Review> & { id?: string })[]) {
+  return {
+    docs: reviews.map((review, i) => ({
+      id: review.id ?? `r${i}`,
+      data: () => review,
+    })),
+  };
+}
 
 function fakeDishSnapshot(dishes: (Pick<Dish, "id"> & Partial<Dish>)[]) {
   return {
@@ -109,5 +123,65 @@ describe("getProgressInLevel", () => {
       fakeDishSnapshot([{ id: "d1" }, { id: "d2" }, { id: "d3" }])
     );
     await expect(getProgressInLevel("u1", 1)).resolves.toBe(2);
+  });
+});
+
+// 공식 사진(dish.image)이 없는 요리/식당을 유저 리뷰 사진으로 보완하는 기능
+// (explore.tsx 요리 썸네일, mission/choose-restaurant.tsx 식당 썸네일이 사용).
+describe("getFallbackDishPhoto", () => {
+  it("사진이 첨부된 가장 최근 리뷰의 imageUrl을 반환한다", async () => {
+    mockGetDocs.mockResolvedValueOnce(
+      fakeReviewSnapshot([
+        { dishId: "d1", imageUrl: "old.jpg", createdAt: { seconds: 100, nanoseconds: 0 } },
+        { dishId: "d1", createdAt: { seconds: 300, nanoseconds: 0 } }, // 사진 없는 최신 리뷰
+        { dishId: "d1", imageUrl: "new.jpg", createdAt: { seconds: 200, nanoseconds: 0 } },
+      ])
+    );
+    await expect(getFallbackDishPhoto("d1")).resolves.toBe("new.jpg");
+  });
+
+  it("사진 첨부된 리뷰가 하나도 없으면 null을 반환한다", async () => {
+    mockGetDocs.mockResolvedValueOnce(
+      fakeReviewSnapshot([{ dishId: "d1", createdAt: { seconds: 100, nanoseconds: 0 } }])
+    );
+    await expect(getFallbackDishPhoto("d1")).resolves.toBeNull();
+  });
+});
+
+describe("getRestaurantThumbnail", () => {
+  it("해당 식당(restaurantId)에서 사진이 첨부된 가장 최근 리뷰를 반환한다", async () => {
+    mockGetDocs.mockResolvedValueOnce(
+      fakeReviewSnapshot([
+        { restaurantId: "place1", imageUrl: "old.jpg", createdAt: { seconds: 100, nanoseconds: 0 } },
+        { restaurantId: "place1", imageUrl: "new.jpg", createdAt: { seconds: 500, nanoseconds: 0 } },
+      ])
+    );
+    await expect(getRestaurantThumbnail("place1")).resolves.toBe("new.jpg");
+  });
+
+  it("사진이 없으면 null을 반환한다", async () => {
+    mockGetDocs.mockResolvedValueOnce(fakeReviewSnapshot([]));
+    await expect(getRestaurantThumbnail("place1")).resolves.toBeNull();
+  });
+});
+
+describe("addReview", () => {
+  it("restaurant을 넘기면 restaurantId/restaurantName이 함께 저장된다", async () => {
+    mockAddDoc.mockResolvedValueOnce({ id: "new-review" });
+    await addReview("d1", "u1", "닉네임", "맛있어요", "photo.jpg", {
+      id: "place1",
+      name: "숙성회 맛집",
+    });
+    const savedData = mockAddDoc.mock.calls[0][1];
+    expect(savedData.restaurantId).toBe("place1");
+    expect(savedData.restaurantName).toBe("숙성회 맛집");
+  });
+
+  it("restaurant을 안 넘기면 restaurantId/restaurantName 필드 자체가 없다", async () => {
+    mockAddDoc.mockResolvedValueOnce({ id: "new-review" });
+    await addReview("d1", "u1", "닉네임", "맛있어요");
+    const savedData = mockAddDoc.mock.calls[0][1];
+    expect(savedData).not.toHaveProperty("restaurantId");
+    expect(savedData).not.toHaveProperty("restaurantName");
   });
 });

@@ -2,6 +2,7 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { useLanguage } from "@/src/contexts/LanguageContext";
 import { logOut } from "@/src/firebase/authService";
 import { db } from "@/src/firebase/firebaseConfig";
+import { getFallbackDishPhoto } from "@/src/firebase/dishService";
 import { t } from "@/src/i18n/strings";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
@@ -49,6 +50,9 @@ export default function HomeScreen() {
   // 로딩 실패를 "메뉴가 없어요"로 잘못 보여주지 않도록 별도 에러 상태로 구분
   // (dish-reviews.tsx 등 다른 화면에서 이미 쓰던 패턴을 여기에도 적용)
   const [loadError, setLoadError] = useState(false);
+  // 공식 사진(dish.image)이 없는 요리만, 유저 리뷰 사진으로 보완한 썸네일.
+  // dishId -> imageUrl. 메인 목록 로딩을 막지 않도록 별도로, 조용히 채워진다.
+  const [fallbackPhotos, setFallbackPhotos] = useState<Record<string, string>>({});
 
   // Firebase "dishes" 컬렉션에서 데이터 가져오기
   const fetchDishes = async () => {
@@ -75,6 +79,18 @@ export default function HomeScreen() {
       });
 
       setGrouped(groups);
+
+      // 공식 사진이 없는 요리에 한해서만 리뷰 사진으로 보완 시도. 목록 렌더링을
+      // 기다리게 하지 않고 백그라운드로 채워서 로딩된 카드마다 순차적으로 나타난다.
+      // 실패해도(리뷰 없음 포함) 그냥 기존 🍽️ 이모지 자리표시자로 남을 뿐이라 조용히 무시.
+      const missing = data.filter((d) => !d.image);
+      missing.forEach((d) => {
+        getFallbackDishPhoto(d.id)
+          .then((url) => {
+            if (url) setFallbackPhotos((prev) => ({ ...prev, [d.id]: url }));
+          })
+          .catch(() => {});
+      });
     } catch (err) {
       console.error("데이터 로딩 오류:", err);
       setLoadError(true);
@@ -187,7 +203,9 @@ export default function HomeScreen() {
               {/* 음식 카드 그리드 (토글 시 표시) - 타베로그 참고: 썸네일을 크게 */}
               {openCategories.has(cat) && (
                 <View style={s.dishGrid}>
-                  {grouped[cat].map((dish) => (
+                  {grouped[cat].map((dish) => {
+                    const thumb = dish.image || fallbackPhotos[dish.id];
+                    return (
                     <TouchableOpacity
                       key={dish.id}
                       style={s.dishCard}
@@ -195,9 +213,9 @@ export default function HomeScreen() {
                       activeOpacity={0.85}
                     >
                       <View style={s.dishCardImageWrap}>
-                        {dish.image ? (
+                        {thumb ? (
                           <Image
-                            source={{ uri: dish.image }}
+                            source={{ uri: thumb }}
                             style={s.dishCardImage}
                             contentFit="cover"
                             transition={150}
@@ -226,7 +244,8 @@ export default function HomeScreen() {
                         </View>
                       </View>
                     </TouchableOpacity>
-                  ))}
+                    );
+                  })}
                 </View>
               )}
             </View>

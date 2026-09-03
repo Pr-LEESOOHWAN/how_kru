@@ -13,10 +13,15 @@ export default function MissionCompleteScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  // placeId/restaurantName은 choose-restaurant.tsx에서 식당을 고른 시점에 params에
+  // 실려서 navigate → arrived → verify를 거쳐 그대로 여기까지 넘어온다(각 화면이
+  // router.push할 때 ...params로 통째로 이어받아 넘김). "이 식당에 리뷰 남기기"에 씀.
   const params = useLocalSearchParams<{
     dishId: string;
     name_kr: string;
     name_en: string;
+    placeId?: string;
+    restaurantName?: string;
   }>();
   const saved = useRef(false);
 
@@ -115,6 +120,22 @@ export default function MissionCompleteScreen() {
     router.push({ pathname: "/mission/kick", params });
   };
 
+  // 미션 완료 직후가 "방금 그 식당에서 찍은 사진"을 가장 구하기 쉬운 시점이라 여기에
+  // 진입점을 둠. 이 리뷰는 restaurantId가 함께 저장되어(dishService.addReview)
+  // choose-restaurant.tsx 식당 목록의 썸네일 후보로도 쓰인다(getRestaurantThumbnail).
+  const handleReview = () => {
+    router.push({
+      pathname: "/dish-reviews",
+      params: {
+        dishId: params.dishId,
+        name_kr: params.name_kr,
+        ...(params.placeId && params.restaurantName
+          ? { restaurantId: params.placeId, restaurantName: params.restaurantName }
+          : {}),
+      },
+    });
+  };
+
   return (
     <View style={s.root}>
       {/* 컨페티 파티클 */}
@@ -172,6 +193,11 @@ export default function MissionCompleteScreen() {
       </View>
 
       <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 32) }]}>
+        {params.placeId && params.restaurantName && (
+          <TouchableOpacity style={s.secondaryBtn} onPress={handleReview}>
+            <Text style={s.secondaryBtnText}>📷 {params.restaurantName} 리뷰 남기기</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={s.primaryBtn} onPress={handleNext}>
           <Text style={s.primaryBtnText}>다음으로</Text>
         </TouchableOpacity>
@@ -193,8 +219,12 @@ const s = StyleSheet.create({
   },
   rewardValue: { fontSize: 24, fontWeight: "bold", color: "#FF5722" },
   rewardLabel: { fontSize: 12, color: "#993C1D", marginTop: 4, fontWeight: "600" },
-  footer: { padding: 20, paddingBottom: 32 },
+  footer: { padding: 20, paddingBottom: 32, gap: 10 },
   primaryBtn: { backgroundColor: "#FF5722", borderRadius: 16, paddingVertical: 16, alignItems: "center" },
   primaryBtnText: { color: "#fff", fontSize: 17, fontWeight: "bold" },
+  secondaryBtn: {
+    backgroundColor: "#FFF0EC", borderRadius: 16, paddingVertical: 14, alignItems: "center",
+  },
+  secondaryBtnText: { color: "#FF5722", fontSize: 14, fontWeight: "bold" },
   confettiEmoji: { position: "absolute", top: 0, fontSize: 22 },
 });
