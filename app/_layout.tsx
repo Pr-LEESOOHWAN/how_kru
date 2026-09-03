@@ -1,5 +1,9 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+// SDK 56부터 expo-router가 @react-navigation/native를 자체 내장 버전으로 감싸서 쓰기 때문에,
+// 앱 코드에서 직접 @react-navigation/native를 import하면(이 파일이 예전부터 그래왔음) 서로 다른
+// 버전이 섞여 "expo-router is no longer compatible with react-navigation" 빌드 에러가 난다.
+// 테마 관련 export는 expo-router가 그대로 재노출해주므로 여기서 가져다 쓴다.
+// https://docs.expo.dev/router/migrate/sdk-55-to-56/
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
