@@ -1,9 +1,10 @@
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useLanguage } from "@/src/contexts/LanguageContext";
-import { Dish, getDishesByLevel, getProgressInLevel, getUser } from "@/src/firebase/dishService";
+import { Dish, getDishesByLevel, getFallbackDishPhoto, getProgressInLevel, getUser } from "@/src/firebase/dishService";
 import { db } from "@/src/firebase/firebaseConfig";
 import { logOut } from "@/src/firebase/authService";
 import { t } from "@/src/i18n/strings";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
@@ -66,6 +67,9 @@ export default function HomeScreen() {
   });
   const [challenges, setChallenges] = useState<Dish[]>([]);
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
+  // 공식 사진(dish.image)이 없는 요리만, 유저 리뷰 사진으로 보완한 썸네일.
+  // explore.tsx/levels.tsx와 동일한 패턴 (dishId -> imageUrl).
+  const [fallbackPhotos, setFallbackPhotos] = useState<Record<string, string>>({});
   // authUser가 바뀌지 않아도 재시도 버튼으로 다시 불러올 수 있게 별도 트리거로 관리
   const [reloadTick, setReloadTick] = useState(0);
 
@@ -101,7 +105,18 @@ export default function HomeScreen() {
           requiredCount,
           badges: completed.size,
         });
-        setChallenges(pickTodayChallenges(levelDishes, completed));
+        const todayChallenges = pickTodayChallenges(levelDishes, completed);
+        setChallenges(todayChallenges);
+
+        // 공식 사진이 없는 요리만 리뷰 사진으로 보완 시도 (explore.tsx/levels.tsx와 동일 -
+        // 백그라운드 조회, 실패해도 조용히 무시하고 🍽️ 자리표시자로 남음).
+        todayChallenges.filter((d) => !d.image).forEach((d) => {
+          getFallbackDishPhoto(d.id)
+            .then((url) => {
+              if (!cancelled && url) setFallbackPhotos((prev) => ({ ...prev, [d.id]: url }));
+            })
+            .catch(() => {});
+        });
       } catch (err) {
         console.error("[home] 유저/미션 데이터 로딩 오류:", err);
         if (!cancelled) setLoadError(true);
@@ -217,25 +232,52 @@ export default function HomeScreen() {
         ) : challenges.length === 0 ? (
           <Text style={s.emptyText}>이 레벨의 요리를 찾을 수 없어요.</Text>
         ) : (
-          challenges.map((dish) => (
-            <View key={dish.id} style={s.missionCard}>
-              <View style={s.missionEmoji}>
-                <Text style={{ fontSize: 32 }}>🍽️</Text>
-              </View>
-              <View style={s.missionBody}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Text style={s.missionNameKr}>{dish.name_kr}</Text>
-                  {completedIds.has(dish.id) && <Text style={s.doneTag}>완료</Text>}
+          // 타베로그 참고: 썸네일을 위에 크게, 정보는 아래에 - explore.tsx/levels.tsx와
+          // 같은 방향이지만 이 화면엔 카드가 1~2개뿐이라 그리드가 아니라 세로로 쌓는다.
+          challenges.map((dish) => {
+            const thumb = dish.image || fallbackPhotos[dish.id];
+            return (
+              <TouchableOpacity
+                key={dish.id}
+                style={s.missionCard}
+                activeOpacity={0.85}
+                onPress={() => startMission(dish)}
+              >
+                <View style={s.missionImageWrap}>
+                  {thumb ? (
+                    <Image
+                      source={{ uri: thumb }}
+                      style={s.missionImage}
+                      contentFit="cover"
+                      transition={150}
+                    />
+                  ) : (
+                    <View style={s.missionImageFallback}>
+                      <Text style={{ fontSize: 40 }}>🍽️</Text>
+                    </View>
+                  )}
+                  {completedIds.has(dish.id) && (
+                    <View style={s.doneBadge}>
+                      <Text style={s.doneBadgeText}>완료</Text>
+                    </View>
+                  )}
                 </View>
-                <Text style={s.missionNameEn}>{dish.name_en}</Text>
-                <Text style={s.missionDesc} numberOfLines={2}>{dish.category}</Text>
-                <SpiceIcon level={dish.spice_level ?? 0} />
-              </View>
-              <TouchableOpacity style={s.missionBtn} onPress={() => startMission(dish)}>
-                <Text style={{ fontSize: 18 }}>📷</Text>
+                <View style={s.missionBody}>
+                  <Text style={s.missionNameKr}>{dish.name_kr}</Text>
+                  <Text style={s.missionNameEn}>{dish.name_en}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <Text style={s.missionDesc} numberOfLines={1}>{dish.category}</Text>
+                      <SpiceIcon level={dish.spice_level ?? 0} />
+                    </View>
+                    <View style={s.missionBtn}>
+                      <Text style={{ fontSize: 16 }}>📷</Text>
+                    </View>
+                  </View>
+                </View>
               </TouchableOpacity>
-            </View>
-          ))
+            );
+          })
         )}
 
         <View style={{ height: 30 }} />
@@ -272,17 +314,24 @@ const s = StyleSheet.create({
   sectionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 },
   sectionTitle: { fontSize: 16, fontWeight: "bold", color: "#222" },
   sectionSub: { fontSize: 12, color: "#888" },
-  missionCard: { flexDirection: "row", backgroundColor: "#fff", marginHorizontal: 14, marginBottom: 12, borderRadius: 14, overflow: "hidden", borderWidth: 0.5, borderColor: "#eee", alignItems: "center" },
-  missionEmoji: { width: 80, height: 90, backgroundColor: "#FFF0EC", alignItems: "center", justifyContent: "center" },
-  missionBody: { flex: 1, padding: 12, gap: 3 },
-  missionNameKr: { fontSize: 15, fontWeight: "bold", color: "#222" },
-  missionNameEn: { fontSize: 12, color: "#FF5722" },
-  missionDesc: { fontSize: 12, color: "#888", lineHeight: 16 },
-  missionBtn: { width: 44, height: 44, backgroundColor: "#FF5722", borderRadius: 22, alignItems: "center", justifyContent: "center", marginRight: 12 },
-  doneTag: {
-    fontSize: 10, fontWeight: "bold", color: "#fff", backgroundColor: "#4CAF50",
-    borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1,
+  // 오늘의 미션 카드 (타베로그 참고: 썸네일을 위에 크게)
+  missionCard: {
+    backgroundColor: "#fff", marginHorizontal: 14, marginBottom: 12, borderRadius: 16,
+    overflow: "hidden", borderWidth: 0.5, borderColor: "#eee",
   },
+  missionImageWrap: { width: "100%", aspectRatio: 16 / 10, backgroundColor: "#FFF0EC", position: "relative" },
+  missionImage: { width: "100%", height: "100%" },
+  missionImageFallback: { flex: 1, alignItems: "center", justifyContent: "center" },
+  doneBadge: {
+    position: "absolute", top: 10, right: 10, backgroundColor: "#4CAF50",
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+  },
+  doneBadgeText: { fontSize: 11, fontWeight: "bold", color: "#fff" },
+  missionBody: { padding: 14 },
+  missionNameKr: { fontSize: 17, fontWeight: "bold", color: "#222" },
+  missionNameEn: { fontSize: 12, color: "#FF5722", marginTop: 2 },
+  missionDesc: { fontSize: 12, color: "#888" },
+  missionBtn: { width: 40, height: 40, backgroundColor: "#FF5722", borderRadius: 20, alignItems: "center", justifyContent: "center" },
   emptyText: { fontSize: 13, color: "#999", textAlign: "center", marginTop: 20 },
   errorBox: { alignItems: "center", marginTop: 20, gap: 12 },
   retryBtn: {

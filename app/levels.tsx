@@ -1,5 +1,5 @@
 import { useAuth } from "@/src/contexts/AuthContext";
-import { getUser } from "@/src/firebase/dishService";
+import { getFallbackDishPhoto, getUser } from "@/src/firebase/dishService";
 import { db } from "@/src/firebase/firebaseConfig";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -47,6 +47,9 @@ export default function LevelsScreen() {
   // (explore.tsx, dish-reviews.tsx 등 다른 화면에서 이미 쓰던 패턴을 여기에도 적용)
   const [loadError, setLoadError] = useState(false);
   const [openLevels, setOpenLevels] = useState<Set<number>>(new Set());
+  // 공식 사진(dish.image)이 없는 요리만, 유저 리뷰 사진으로 보완한 썸네일.
+  // explore.tsx와 동일한 패턴 (dishId -> imageUrl).
+  const [fallbackPhotos, setFallbackPhotos] = useState<Record<string, string>>({});
 
   const load = async () => {
     if (!authUser) {
@@ -88,6 +91,16 @@ export default function LevelsScreen() {
 
       setDishesByLevel(grouped);
       setLevelInfo(infos);
+
+      // 공식 사진이 없는 요리만 리뷰 사진으로 보완 시도 (explore.tsx와 동일 - 목록 렌더링을
+      // 막지 않는 백그라운드 조회, 실패해도 조용히 무시하고 🍽️ 자리표시자로 남음).
+      Object.values(grouped).flat().filter((d) => !d.image).forEach((d) => {
+        getFallbackDishPhoto(d.id)
+          .then((url) => {
+            if (url) setFallbackPhotos((prev) => ({ ...prev, [d.id]: url }));
+          })
+          .catch(() => {});
+      });
     } catch (err) {
       console.error("레벨 데이터 로딩 오류:", err);
       setLoadError(true);
@@ -199,15 +212,17 @@ export default function LevelsScreen() {
                   <Text style={s.chevron}>{isOpen ? "▲" : "▼"}</Text>
                 </TouchableOpacity>
 
+                {/* 타베로그 참고: 요리 썸네일을 크게 - explore.tsx 2열 그리드와 동일한 카드 스타일 */}
                 {isOpen && (
-                  <View>
+                  <View style={s.dishGrid}>
                     {dishes.map((dish) => {
                       const isCompleted = completedIds.has(dish.id);
+                      const thumb = dish.image || fallbackPhotos[dish.id];
                       return (
                         <TouchableOpacity
                           key={dish.id}
-                          style={s.dishRow}
-                          activeOpacity={0.6}
+                          style={s.dishCard}
+                          activeOpacity={0.85}
                           onPress={() =>
                             router.push({
                               pathname: "/mission/start",
@@ -225,38 +240,42 @@ export default function LevelsScreen() {
                             })
                           }
                         >
-                          <View style={s.dishThumb}>
-                            {dish.image ? (
+                          <View style={s.dishCardImageWrap}>
+                            {thumb ? (
                               <Image
-                                source={{ uri: dish.image }}
-                                style={s.dishThumbImg}
+                                source={{ uri: thumb }}
+                                style={s.dishCardImage}
                                 contentFit="cover"
                                 transition={150}
                               />
                             ) : (
-                              <Text style={s.dishThumbFallback}>🍽️</Text>
+                              <View style={s.dishCardImageFallback}>
+                                <Text style={{ fontSize: 34 }}>🍽️</Text>
+                              </View>
                             )}
-                            <View style={s.dishNoBadge}>
-                              <Text style={s.dishNoBadgeText}>{dish.no}</Text>
+                            <View style={s.dishCardNoBadge}>
+                              <Text style={s.dishCardNoBadgeText}>No.{dish.no}</Text>
                             </View>
                             {isCompleted && (
-                              <View style={s.completedStamp}>
-                                <Text style={s.completedStampText}>완료</Text>
+                              <View style={s.dishCardDoneStamp}>
+                                <Text style={s.dishCardDoneStampText}>완료</Text>
                               </View>
                             )}
                           </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={s.dishNameKr}>{dish.name_kr}</Text>
-                            <Text style={s.dishNameEn} numberOfLines={1}>{dish.name_en}</Text>
+                          <View style={s.dishCardBody}>
+                            <Text style={s.dishCardNameKr} numberOfLines={1}>{dish.name_kr}</Text>
+                            <Text style={s.dishCardNameEn} numberOfLines={1}>{dish.name_en}</Text>
+                            <View style={s.dishCardSpiceRow}>
+                              {Array.from({ length: 5 }, (_, i) => (
+                                <Text
+                                  key={i}
+                                  style={[s.dishCardSpiceIcon, i >= (dish.spice_level ?? 0) && s.dishCardSpiceIconOff]}
+                                >
+                                  🌶️
+                                </Text>
+                              ))}
+                            </View>
                           </View>
-                          {dish.spice_level ? (
-                            <Text style={s.spiceText}>
-                              {"🌶️".repeat(Math.max(1, Math.min(5, dish.spice_level)))}
-                            </Text>
-                          ) : (
-                            <Text style={s.spiceTextMild}>안매움</Text>
-                          )}
-                          <Text style={s.dishArrow}>›</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -310,32 +329,34 @@ const s = StyleSheet.create({
   mineTagText: { color: "#fff", fontSize: 10, fontWeight: "bold" },
   doneCheck: { color: "#4CAF50", fontWeight: "bold", fontSize: 13 },
   chevron: { fontSize: 11, color: "#888" },
-  dishRow: {
-    flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 11,
-    backgroundColor: "#fff", gap: 12,
-    borderBottomWidth: 0.5, borderBottomColor: "#f5f5f5",
+
+  // 요리 카드 그리드 (2열, explore.tsx dishCard와 동일한 스타일 - 타베로그 참고)
+  dishGrid: {
+    flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between",
+    backgroundColor: "#fff", paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4,
   },
-  dishThumb: {
-    width: 52, height: 52, borderRadius: 12, backgroundColor: "#FFF0EC",
-    alignItems: "center", justifyContent: "center", overflow: "hidden",
+  dishCard: {
+    width: "48%", backgroundColor: "#fff", borderRadius: 14, overflow: "hidden",
+    marginBottom: 12, borderWidth: 0.5, borderColor: "#eee",
   },
-  dishThumbImg: { width: "100%", height: "100%" },
-  dishThumbFallback: { fontSize: 22 },
-  dishNoBadge: {
-    position: "absolute", top: 3, left: 3, minWidth: 16, height: 16, borderRadius: 8,
-    backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center",
-    paddingHorizontal: 3,
+  dishCardImageWrap: { width: "100%", aspectRatio: 1, backgroundColor: "#FFF0EC", position: "relative" },
+  dishCardImage: { width: "100%", height: "100%" },
+  dishCardImageFallback: { flex: 1, alignItems: "center", justifyContent: "center" },
+  dishCardNoBadge: {
+    position: "absolute", top: 8, left: 8, backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3,
   },
-  dishNoBadgeText: { fontSize: 9, color: "#fff", fontWeight: "bold" },
-  completedStamp: {
-    position: "absolute", bottom: 3, right: 3, borderWidth: 1.5, borderColor: "#4CAF50",
-    borderRadius: 6, paddingHorizontal: 4, paddingVertical: 1, backgroundColor: "rgba(255,255,255,0.95)",
+  dishCardNoBadgeText: { fontSize: 10, color: "#fff", fontWeight: "bold" },
+  dishCardDoneStamp: {
+    position: "absolute", bottom: 8, right: 8, borderWidth: 1.5, borderColor: "#4CAF50",
+    borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2, backgroundColor: "rgba(255,255,255,0.95)",
     transform: [{ rotate: "-14deg" }],
   },
-  completedStampText: { fontSize: 9, fontWeight: "bold", color: "#4CAF50" },
-  dishNameKr: { fontSize: 14, fontWeight: "600", color: "#222" },
-  dishNameEn: { fontSize: 12, color: "#888", marginTop: 1 },
-  spiceText: { fontSize: 10 },
-  spiceTextMild: { fontSize: 10, color: "#4CAF50", fontWeight: "700" },
-  dishArrow: { fontSize: 18, color: "#ccc", marginLeft: 2 },
+  dishCardDoneStampText: { fontSize: 10, fontWeight: "bold", color: "#4CAF50" },
+  dishCardBody: { padding: 10 },
+  dishCardNameKr: { fontSize: 14, fontWeight: "700", color: "#222" },
+  dishCardNameEn: { fontSize: 11, color: "#888", marginTop: 2 },
+  dishCardSpiceRow: { flexDirection: "row", marginTop: 6 },
+  dishCardSpiceIcon: { fontSize: 10 },
+  dishCardSpiceIconOff: { opacity: 0.2 },
 });
