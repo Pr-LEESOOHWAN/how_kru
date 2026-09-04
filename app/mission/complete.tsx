@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -24,6 +24,9 @@ export default function MissionCompleteScreen() {
     restaurantName?: string;
   }>();
   const saved = useRef(false);
+  // 이미 완료했던 요리를 다시 완료한 경우(XP 중복 지급 없음). 다음 화면(kick →
+  // level-progress)에도 params로 넘겨서 진행률 "+X% 상승" 계산이 어긋나지 않게 한다.
+  const [alreadyCompleted, setAlreadyCompleted] = useState(false);
 
   // 이모지/텍스트 등장 애니메이션
   const emojiScale = useRef(new Animated.Value(0)).current;
@@ -51,17 +54,19 @@ export default function MissionCompleteScreen() {
   // 반영이 안 되는 상황이 생긴다.
   const saveCompletion = () => {
     if (!params.dishId || !user) return;
-    markDishCompleted(user.uid, params.dishId).catch((err) => {
-      console.error("[mission/complete] markDishCompleted failed:", err);
-      Alert.alert(
-        "완료 기록 저장 실패",
-        "네트워크 문제로 미션 완료가 저장되지 않았어요. 다시 시도할까요?",
-        [
-          { text: "나중에", style: "cancel" },
-          { text: "다시 시도", onPress: saveCompletion },
-        ]
-      );
-    });
+    markDishCompleted(user.uid, params.dishId)
+      .then(({ alreadyCompleted: dup }) => setAlreadyCompleted(dup))
+      .catch((err) => {
+        console.error("[mission/complete] markDishCompleted failed:", err);
+        Alert.alert(
+          "완료 기록 저장 실패",
+          "네트워크 문제로 미션 완료가 저장되지 않았어요. 다시 시도할까요?",
+          [
+            { text: "나중에", style: "cancel" },
+            { text: "다시 시도", onPress: saveCompletion },
+          ]
+        );
+      });
   };
 
   useEffect(() => {
@@ -117,7 +122,10 @@ export default function MissionCompleteScreen() {
   }, []);
 
   const handleNext = () => {
-    router.push({ pathname: "/mission/kick", params });
+    router.push({
+      pathname: "/mission/kick",
+      params: { ...params, ...(alreadyCompleted ? { alreadyCompleted: "1" } : {}) },
+    });
   };
 
   // 미션 완료 직후가 "방금 그 식당에서 찍은 사진"을 가장 구하기 쉬운 시점이라 여기에
@@ -182,7 +190,7 @@ export default function MissionCompleteScreen() {
 
         <Animated.View style={[s.rewardRow, { transform: [{ scale: rewardScale }] }]}>
           <View style={s.rewardCard}>
-            <Text style={s.rewardValue}>+50</Text>
+            <Text style={s.rewardValue}>{alreadyCompleted ? "+0" : "+50"}</Text>
             <Text style={s.rewardLabel}>XP</Text>
           </View>
           <View style={s.rewardCard}>
@@ -190,6 +198,10 @@ export default function MissionCompleteScreen() {
             <Text style={s.rewardLabel}>New Badge</Text>
           </View>
         </Animated.View>
+
+        {alreadyCompleted && (
+          <Text style={s.dupNote}>이미 완료했던 요리라 XP는 중복 지급되지 않아요</Text>
+        )}
       </View>
 
       <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 32) }]}>
@@ -219,6 +231,7 @@ const s = StyleSheet.create({
   },
   rewardValue: { fontSize: 24, fontWeight: "bold", color: "#FF5722" },
   rewardLabel: { fontSize: 12, color: "#993C1D", marginTop: 4, fontWeight: "600" },
+  dupNote: { fontSize: 12, color: "#999", marginTop: 16, textAlign: "center" },
   footer: { padding: 20, paddingBottom: 32, gap: 10 },
   primaryBtn: { backgroundColor: "#FF5722", borderRadius: 16, paddingVertical: 16, alignItems: "center" },
   primaryBtnText: { color: "#fff", fontSize: 17, fontWeight: "bold" },

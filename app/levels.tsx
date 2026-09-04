@@ -244,7 +244,10 @@ export default function LevelsScreen() {
                                 desc: dish.category
                                   ? `${dish.category} · Lv.${dish.level}`
                                   : `Lv.${dish.level}`,
-                                spice: String(dish.spice_level ?? 1),
+                                // index.tsx와 동일하게 기본값 0 (매운맛 정보 없는 요리에
+                                // 고추 1개가 찍히지 않게)
+                                spice: String(dish.spice_level ?? 0),
+                                ...(thumb ? { image: thumb } : {}),
                               },
                             })
                           }

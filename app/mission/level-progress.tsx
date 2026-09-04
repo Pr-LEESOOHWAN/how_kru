@@ -17,7 +17,11 @@ export default function LevelProgressScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
-  const params = useLocalSearchParams<{ name_kr: string }>();
+  // alreadyCompleted: complete.tsx에서 "이미 완료했던 요리를 다시 완료"한 경우 "1"로
+  // 넘어온다. 이때는 이번 미션으로 진행 개수가 늘어난 게 아니므로 "+X% 상승"
+  // 계산에서 이전 값을 progress-1로 잡으면 안 된다.
+  const params = useLocalSearchParams<{ name_kr: string; alreadyCompleted?: string }>();
+  const alreadyCompleted = params.alreadyCompleted === "1";
 
   const [loading, setLoading] = useState(true);
   const [display, setDisplay] = useState(FALLBACK);
@@ -53,7 +57,7 @@ export default function LevelProgressScreen() {
         const hasRequiredCount = levelSnap.exists() && typeof levelData.required_count === "number";
         const requiredCount = levelData.required_count ?? Math.max(progress, 1);
 
-        const prevProgress = Math.max(0, progress - 1);
+        const prevProgress = alreadyCompleted ? progress : Math.max(0, progress - 1);
         const prevPct = Math.min(100, Math.round((prevProgress / requiredCount) * 100));
         const newPct = Math.min(100, Math.round((progress / requiredCount) * 100));
         const didLevelUp = hasRequiredCount && progress >= requiredCount && level < MAX_LEVEL;
@@ -102,6 +106,7 @@ export default function LevelProgressScreen() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser, retryCount]);
 
   const goHome = () => {
@@ -162,7 +167,11 @@ export default function LevelProgressScreen() {
             />
           </View>
           <Text style={s.xpDelta}>
-            {leveledUp ? "레벨 업! 🎉" : `+${Math.max(0, display.newPct - display.prevPct)}% 상승했어요 🎉`}
+            {leveledUp
+              ? "레벨 업! 🎉"
+              : alreadyCompleted
+                ? "이미 완료했던 요리라 진행률은 그대로예요"
+                : `+${Math.max(0, display.newPct - display.prevPct)}% 상승했어요 🎉`}
           </Text>
 
           <View style={s.metaRow}>

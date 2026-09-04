@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,6 +27,7 @@ export default function MissionStartScreen() {
     name_en: string;
     desc: string;
     spice: string;
+    image?: string;
   }>();
   const spice = Number(params.spice ?? 1);
 
@@ -48,7 +50,11 @@ export default function MissionStartScreen() {
 
       <View style={s.body}>
         <View style={s.dishCard}>
-          <Text style={{ fontSize: 56 }}>🍽️</Text>
+          {params.image ? (
+            <Image source={{ uri: params.image }} style={s.dishImage} contentFit="cover" transition={150} />
+          ) : (
+            <Text style={{ fontSize: 56 }}>🍽️</Text>
+          )}
         </View>
 
         <Text style={s.nameKr}>{params.name_kr}</Text>
@@ -108,8 +114,9 @@ const s = StyleSheet.create({
   body: { flex: 1, alignItems: "center", paddingHorizontal: 24, paddingTop: 28 },
   dishCard: {
     width: 120, height: 120, borderRadius: 60, backgroundColor: "#FFF0EC",
-    alignItems: "center", justifyContent: "center", marginBottom: 18,
+    alignItems: "center", justifyContent: "center", marginBottom: 18, overflow: "hidden",
   },
+  dishImage: { width: "100%", height: "100%" },
   nameKr: { fontSize: 26, fontWeight: "bold", color: "#222" },
   nameEn: { fontSize: 15, color: "#FF5722", marginTop: 2, marginBottom: 8 },
   desc: { fontSize: 14, color: "#888", textAlign: "center", marginTop: 10, lineHeight: 20 },

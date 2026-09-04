@@ -148,6 +148,7 @@ export default function HomeScreen() {
   };
 
   const startMission = (dish: Dish) => {
+    const thumb = dish.image || fallbackPhotos[dish.id];
     router.push({
       pathname: "/mission/start",
       params: {
@@ -156,6 +157,8 @@ export default function HomeScreen() {
         name_en: dish.name_en,
         desc: dish.category ? `${dish.category} · Lv.${dish.level}` : `Lv.${dish.level}`,
         spice: String(dish.spice_level ?? 0),
+        // 미션 시작 화면에서 요리 사진을 보여주기 위해 함께 넘김 (없으면 이모지 fallback)
+        ...(thumb ? { image: thumb } : {}),
       },
     });
   };

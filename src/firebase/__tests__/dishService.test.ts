@@ -3,7 +3,7 @@
 // 없는 유저 문서에서 undefined.filter()로 죽는" 버그가 화면별 스크린샷으로만
 // 발견됐던 전례가 있어, 최소한 이 파일의 로직만이라도 유닛 테스트로 고정해둔다.
 
-import { addDoc, getDoc, getDocs } from "firebase/firestore";
+import { addDoc, getDoc, getDocs, setDoc } from "firebase/firestore";
 import {
   addReview,
   Dish,
@@ -12,6 +12,7 @@ import {
   getProgressInLevel,
   getRestaurantThumbnail,
   getUser,
+  markDishCompleted,
   Review,
   User,
 } from "../dishService";
@@ -43,6 +44,7 @@ jest.mock("../firebaseConfig", () => ({ db: {}, storage: {} }));
 const mockGetDoc = getDoc as jest.Mock;
 const mockGetDocs = getDocs as jest.Mock;
 const mockAddDoc = addDoc as jest.Mock;
+const mockSetDoc = setDoc as jest.Mock;
 
 function fakeReviewSnapshot(reviews: (Partial<Review> & { id?: string })[]) {
   return {
@@ -183,5 +185,35 @@ describe("addReview", () => {
     const savedData = mockAddDoc.mock.calls[0][1];
     expect(savedData).not.toHaveProperty("restaurantId");
     expect(savedData).not.toHaveProperty("restaurantName");
+  });
+});
+
+describe("markDishCompleted", () => {
+  it("처음 완료하는 요리는 completed_dishes에 추가하고 XP를 지급한다", async () => {
+    mockGetDoc.mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({ completed_dishes: ["d1"] }),
+    });
+    await expect(markDishCompleted("u1", "d2")).resolves.toEqual({ alreadyCompleted: false });
+    const savedData = mockSetDoc.mock.calls[mockSetDoc.mock.calls.length - 1][1];
+    expect(savedData.completed_dishes).toEqual({ __type: "arrayUnion", v: "d2" });
+    expect(savedData.xp).toEqual({ __type: "increment", n: 50 });
+  });
+
+  it("이미 완료한 요리를 다시 완료하면 XP를 중복 지급하지 않는다", async () => {
+    mockGetDoc.mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({ completed_dishes: ["d1", "d2"] }),
+    });
+    await expect(markDishCompleted("u1", "d2")).resolves.toEqual({ alreadyCompleted: true });
+    const savedData = mockSetDoc.mock.calls[mockSetDoc.mock.calls.length - 1][1];
+    expect(savedData).not.toHaveProperty("xp");
+  });
+
+  it("유저 문서가 없어도(첫 완료) XP를 지급한다", async () => {
+    mockGetDoc.mockResolvedValueOnce({ exists: () => false });
+    await expect(markDishCompleted("u1", "d1")).resolves.toEqual({ alreadyCompleted: false });
+    const savedData = mockSetDoc.mock.calls[mockSetDoc.mock.calls.length - 1][1];
+    expect(savedData.xp).toEqual({ __type: "increment", n: 50 });
   });
 });

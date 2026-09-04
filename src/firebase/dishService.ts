@@ -80,12 +80,27 @@ const MISSION_COMPLETE_XP = 50;
 // 영구히 0으로 남아있던 문제가 있었다 (level/levelName을 나중에 동기화해준
 // levelUp()과 같은 종류의 문제). 화면에 이미 보여주고 있는 보상 값만큼
 // 실제로 xp 필드에 누적되도록 함께 저장한다.
-export const markDishCompleted = async (userId: string, dishId: string) => {
+//
+// 이미 완료한 요리를 다시 미션으로 진행하는 경우(레벨 화면에서 "완료" 스탬프가
+// 찍힌 요리도 탭할 수 있음), completed_dishes는 arrayUnion이라 중복이 안 생기지만
+// xp는 increment라 매번 +50이 또 쌓이는 버그가 있었다. 그래서 먼저 완료 여부를
+// 확인하고, 처음 완료할 때만 XP를 지급한다. 반환값의 alreadyCompleted로 화면에서
+// "이번엔 XP 중복 지급 없음"을 안내할 수 있다.
+export const markDishCompleted = async (
+  userId: string,
+  dishId: string
+): Promise<{ alreadyCompleted: boolean }> => {
+  const user = await getUser(userId);
+  const alreadyCompleted = (user?.completed_dishes ?? []).includes(dishId);
   await setDoc(
     doc(db, "users", userId),
-    { completed_dishes: arrayUnion(dishId), xp: increment(MISSION_COMPLETE_XP) },
+    {
+      completed_dishes: arrayUnion(dishId),
+      ...(alreadyCompleted ? {} : { xp: increment(MISSION_COMPLETE_XP) }),
+    },
     { merge: true }
   );
+  return { alreadyCompleted };
 };
 
 // "이 요리의 킥이 뭐였나요?" 답변만 별도로 저장
