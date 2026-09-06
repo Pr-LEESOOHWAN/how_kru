@@ -1,5 +1,6 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
 import {
     Alert,
@@ -22,6 +23,7 @@ export default function CameraScreen() {
   const [scanned, setScanned] = useState(false);
   const [flash, setFlash] = useState(false);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   // 권한 요청
   useEffect(() => {
@@ -87,7 +89,7 @@ export default function CameraScreen() {
       <View style={s.overlay}>
 
         {/* 상단 헤더 */}
-        <View style={s.topBar}>
+        <View style={[s.topBar, { paddingTop: Math.max(insets.top, 20) + 12 }]}>
           <TouchableOpacity style={s.iconBtn} onPress={() => router.back()}>
             <Text style={s.iconBtnText}>✕</Text>
           </TouchableOpacity>
@@ -181,7 +183,7 @@ const s = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)" },
 
   // 상단 헤더
-  topBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16 },
+  topBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingBottom: 16 },
   iconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
   iconBtnText: { fontSize: 16, color: "#fff" },
   topTitle: { fontSize: 16, fontWeight: "bold", color: "#fff" },
@@ -218,4 +220,4 @@ const s = StyleSheet.create({
   captureBtn: { width: 72, height: 72, borderRadius: 36, backgroundColor: "rgba(255,255,255,0.3)", alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: "#fff" },
   captureBtnScanned: { borderColor: "#4CAF50" },
   captureBtnInner: { width: 54, height: 54, borderRadius: 27, backgroundColor: "#fff" },
-});
+});

@@ -6,6 +6,7 @@ import { logOut } from "@/src/firebase/authService";
 import { t } from "@/src/i18n/strings";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { doc, getDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -50,6 +51,7 @@ function pickTodayChallenges(levelDishes: Dish[], completedIds: Set<string>): Di
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
   const { language } = useLanguage();
 
@@ -176,7 +178,7 @@ export default function HomeScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
 
         {/* 헤더 */}
-        <View style={s.header}>
+        <View style={[s.header, { paddingTop: Math.max(insets.top, 20) + 12 }]}>
           <View>
             <Text style={s.appTitle}>HOW KRU 🌶️</Text>
             <Text style={s.greeting}>{t("homeGreeting", language)}, {displayName}!</Text>
@@ -291,7 +293,7 @@ export default function HomeScreen() {
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#F5F5F5" },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#fff", padding: 18, paddingTop: 54 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#fff", padding: 18 },
   appTitle: { fontSize: 20, fontWeight: "bold", color: "#222" },
   greeting: { fontSize: 13, color: "#888", marginTop: 2 },
   avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#FF7043", alignItems: "center", justifyContent: "center" },

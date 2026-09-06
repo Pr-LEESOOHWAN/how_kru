@@ -133,6 +133,7 @@ export default function KickScreen() {
                 onChangeText={setCustomText}
                 multiline
                 maxLength={80}
+                autoFocus
               />
             )}
           </>

@@ -188,7 +188,7 @@ export default function VerifyScreen() {
       <View style={s.root}>
         <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
         <View style={s.scanOverlay}>
-          <View style={s.scanTopBar}>
+          <View style={[s.scanTopBar, { paddingTop: Math.max(insets.top, 20) + 12 }]}>
             <TouchableOpacity style={s.scanIconBtn} onPress={() => setActiveShot(null)}>
               <Text style={s.scanIconBtnText}>✕</Text>
             </TouchableOpacity>
@@ -226,7 +226,7 @@ export default function VerifyScreen() {
 
   return (
     <View style={s.root}>
-      <View style={s.header}>
+      <View style={[s.header, { paddingTop: Math.max(insets.top, 20) + 14 }]}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Text style={s.backText}>‹</Text>
         </TouchableOpacity>
@@ -368,7 +368,7 @@ const s = StyleSheet.create({
   scrollContent: { paddingBottom: 16 },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    backgroundColor: "#fff", paddingHorizontal: 12, paddingTop: 54, paddingBottom: 14,
+    backgroundColor: "#fff", paddingHorizontal: 12, paddingBottom: 14,
     borderBottomWidth: 0.5, borderBottomColor: "#eee",
   },
   backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
@@ -425,7 +425,7 @@ const s = StyleSheet.create({
   scanOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)" },
   scanTopBar: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16,
+    paddingHorizontal: 20, paddingBottom: 16,
   },
   scanIconBtn: {
     width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.15)",

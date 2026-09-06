@@ -9,6 +9,7 @@ import Slider from "@react-native-community/slider";
 import * as Location from "expo-location";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -31,6 +32,7 @@ type SortBy = "distance" | "rating";
 
 export default function ChooseRestaurantScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     dishId: string;
     name_kr: string;
@@ -183,7 +185,7 @@ export default function ChooseRestaurantScreen() {
 
   return (
     <View style={s.root}>
-      <View style={s.header}>
+      <View style={[s.header, { paddingTop: Math.max(insets.top, 20) + 14 }]}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Text style={s.backText}>‹</Text>
         </TouchableOpacity>
@@ -351,7 +353,7 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#F5F5F5" },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    backgroundColor: "#fff", paddingHorizontal: 12, paddingTop: 54, paddingBottom: 14,
+    backgroundColor: "#fff", paddingHorizontal: 12, paddingBottom: 14,
     borderBottomWidth: 0.5, borderBottomColor: "#eee",
   },
   backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },

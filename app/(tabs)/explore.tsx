@@ -5,6 +5,7 @@ import { db } from "@/src/firebase/firebaseConfig";
 import { getFallbackDishPhoto } from "@/src/firebase/dishService";
 import { t } from "@/src/i18n/strings";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { collection, getDocs } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
@@ -41,6 +42,7 @@ type GroupedDishes = {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
   const { language } = useLanguage();
   const [grouped, setGrouped] = useState<GroupedDishes>({});
@@ -145,7 +147,7 @@ export default function HomeScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
 
         {/* ── 헤더 ── */}
-        <View style={s.header}>
+        <View style={[s.header, { paddingTop: Math.max(insets.top, 20) + 12 }]}>
           <View>
             <Text style={s.appTitle}>HOW KRU 🌶️</Text>
             <Text style={s.greeting}>{t("homeGreeting", language)}, {displayName}!</Text>
@@ -363,7 +365,7 @@ const s = StyleSheet.create({
   // 헤더
   header: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    backgroundColor: "#fff", padding: 18, paddingTop: 54,
+    backgroundColor: "#fff", padding: 18,
   },
   appTitle: { fontSize: 20, fontWeight: "bold", color: "#222" },
   greeting: { fontSize: 13, color: "#888", marginTop: 2 },

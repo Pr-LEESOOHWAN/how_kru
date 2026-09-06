@@ -40,7 +40,7 @@ export default function MissionStartScreen() {
 
   return (
     <View style={s.root}>
-      <View style={s.header}>
+      <View style={[s.header, { paddingTop: Math.max(insets.top, 20) + 14 }]}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Text style={s.backText}>‹</Text>
         </TouchableOpacity>
@@ -105,7 +105,7 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#F5F5F5" },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    backgroundColor: "#fff", paddingHorizontal: 12, paddingTop: 54, paddingBottom: 14,
+    backgroundColor: "#fff", paddingHorizontal: 12, paddingBottom: 14,
     borderBottomWidth: 0.5, borderBottomColor: "#eee",
   },
   backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
