@@ -1,6 +1,15 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Easing,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -27,6 +36,10 @@ export default function MissionCompleteScreen() {
   // 이미 완료했던 요리를 다시 완료한 경우(XP 중복 지급 없음). 다음 화면(kick →
   // level-progress)에도 params로 넘겨서 진행률 "+X% 상승" 계산이 어긋나지 않게 한다.
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
+  // 완료 기록 저장이 아직 진행 중인지. 저장이 끝나기 전에 "다음으로"를 누르면
+  // level-progress 화면이 Firestore에서 아직 반영 안 된 진행 개수를 읽어
+  // 진행률/레벨업 판정이 어긋나므로, 저장 중에는 버튼을 잠시 잠근다.
+  const [saving, setSaving] = useState(false);
 
   // 이모지/텍스트 등장 애니메이션
   const emojiScale = useRef(new Animated.Value(0)).current;
@@ -54,8 +67,10 @@ export default function MissionCompleteScreen() {
   // 반영이 안 되는 상황이 생긴다.
   const saveCompletion = () => {
     if (!params.dishId || !user) return;
+    setSaving(true);
     markDishCompleted(user.uid, params.dishId)
       .then(({ alreadyCompleted: dup }) => setAlreadyCompleted(dup))
+      .finally(() => setSaving(false))
       .catch((err) => {
         console.error("[mission/complete] markDishCompleted failed:", err);
         Alert.alert(
@@ -195,7 +210,7 @@ export default function MissionCompleteScreen() {
           </View>
           <View style={s.rewardCard}>
             <Text style={s.rewardValue}>🏅</Text>
-            <Text style={s.rewardLabel}>New Badge</Text>
+            <Text style={s.rewardLabel}>{alreadyCompleted ? "이미 획득한 뱃지" : "New Badge"}</Text>
           </View>
         </Animated.View>
 
@@ -210,8 +225,16 @@ export default function MissionCompleteScreen() {
             <Text style={s.secondaryBtnText}>📷 {params.restaurantName} 리뷰 남기기</Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={s.primaryBtn} onPress={handleNext}>
-          <Text style={s.primaryBtnText}>다음으로</Text>
+        <TouchableOpacity
+          style={[s.primaryBtn, saving && s.primaryBtnDisabled]}
+          onPress={handleNext}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={s.primaryBtnText}>다음으로</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -235,6 +258,7 @@ const s = StyleSheet.create({
   footer: { padding: 20, paddingBottom: 32, gap: 10 },
   primaryBtn: { backgroundColor: "#FF5722", borderRadius: 16, paddingVertical: 16, alignItems: "center" },
   primaryBtnText: { color: "#fff", fontSize: 17, fontWeight: "bold" },
+  primaryBtnDisabled: { backgroundColor: "#FFC3AC" },
   secondaryBtn: {
     backgroundColor: "#FFF0EC", borderRadius: 16, paddingVertical: 14, alignItems: "center",
   },

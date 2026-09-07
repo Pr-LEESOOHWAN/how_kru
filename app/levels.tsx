@@ -250,6 +250,8 @@ export default function LevelsScreen() {
                                 // 고추 1개가 찍히지 않게)
                                 spice: String(dish.spice_level ?? 0),
                                 ...(thumb ? { image: thumb } : {}),
+                                // 완료한 요리는 미션 시작 화면에서 XP 중복 지급 안 됨을 미리 안내
+                                ...(isCompleted ? { completed: "1" } : {}),
                               },
                             })
                           }

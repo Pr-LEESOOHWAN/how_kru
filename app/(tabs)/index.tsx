@@ -161,6 +161,8 @@ export default function HomeScreen() {
         spice: String(dish.spice_level ?? 0),
         // 미션 시작 화면에서 요리 사진을 보여주기 위해 함께 넘김 (없으면 이모지 fallback)
         ...(thumb ? { image: thumb } : {}),
+        // 이미 완료한 요리면 미션 시작 화면에서 "+50 XP" 대신 중복 지급 안내를 보여줌
+        ...(completedIds.has(dish.id) ? { completed: "1" } : {}),
       },
     });
   };

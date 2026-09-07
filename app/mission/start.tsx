@@ -28,8 +28,12 @@ export default function MissionStartScreen() {
     desc: string;
     spice: string;
     image?: string;
+    // 홈/레벨 목록에서 이미 완료한 요리를 다시 눌렀을 때 "1". 완료 화면에서
+    // XP가 +0으로 뜨기 전에 미리 알려주기 위한 용도(보상 문구만 바꿈, 미션은 그대로 진행 가능).
+    completed?: string;
   }>();
   const spice = Number(params.spice ?? 1);
+  const alreadyCompleted = params.completed === "1";
 
   const handleStart = () => {
     router.push({
@@ -75,8 +79,10 @@ export default function MissionStartScreen() {
           ))}
         </View>
 
-        <View style={s.rewardPill}>
-          <Text style={s.rewardText}>완료 시 보상 +50 XP 🏅</Text>
+        <View style={[s.rewardPill, alreadyCompleted && s.rewardPillDone]}>
+          <Text style={[s.rewardText, alreadyCompleted && s.rewardTextDone]}>
+            {alreadyCompleted ? "✅ 이미 완료한 요리예요 · XP는 중복 지급되지 않아요" : "완료 시 보상 +50 XP 🏅"}
+          </Text>
         </View>
 
         <TouchableOpacity
@@ -139,6 +145,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 18, paddingVertical: 10,
   },
   rewardText: { color: "#FF5722", fontWeight: "bold", fontSize: 13 },
+  rewardPillDone: { backgroundColor: "#F0F0F0" },
+  rewardTextDone: { color: "#777" },
   reviewLink: { marginTop: 14, paddingVertical: 8 },
   reviewLinkText: { color: "#888", fontWeight: "600", fontSize: 13, textDecorationLine: "underline" },
   footer: { padding: 20, paddingBottom: 32 },
