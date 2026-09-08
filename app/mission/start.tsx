@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const SpiceIcon = ({ level }: { level: number }) => (
@@ -52,7 +52,14 @@ export default function MissionStartScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <View style={s.body}>
+      {/* 요리 사진 + 설명 + 미션 안내 4단계 + 보상/리뷰 링크까지 세로로 길어서, 작은
+          화면(예: iPhone SE)에서는 아래쪽 "이 요리 리뷰 보기"까지 잘려 보였다.
+          스크롤 가능하게 바꾸고, "미션 시작하기" 버튼은 아래에 계속 고정해둔다. */}
+      <ScrollView
+        style={s.bodyScroll}
+        contentContainerStyle={s.body}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={s.dishCard}>
           {params.image ? (
             <Image source={{ uri: params.image }} style={s.dishImage} contentFit="cover" transition={150} />
@@ -96,7 +103,7 @@ export default function MissionStartScreen() {
         >
           <Text style={s.reviewLinkText}>💬 이 요리 리뷰 보기</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
 
       <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 32) }]}>
         <TouchableOpacity style={s.startBtn} onPress={handleStart}>
@@ -117,7 +124,8 @@ const s = StyleSheet.create({
   backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   backText: { fontSize: 28, color: "#222" },
   headerTitle: { fontSize: 17, fontWeight: "bold", color: "#222" },
-  body: { flex: 1, alignItems: "center", paddingHorizontal: 24, paddingTop: 28 },
+  bodyScroll: { flex: 1 },
+  body: { alignItems: "center", paddingHorizontal: 24, paddingTop: 28, paddingBottom: 24 },
   dishCard: {
     width: 120, height: 120, borderRadius: 60, backgroundColor: "#FFF0EC",
     alignItems: "center", justifyContent: "center", marginBottom: 18, overflow: "hidden",

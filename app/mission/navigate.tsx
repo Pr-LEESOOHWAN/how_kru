@@ -1,3 +1,4 @@
+import { withJosa } from "@/src/i18n/josa";
 import { getPlaceReviews, GoogleReview, PlacesApiError } from "@/src/services/places";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -106,9 +107,13 @@ export default function NavigateScreen() {
       ? [`color:0x3E7FC1|label:U|${myLoc.lat},${myLoc.lng}`, destMarker]
       : [destMarker];
     const markerParams = markers.map((m) => `markers=${encodeURIComponent(m)}`).join("&");
+    // 마커가 2개면 구글이 둘 다 들어오게 알아서 확대/중심을 잡아준다. 아직 내 위치를
+    // 못 받아와 마커가 식당 1개뿐일 때는 기준이 될 범위가 없어 아주 넓게 잡히므로,
+    // 이 경우에만 식당 주변이 보이도록 zoom을 직접 지정한다.
+    const zoomParam = markers.length === 1 ? "&zoom=16" : "";
     return (
       `https://maps.googleapis.com/maps/api/staticmap?size=640x400&scale=2` +
-      `&maptype=roadmap&${markerParams}&key=${GOOGLE_MAPS_API_KEY}`
+      `&maptype=roadmap${zoomParam}&${markerParams}&key=${GOOGLE_MAPS_API_KEY}`
     );
   })();
 
@@ -150,7 +155,9 @@ export default function NavigateScreen() {
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Text style={s.backText}>‹</Text>
         </TouchableOpacity>
-        <Text style={s.headerTitle} numberOfLines={1}>{params.restaurantName}으로 이동</Text>
+        <Text style={s.headerTitle} numberOfLines={1}>
+          {withJosa(params.restaurantName, "으로")} 이동
+        </Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -197,8 +204,20 @@ export default function NavigateScreen() {
                   <Text style={{ color: "#FF5722", fontSize: 12, fontWeight: "bold" }}>🔄 다시 시도</Text>
                 </TouchableOpacity>
               </>
-            ) : locError ? (
-              <Text style={s.mapFallbackText}>위치 권한이 없어 지도 미리보기를 표시할 수 없어요.</Text>
+            ) : !GOOGLE_MAPS_API_KEY ? (
+              <Text style={s.mapFallbackText}>
+                지도 미리보기 설정이 아직 안 되어 있어요.{"\n"}
+                아래 "지도 앱으로 길찾기 열기"로 이동해주세요.
+              </Text>
+            ) : !hasDestCoords ? (
+              // 미리보기 지도는 "식당 좌표"만 있으면 그릴 수 있다(내 위치는 있으면 마커를
+              // 하나 더 얹는 정도). 좌표가 없으면 아무리 기다려도 지도가 안 나오므로,
+              // 예전처럼 로딩 스피너를 계속 돌리지 않고 바로 안내로 넘긴다.
+              <Text style={s.mapFallbackText}>
+                이 식당은 위치 좌표 정보가 없어 지도 미리보기를 표시할 수 없어요.{"\n"}
+                아래 "지도 앱으로 길찾기 열기"로 이동해주세요.
+                {locError ? "\n(위치 권한을 허용하면 내 위치도 함께 표시돼요.)" : ""}
+              </Text>
             ) : (
               <>
                 <ActivityIndicator color="#FF5722" />

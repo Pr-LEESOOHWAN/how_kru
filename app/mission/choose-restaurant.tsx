@@ -298,7 +298,15 @@ export default function ChooseRestaurantScreen() {
       {state === "ok" && visibleRestaurants.length === 0 && (
         <View style={s.centerBox}>
           <Text style={{ fontSize: 32 }}>😴</Text>
-          <Text style={s.centerText}>지금 영업 중인 식당이 없어요.</Text>
+          <Text style={s.centerText}>
+            지금 영업 중인 식당이 없어요. (검색된 {restaurants.length}곳 모두 영업종료)
+          </Text>
+          {/* 이 화면은 "영업중만 보기" 필터 때문에만 비어 보일 수 있는데, 필터 칩이
+              스크롤 위쪽에 작게 있어서 원인을 모른 채 막다른 길처럼 느껴졌다.
+              여기서 바로 필터를 끌 수 있게 해준다. */}
+          <TouchableOpacity style={s.retryBtn} onPress={() => setOpenOnly(false)}>
+            <Text style={s.retryBtnText}>영업종료 식당도 보기</Text>
+          </TouchableOpacity>
         </View>
       )}
 

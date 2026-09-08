@@ -5,10 +5,10 @@ import { db } from "@/src/firebase/firebaseConfig";
 import { logOut } from "@/src/firebase/authService";
 import { t } from "@/src/i18n/strings";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { doc, getDoc } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const MAX_LEVEL = 12;
@@ -72,8 +72,11 @@ export default function HomeScreen() {
   // 공식 사진(dish.image)이 없는 요리만, 유저 리뷰 사진으로 보완한 썸네일.
   // explore.tsx/levels.tsx와 동일한 패턴 (dishId -> imageUrl).
   const [fallbackPhotos, setFallbackPhotos] = useState<Record<string, string>>({});
-  // authUser가 바뀌지 않아도 재시도 버튼으로 다시 불러올 수 있게 별도 트리거로 관리
+  // authUser가 바뀌지 않아도 재시도 버튼/화면 재진입으로 다시 불러올 수 있게 별도 트리거로 관리
   const [reloadTick, setReloadTick] = useState(0);
+  // 첫 로딩인지 여부. 첫 로딩에만 전체 화면 스피너를 띄우고, 이후 새로고침은
+  // 기존 화면을 그대로 둔 채 조용히 갱신해서 탭을 오갈 때 화면이 깜빡이지 않게 한다.
+  const firstLoadRef = useRef(true);
 
   useEffect(() => {
     if (!authUser) {
@@ -82,7 +85,8 @@ export default function HomeScreen() {
     }
     let cancelled = false;
     (async () => {
-      setLoading(true);
+      // 아직 보여줄 데이터가 없을 때(첫 로딩/에러 후 재시도)만 스피너를 띄운다.
+      if (firstLoadRef.current || loadError) setLoading(true);
       setLoadError(false);
       try {
         const user = await getUser(authUser.uid);
@@ -123,13 +127,31 @@ export default function HomeScreen() {
         console.error("[home] 유저/미션 데이터 로딩 오류:", err);
         if (!cancelled) setLoadError(true);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          firstLoadRef.current = false;
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
+    // loadError는 "스피너를 띄울지" 판단에만 쓰는 읽기 전용 값이라 의존성에 넣지 않는다
+    // (넣으면 에러 → 재시도 시 effect가 두 번 도는 루프가 된다).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser, reloadTick]);
+
+  // 미션을 마치면 level-progress 화면이 router.dismissAll() → replace("/(tabs)")로
+  // 홈으로 돌려보내는데, 홈 탭은 그동안 계속 마운트된 상태라 최초 1회 불러온 데이터를
+  // 그대로 들고 있었다. 그래서 미션을 완료해도 레벨 카드의 XP/진행도·배지 개수·
+  // "완료" 스탬프가 앱을 껐다 켤 때까지 갱신되지 않았음. 화면에 다시 포커스가 올
+  // 때마다 조용히 다시 불러온다. (최초 진입은 위 effect가 이미 처리하므로 첫 포커스는 건너뜀)
+  useFocusEffect(
+    useCallback(() => {
+      if (firstLoadRef.current) return;
+      setReloadTick((v) => v + 1);
+    }, [])
+  );
 
   const displayName = authUser?.displayName || authUser?.email?.split("@")[0] || "친구";
   const avatarLetter = displayName.charAt(0).toUpperCase();
