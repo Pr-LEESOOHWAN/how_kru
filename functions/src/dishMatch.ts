@@ -40,10 +40,18 @@ export async function judgeDishPhoto(params: {
   const targetTags = (tags ?? []).map(normalize).filter(Boolean);
   const targetCategory = category ? normalize(category) : undefined;
 
-  // 1) 요리명과 정확히 일치하거나(짧은 라벨이 많아 부분 포함도 허용), 요리명이
-  //    라벨/웹 엔티티 문자열에 포함된 경우 - 가장 신뢰도 높은 매칭.
+  // 1) 요리명과 정확히 일치하거나, 라벨/웹 엔티티 문자열이 요리명 전체를 포함하는
+  //    경우(예: "korean bibimbap"이 "bibimbap"을 포함) - 가장 신뢰도 높은 매칭.
+  //
+  //    주의: 예전엔 반대 방향(targetName.includes(t), 요리명이 라벨을 포함)도 같이
+  //    허용했었는데, 그러면 "soup"처럼 아주 흔한 한 단어짜리 라벨이 "Bean Sprout Soup"
+  //    같이 그 단어를 포함하는 아무 요리명에나 걸려서, 완전히 다른 국물 요리 사진도
+  //    "high confidence"로 통과해버리는 문제가 있었다(실제로 재현 테스트로 확인함,
+  //    dishMatch.test.ts 참고). 이런 뭉뚱그린 단어는 아래 3번(카테고리) 단계가 이미
+  //    "완전히 확신은 못 하지만 비슷한 종류"로 낮은 신뢰도로 다뤄주므로, 여기서는
+  //    라벨이 요리명 전체를 담고 있는 방향만 신뢰도 높은 매칭으로 인정한다.
   const nameHit = normTerms.find(
-    (t) => t === targetName || (targetName.length > 3 && (t.includes(targetName) || targetName.includes(t)))
+    (t) => t === targetName || (targetName.length > 3 && t.includes(targetName))
   );
   if (nameHit) {
     return { matched: true, confidence: "high", reason: `사진에서 '${nameHit}'로 인식됐어요.` };

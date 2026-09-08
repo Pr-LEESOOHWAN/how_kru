@@ -106,6 +106,18 @@ export const verifyMission = onCall(
       reasons.push(dishJudgement.reason || `사진이 '${dish.name_kr}'로 보이지 않아요.`);
     }
 
+    // 예전엔 로그가 하나도 안 남아서, 실제로 몇 번 호출됐는데도(functions:log 확인)
+    // 그때 무슨 판정이 나왔는지 나중에 전혀 알 수 없었다. base64 이미지 자체는 크고
+    // 민감할 수 있어 찍지 않고, 판정에 필요한 값들만 남긴다.
+    console.log("[verifyMission] 판정 결과", {
+      dishId,
+      dishNameKr: dish.name_kr,
+      restaurantName,
+      verdict,
+      nameMatch: nameResult,
+      dishMatch: dishJudgement,
+    });
+
     return { verdict, nameMatch: nameResult, dishMatch: dishJudgement, reasons };
   }
 );
