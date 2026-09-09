@@ -69,7 +69,18 @@ export default function VerifyScreen() {
     return () => sub.remove();
   }, [activeShot, capturing]);
 
+  // 서버 인증(verifyMission)이 도는 몇 초 동안 Android 뒤로가기를 막는다. 그동안 화면을
+  // 빠져나가면 인증 결과가 이미 사라진 화면으로 돌아와 "pass"인데도 완료 화면으로
+  // 못 넘어가거나, 사진을 전부 잃고 처음부터 다시 찍어야 했다. (헤더의 ‹ 버튼과
+  // 재촬영 버튼도 같은 이유로 인증 중에는 잠근다)
+  useEffect(() => {
+    if (!verifying) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => true);
+    return () => sub.remove();
+  }, [verifying]);
+
   const openScan = async (key: ShotKey) => {
+    if (verifying) return;
     if (!permission?.granted) {
       const res = await requestPermission();
       if (!res.granted) {
@@ -227,7 +238,11 @@ export default function VerifyScreen() {
   return (
     <View style={s.root}>
       <View style={[s.header, { paddingTop: Math.max(insets.top, 20) + 14 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={[s.backBtn, verifying && { opacity: 0.3 }]}
+          disabled={verifying}
+        >
           <Text style={s.backText}>‹</Text>
         </TouchableOpacity>
         <Text style={s.headerTitle} numberOfLines={1}>{params.name_kr} 인증하기</Text>

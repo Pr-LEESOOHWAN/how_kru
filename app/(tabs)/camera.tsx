@@ -1,7 +1,7 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
     Alert,
     Dimensions,
@@ -24,6 +24,21 @@ export default function CameraScreen() {
   const [flash, setFlash] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  // 탭 화면은 다른 탭으로 옮겨가도 언마운트되지 않아서, 그동안 카메라(와 켜둔 손전등)가
+  // 백그라운드에서 계속 돌아 배터리를 먹고 손전등이 홈 탭에서도 켜진 채 남아 있었다.
+  // 이 탭이 실제로 보일 때만 CameraView를 그리고, 벗어나면 손전등/스캔 상태도 초기화한다.
+  const [isFocused, setIsFocused] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+      return () => {
+        setIsFocused(false);
+        setFlash(false);
+        setScanned(false);
+      };
+    }, [])
+  );
 
   // 권한 요청
   useEffect(() => {
@@ -79,11 +94,13 @@ export default function CameraScreen() {
 
   return (
     <View style={s.root}>
-      <CameraView
-        style={StyleSheet.absoluteFill}
-        facing="back"
-        enableTorch={flash}
-      />
+      {isFocused && (
+        <CameraView
+          style={StyleSheet.absoluteFill}
+          facing="back"
+          enableTorch={flash}
+        />
+      )}
 
       {/* 어두운 오버레이 */}
       <View style={s.overlay}>

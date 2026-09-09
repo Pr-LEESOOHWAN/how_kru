@@ -85,34 +85,47 @@ export default function DishReviewsScreen() {
 
   // 카메라로 촬영 / 앨범에서 선택 중 고르게 한다. 둘 다 라이브러리 자체 권한 요청을
   // 거치므로 여기서 별도로 권한을 먼저 체크하지 않고, 각 launch 함수의 결과로 판단한다.
+  // launch* 함수는 카메라 사용 불가(에뮬레이터/기기 이슈), 다른 앱이 카메라 점유 중 등의
+  // 경우 예외를 던지는데, 그동안 잡지 않아서 아무 반응 없이 끝나고 콘솔에만
+  // unhandled rejection이 남았다. 이유를 알려주고 다시 시도할 수 있게 한다.
   const pickPhoto = () => {
     Alert.alert("사진 추가", undefined, [
       { text: "취소", style: "cancel" },
       {
         text: "카메라로 촬영",
         onPress: async () => {
-          const perm = await ImagePicker.requestCameraPermissionsAsync();
-          if (!perm.granted) {
-            Alert.alert("카메라 권한이 필요해요", "설정에서 카메라 권한을 허용해주세요.");
-            return;
+          try {
+            const perm = await ImagePicker.requestCameraPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert("카메라 권한이 필요해요", "설정에서 카메라 권한을 허용해주세요.");
+              return;
+            }
+            const res = await ImagePicker.launchCameraAsync({ quality: 0.6 });
+            if (!res.canceled && res.assets[0]) setPhotoUri(res.assets[0].uri);
+          } catch (err) {
+            console.error("리뷰 사진 촬영 오류:", err);
+            Alert.alert("촬영 실패", "카메라를 열지 못했어요. 다시 시도해주세요.");
           }
-          const res = await ImagePicker.launchCameraAsync({ quality: 0.6 });
-          if (!res.canceled && res.assets[0]) setPhotoUri(res.assets[0].uri);
         },
       },
       {
         text: "앨범에서 선택",
         onPress: async () => {
-          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-          if (!perm.granted) {
-            Alert.alert("사진 접근 권한이 필요해요", "설정에서 사진 접근 권한을 허용해주세요.");
-            return;
+          try {
+            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert("사진 접근 권한이 필요해요", "설정에서 사진 접근 권한을 허용해주세요.");
+              return;
+            }
+            const res = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ["images"],
+              quality: 0.6,
+            });
+            if (!res.canceled && res.assets[0]) setPhotoUri(res.assets[0].uri);
+          } catch (err) {
+            console.error("리뷰 사진 선택 오류:", err);
+            Alert.alert("사진 선택 실패", "앨범을 열지 못했어요. 다시 시도해주세요.");
           }
-          const res = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ["images"],
-            quality: 0.6,
-          });
-          if (!res.canceled && res.assets[0]) setPhotoUri(res.assets[0].uri);
         },
       },
     ]);
