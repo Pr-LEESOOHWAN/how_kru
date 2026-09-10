@@ -43,19 +43,25 @@ export default function DishReviewsScreen() {
   const { user } = useAuth();
   // restaurantId/restaurantName은 미션 완료 화면(mission/complete.tsx)의 "이 식당에 리뷰
   // 남기기"에서 넘어올 때만 채워진다. 요리 상세 > 리뷰 화면으로 바로 들어온 경우 둘 다 없다.
+  // foodPhotoUri: 방금 미션 인증에 쓴 요리 사진의 로컬 URI(있으면 리뷰 사진 기본값으로 씀).
   const params = useLocalSearchParams<{
     dishId: string;
     name_kr: string;
     restaurantId?: string;
     restaurantName?: string;
+    foodPhotoUri?: string;
   }>();
+  const verifiedPhotoUri =
+    typeof params.foodPhotoUri === "string" && params.foodPhotoUri ? params.foodPhotoUri : null;
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [newReview, setNewReview] = useState("");
   const [posting, setPosting] = useState(false);
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  // 미션 완료 → "리뷰 남기기"로 들어온 경우, 방금 인증에 쓴 요리 사진을 기본으로 붙여둔다.
+  // (✕로 빼거나, 아래 사진 추가에서 다른 걸로 바꿀 수 있음)
+  const [photoUri, setPhotoUri] = useState<string | null>(verifiedPhotoUri);
 
   const [openReplies, setOpenReplies] = useState<Record<string, ReviewReply[] | undefined>>({});
   const [loadingReplies, setLoadingReplies] = useState<Record<string, boolean>>({});
@@ -330,15 +336,32 @@ export default function DishReviewsScreen() {
         <View style={[s.composer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
           {photoUri && (
             <View style={s.photoPreviewRow}>
-              <Image source={{ uri: photoUri }} style={s.photoPreviewThumb} contentFit="cover" />
-              <TouchableOpacity
-                style={s.photoPreviewRemove}
-                onPress={() => setPhotoUri(null)}
-                disabled={posting}
-              >
-                <Text style={s.photoPreviewRemoveText}>✕</Text>
-              </TouchableOpacity>
+              <View style={s.photoPreviewThumbWrap}>
+                <Image source={{ uri: photoUri }} style={s.photoPreviewThumb} contentFit="cover" />
+                <TouchableOpacity
+                  style={s.photoPreviewRemove}
+                  onPress={() => setPhotoUri(null)}
+                  disabled={posting}
+                >
+                  <Text style={s.photoPreviewRemoveText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              {photoUri === verifiedPhotoUri && (
+                <Text style={s.photoPreviewTag}>✅ 인증 때 찍은 사진</Text>
+              )}
             </View>
+          )}
+          {/* 인증 사진이 있는데 지금 안 붙어있으면(처음부터 뺐거나 ✕로 지운 경우)
+              한 번에 다시 붙일 수 있게 해준다. Alert에 넣으면 Android가 버튼 4개를
+              다 못 보여줘서 별도 버튼으로 뺌. */}
+          {verifiedPhotoUri && photoUri !== verifiedPhotoUri && (
+            <TouchableOpacity
+              style={s.useVerifiedBtn}
+              onPress={() => setPhotoUri(verifiedPhotoUri)}
+              disabled={posting}
+            >
+              <Text style={s.useVerifiedBtnText}>📷 인증 때 찍은 요리 사진 첨부</Text>
+            </TouchableOpacity>
           )}
           <View style={s.composerRow}>
             <TouchableOpacity
@@ -452,13 +475,20 @@ const s = StyleSheet.create({
     width: 44, height: 44, borderRadius: 14, backgroundColor: "#F5F5F5",
     alignItems: "center", justifyContent: "center",
   },
-  photoPreviewRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+  photoPreviewRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
+  photoPreviewThumbWrap: { width: 56, height: 56 },
   photoPreviewThumb: { width: 56, height: 56, borderRadius: 10, backgroundColor: "#eee" },
   photoPreviewRemove: {
-    marginLeft: -14, marginTop: -34, width: 22, height: 22, borderRadius: 11,
+    position: "absolute", top: -8, right: -8, width: 22, height: 22, borderRadius: 11,
     backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center",
   },
   photoPreviewRemoveText: { color: "#fff", fontSize: 11, fontWeight: "bold" },
+  photoPreviewTag: { fontSize: 12, color: "#4CAF50", fontWeight: "700" },
+  useVerifiedBtn: {
+    alignSelf: "flex-start", backgroundColor: "#E8F5E9", borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 8, marginBottom: 10,
+  },
+  useVerifiedBtnText: { fontSize: 12, color: "#2E7D32", fontWeight: "700" },
   // 리뷰에 첨부된 사진 (타베로그처럼 리뷰에서도 사진이 크게 보이도록)
   reviewImage: { width: "100%", aspectRatio: 4 / 3, borderRadius: 12, marginTop: 10, backgroundColor: "#F5F5F5" },
 });

@@ -31,6 +31,8 @@ export default function MissionCompleteScreen() {
     name_en: string;
     placeId?: string;
     restaurantName?: string;
+    // verify.tsx가 넘겨준 요리 인증 사진의 로컬 URI. "리뷰 남기기"로 그대로 전달한다.
+    foodPhotoUri?: string;
   }>();
   const saved = useRef(false);
   // 이미 완료했던 요리를 다시 완료한 경우(XP 중복 지급 없음). 다음 화면(kick →
@@ -155,6 +157,7 @@ export default function MissionCompleteScreen() {
         ...(params.placeId && params.restaurantName
           ? { restaurantId: params.placeId, restaurantName: params.restaurantName }
           : {}),
+        ...(params.foodPhotoUri ? { foodPhotoUri: params.foodPhotoUri } : {}),
       },
     });
   };

@@ -154,7 +154,15 @@ export default function VerifyScreen() {
 
   const bothTaken = !!shots.sign && !!shots.food;
 
-  const goToComplete = () => router.push({ pathname: "/mission/complete", params });
+  // 요리 사진의 로컬 URI를 완료 화면까지 넘겨서, 거기서 "리뷰 남기기"로 들어가면
+  // 방금 인증에 쓴 그 사진을 다시 찍지 않고 바로 리뷰에 첨부할 수 있게 한다.
+  // (base64는 너무 커서 params로 못 넘기므로 URI만 넘김 - 앱 캐시의 파일이라
+  // 리뷰 작성까지 잠깐 사는 동안은 유효하다.)
+  const goToComplete = () =>
+    router.push({
+      pathname: "/mission/complete",
+      params: { ...params, ...(shots.food ? { foodPhotoUri: shots.food } : {}) },
+    });
 
   const handleVerify = async () => {
     if (!bothTaken || !shotsBase64.sign || !shotsBase64.food) return;
