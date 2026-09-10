@@ -42,7 +42,11 @@ export default function NavigateScreen() {
 
   const [myLoc, setMyLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [locError, setLocError] = useState(false);
-  const [mapImgError, setMapImgError] = useState<string | null>(null);
+  // 지도 이미지 로드 실패는 "어느 URL에서 실패했는지"와 함께 기억한다. 내 위치를 받아오면
+  // 마커가 하나 더 붙으면서 URL이 바뀌는데, 예전엔 첫 URL(식당 마커만)에서 한 번 실패하면
+  // 새 URL은 시도도 못 해보고 에러 화면에 갇혀 있었다. URL이 달라지면 에러를 무시하고
+  // 다시 그려본다.
+  const [mapImgErrorUrl, setMapImgErrorUrl] = useState<string | null>(null);
 
   // 구글 리뷰: 약관상 저장/캐싱이 금지되어 있어서 화면에 들어올 때마다 매번
   // 실시간으로만 조회하고, 상태로만 잠깐 들고 있다가 화면을 벗어나면 버립니다.
@@ -117,6 +121,8 @@ export default function NavigateScreen() {
     );
   })();
 
+  const mapImgFailed = !!staticMapUrl && mapImgErrorUrl === staticMapUrl;
+
   const openInMaps = () => {
     const query = encodeURIComponent(`${params.restaurantName} ${params.address}`);
 
@@ -168,19 +174,30 @@ export default function NavigateScreen() {
       </View>
 
       <View style={s.mapArea}>
-        {staticMapUrl && !mapImgError ? (
+        {staticMapUrl && !mapImgFailed ? (
           <ImageBackground
             source={{ uri: staticMapUrl }}
             style={s.mapImage}
             resizeMode="cover"
-            onError={(e) =>
-              setMapImgError(e.nativeEvent?.error ?? "지도 이미지를 불러오지 못했어요.")
-            }
+            onError={(e) => {
+              console.warn("[mission/navigate] static map load failed:", e.nativeEvent?.error);
+              setMapImgErrorUrl(staticMapUrl);
+            }}
           >
             <View style={s.mapLegend}>
+              {/* 내 위치(U) 마커는 위치를 받아온 뒤에만 지도에 찍히므로, 범례도 실제 상태에
+                  맞춘다. 예전엔 권한 거부/로딩 중에도 "내 위치 (U)"가 항상 떠서 지도에
+                  없는 마커를 찾게 만들었다. */}
               <View style={s.legendRow}>
-                <View style={[s.legendDot, { backgroundColor: "#3E7FC1" }]} />
-                <Text style={s.legendText}>내 위치 (U)</Text>
+                <View
+                  style={[
+                    s.legendDot,
+                    { backgroundColor: myLoc ? "#3E7FC1" : "#bbb" },
+                  ]}
+                />
+                <Text style={s.legendText}>
+                  {myLoc ? "내 위치 (U)" : locError ? "내 위치 없음 · 위치 권한 필요" : "내 위치 확인 중..."}
+                </Text>
               </View>
               <View style={s.legendRow}>
                 <View style={[s.legendDot, { backgroundColor: "#FF5722" }]} />
@@ -190,7 +207,7 @@ export default function NavigateScreen() {
           </ImageBackground>
         ) : (
           <View style={s.mapFallback}>
-            {mapImgError ? (
+            {mapImgFailed ? (
               <>
                 <Text style={{ fontSize: 28 }}>⚠️</Text>
                 <Text style={s.mapFallbackText}>
@@ -198,7 +215,7 @@ export default function NavigateScreen() {
                   활성화되어 있는지, API 키 제한사항에 Maps Static API가 허용되어 있는지 확인해주세요.
                 </Text>
                 <TouchableOpacity
-                  onPress={() => setMapImgError(null)}
+                  onPress={() => setMapImgErrorUrl(null)}
                   style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: "#FFF0EC" }}
                 >
                   <Text style={{ color: "#FF5722", fontSize: 12, fontWeight: "bold" }}>🔄 다시 시도</Text>
