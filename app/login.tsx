@@ -1,9 +1,10 @@
 import { Link, useRouter } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -19,9 +20,11 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [keepLoggedIn, setKeepLoggedIn] = useState(true);
   const router = useRouter();
+  // 이메일 입력 후 키보드의 "다음"으로 비밀번호 칸으로 바로 넘어가게 하기 위한 ref
+  const passwordRef = useRef<TextInput>(null);
 
   const handleLogin = async () => {
-    if (!email || !password) {
+    if (!email.trim() || !password) {
       setError("이메일과 비밀번호를 입력해주세요.");
       return;
     }
@@ -40,9 +43,15 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={{ flex: 1, backgroundColor: "#fff" }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
+      {/* 작은 화면에서 키보드가 올라오면 입력칸/버튼이 가려지던 문제 -> signup.tsx처럼 스크롤 가능하게.
+          keyboardShouldPersistTaps="handled": 키보드 열린 상태에서 버튼을 한 번만 눌러도 바로 반응 */}
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
       <Text style={styles.title}>HOW KRU 🌶️</Text>
       <Text style={styles.subtitle}>Korean Are You?</Text>
 
@@ -54,16 +63,27 @@ export default function LoginScreen() {
         onChangeText={setEmail}
         keyboardType="email-address"
         autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="email"
+        textContentType="emailAddress"
+        returnKeyType="next"
+        onSubmitEditing={() => passwordRef.current?.focus()}
+        blurOnSubmit={false}
         editable={!loading}
       />
 
       <TextInput
+        ref={passwordRef}
         style={styles.input}
         placeholder="비밀번호를 입력하세요"
         placeholderTextColor="#999"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
+        autoComplete="password"
+        textContentType="password"
+        returnKeyType="done"
+        onSubmitEditing={handleLogin}
         editable={!loading}
       />
 
@@ -98,13 +118,14 @@ export default function LoginScreen() {
           <Text style={styles.signupText}>처음이에요? Sign up</Text>
         </TouchableOpacity>
       </Link>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1, backgroundColor: "#fff",
+    flexGrow: 1, backgroundColor: "#fff",
     alignItems: "center", justifyContent: "center", padding: 24,
   },
   title: { fontSize: 36, fontWeight: "bold", color: "#E63946", marginBottom: 4 },

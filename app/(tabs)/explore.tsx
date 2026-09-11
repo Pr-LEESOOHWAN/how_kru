@@ -2,13 +2,13 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { useLanguage } from "@/src/contexts/LanguageContext";
 import { logOut } from "@/src/firebase/authService";
 import { db } from "@/src/firebase/firebaseConfig";
-import { getFallbackDishPhoto } from "@/src/firebase/dishService";
+import { getFallbackDishPhoto, getUser } from "@/src/firebase/dishService";
 import { t } from "@/src/i18n/strings";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { collection, getDocs } from "firebase/firestore";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -30,6 +30,7 @@ type Dish = {
   category: string;
   name_kr: string;
   name_en: string;
+  level?: number;
   spice_level?: number;
   tags?: string[];
   kick_question?: string;
@@ -55,6 +56,10 @@ export default function HomeScreen() {
   // 공식 사진(dish.image)이 없는 요리만, 유저 리뷰 사진으로 보완한 썸네일.
   // dishId -> imageUrl. 메인 목록 로딩을 막지 않도록 별도로, 조용히 채워진다.
   const [fallbackPhotos, setFallbackPhotos] = useState<Record<string, string>>({});
+  // 내가 완료한 요리 id. 상세 모달에서 "미션 시작하기"로 넘어갈 때 index.tsx/levels.tsx와
+  // 똑같이 completed 플래그를 넘겨서, 이미 완료한 요리는 미션 시작 화면에서 XP 중복 지급
+  // 안 됨을 미리 안내받게 하기 위한 용도. (메뉴 목록 자체와는 무관하므로 실패해도 무시)
+  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   // getFallbackDishPhoto()는 화면이 언마운트된 뒤에도 응답이 올 수 있는 백그라운드 조회라,
   // "컴포넌트가 마운트되지 않았는데 상태를 갱신하려 한다"는 React 경고를 막기 위해
   // 언마운트 여부를 이 ref로 추적한다.
@@ -114,6 +119,51 @@ export default function HomeScreen() {
     fetchDishes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 완료 목록은 미션을 마치고 이 탭으로 돌아올 때마다 바뀔 수 있으므로(홈 탭과 같은
+  // 이유) 포커스될 때마다 조용히 다시 읽는다. 유저 문서 1건 조회라 부담이 없다.
+  useFocusEffect(
+    useCallback(() => {
+      if (!authUser) return;
+      let cancelled = false;
+      getUser(authUser.uid)
+        .then((u) => {
+          if (!cancelled && mountedRef.current) setCompletedIds(new Set(u?.completed_dishes ?? []));
+        })
+        .catch(() => {});
+      return () => {
+        cancelled = true;
+      };
+    }, [authUser])
+  );
+
+  // 상세 모달 → 미션 시작. index.tsx의 startMission() / levels.tsx 카드 탭과 동일한 params 형식.
+  const startMission = (dish: Dish) => {
+    const thumb = dish.image || fallbackPhotos[dish.id];
+    setSelectedDish(null);
+    router.push({
+      pathname: "/mission/start",
+      params: {
+        dishId: dish.id,
+        name_kr: dish.name_kr,
+        name_en: dish.name_en,
+        desc: dish.category
+          ? dish.level ? `${dish.category} · Lv.${dish.level}` : dish.category
+          : dish.level ? `Lv.${dish.level}` : "",
+        spice: String(dish.spice_level ?? 0),
+        ...(thumb ? { image: thumb } : {}),
+        ...(completedIds.has(dish.id) ? { completed: "1" } : {}),
+      },
+    });
+  };
+
+  const openReviews = (dish: Dish) => {
+    setSelectedDish(null);
+    router.push({
+      pathname: "/dish-reviews",
+      params: { dishId: dish.id, name_kr: dish.name_kr },
+    });
+  };
 
   const displayName = authUser?.displayName || authUser?.email?.split("@")[0] || "친구";
   const avatarLetter = displayName.charAt(0).toUpperCase();
@@ -294,9 +344,29 @@ export default function HomeScreen() {
 
             {/* 내용이 길면(설명 텍스트 등) 75% 높이 안에서 잘리지 않고 스크롤되도록 감쌈 */}
             <ScrollView showsVerticalScrollIndicator={false}>
-              {/* 번호 배지 */}
-              <View style={s.modalNoBadge}>
-                <Text style={s.modalNoText}>No. {selectedDish.no}</Text>
+              {/* 요리 사진 - 목록 카드에서는 크게 보여주면서 정작 상세 모달에는 사진이 없었음 */}
+              {(() => {
+                const thumb = selectedDish.image || fallbackPhotos[selectedDish.id];
+                return thumb ? (
+                  <Image
+                    source={{ uri: thumb }}
+                    style={s.modalImage}
+                    contentFit="cover"
+                    transition={150}
+                  />
+                ) : null;
+              })()}
+
+              {/* 번호 배지 + 완료 표시 */}
+              <View style={s.modalBadgeRow}>
+                <View style={s.modalNoBadge}>
+                  <Text style={s.modalNoText}>No. {selectedDish.no}</Text>
+                </View>
+                {completedIds.has(selectedDish.id) && (
+                  <View style={s.modalDoneBadge}>
+                    <Text style={s.modalDoneText}>✓ 완료</Text>
+                  </View>
+                )}
               </View>
 
               {/* 요리명 */}
@@ -351,6 +421,19 @@ export default function HomeScreen() {
                 </View>
               )}
             </ScrollView>
+
+            {/* 상세를 보고 나서 바로 행동할 수 있는 진입점. 예전엔 여기서 막혀서 미션을
+                하려면 홈/레벨 화면으로 되돌아가 같은 요리를 다시 찾아야 했다. */}
+            <View style={[s.modalActions, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+              <TouchableOpacity style={s.modalSecondaryBtn} onPress={() => openReviews(selectedDish)}>
+                <Text style={s.modalSecondaryBtnText}>💬 리뷰 보기</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.modalPrimaryBtn} onPress={() => startMission(selectedDish)}>
+                <Text style={s.modalPrimaryBtnText}>
+                  {completedIds.has(selectedDish.id) ? "다시 도전하기" : "미션 시작하기"}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
           </View>
         )}
@@ -432,13 +515,22 @@ const s = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
   modalSheet: {
     backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 24, paddingTop: 16, maxHeight: "75%",
+    padding: 24, paddingTop: 16, paddingBottom: 0, maxHeight: "82%",
   },
   modalHandle: { width: 36, height: 4, backgroundColor: "#e0e0e0", borderRadius: 2, alignSelf: "center", marginBottom: 16 },
   closeBtn: { position: "absolute", top: 20, right: 20, width: 32, height: 32, borderRadius: 16, backgroundColor: "#f5f5f5", alignItems: "center", justifyContent: "center" },
   closeBtnText: { fontSize: 14, color: "#888" },
-  modalNoBadge: { backgroundColor: "#FFF0EC", alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginBottom: 8 },
+  modalImage: { width: "100%", aspectRatio: 16 / 10, borderRadius: 16, backgroundColor: "#FFF0EC", marginBottom: 14 },
+  modalBadgeRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
+  modalNoBadge: { backgroundColor: "#FFF0EC", alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   modalNoText: { fontSize: 12, color: "#FF5722", fontWeight: "bold" },
+  modalDoneBadge: { backgroundColor: "#4CAF50", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  modalDoneText: { fontSize: 12, color: "#fff", fontWeight: "bold" },
+  modalActions: { flexDirection: "row", gap: 10, paddingTop: 14, borderTopWidth: 0.5, borderTopColor: "#eee", marginTop: 4 },
+  modalPrimaryBtn: { flex: 1.4, backgroundColor: "#FF5722", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
+  modalPrimaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "bold" },
+  modalSecondaryBtn: { flex: 1, backgroundColor: "#FFF0EC", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
+  modalSecondaryBtnText: { color: "#FF5722", fontSize: 14, fontWeight: "bold" },
   modalNameKr: { fontSize: 26, fontWeight: "bold", color: "#222", marginBottom: 4 },
   modalNameEn: { fontSize: 15, color: "#666", marginBottom: 12 },
   modalTagRow: { flexDirection: "row", gap: 6, marginBottom: 16 },

@@ -1,5 +1,5 @@
 import { Link, useRouter } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -9,7 +9,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
 } from "react-native";
 import { getAuthErrorMessage, signUp } from "@/src/firebase/authService";
 
@@ -21,9 +20,14 @@ export default function SignupScreen() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  // 키보드 "다음"으로 이름 → 이메일 → 비밀번호 → 비밀번호 확인 순서로 넘어가게 하기 위한 ref
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const confirmRef = useRef<TextInput>(null);
 
   const handleSignup = async () => {
-    if (!name || !email || !password || !confirmPassword) {
+    // 공백만 입력한 이름/이메일은 빈 값으로 취급 (실제 저장 시에도 trim해서 쓰므로 일관되게)
+    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
       setError("모든 항목을 입력해주세요.");
       return;
     }
@@ -67,10 +71,15 @@ export default function SignupScreen() {
         value={name}
         onChangeText={setName}
         autoCapitalize="words"
+        textContentType="name"
+        returnKeyType="next"
+        onSubmitEditing={() => emailRef.current?.focus()}
+        blurOnSubmit={false}
         editable={!loading}
       />
 
       <TextInput
+        ref={emailRef}
         style={styles.input}
         placeholder="이메일을 입력하세요"
         placeholderTextColor="#999"
@@ -78,26 +87,43 @@ export default function SignupScreen() {
         onChangeText={setEmail}
         keyboardType="email-address"
         autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="email"
+        textContentType="emailAddress"
+        returnKeyType="next"
+        onSubmitEditing={() => passwordRef.current?.focus()}
+        blurOnSubmit={false}
         editable={!loading}
       />
 
       <TextInput
+        ref={passwordRef}
         style={styles.input}
         placeholder="비밀번호를 입력하세요 (6자 이상)"
         placeholderTextColor="#999"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
+        autoComplete="new-password"
+        textContentType="newPassword"
+        returnKeyType="next"
+        onSubmitEditing={() => confirmRef.current?.focus()}
+        blurOnSubmit={false}
         editable={!loading}
       />
 
       <TextInput
+        ref={confirmRef}
         style={styles.input}
         placeholder="비밀번호를 다시 입력하세요"
         placeholderTextColor="#999"
         value={confirmPassword}
         onChangeText={setConfirmPassword}
         secureTextEntry
+        autoComplete="new-password"
+        textContentType="newPassword"
+        returnKeyType="done"
+        onSubmitEditing={handleSignup}
         editable={!loading}
       />
 

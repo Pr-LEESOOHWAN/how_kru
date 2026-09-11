@@ -177,7 +177,9 @@ export default function DishReviewsScreen() {
       const replies = await getReplies(reviewId);
       setOpenReplies((prev) => ({ ...prev, [reviewId]: replies }));
     } catch (err) {
+      // 실패하면 "답글 보기"를 눌러도 아무 반응이 없던 부분 - 이유를 알려서 다시 시도할 수 있게 함
       console.error("대댓글 로딩 오류:", err);
+      Alert.alert("답글을 불러오지 못했어요", "네트워크를 확인하고 다시 시도해주세요.");
     } finally {
       setLoadingReplies((prev) => ({ ...prev, [reviewId]: false }));
     }
