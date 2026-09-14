@@ -99,10 +99,9 @@ export default function VerifyScreen() {
         return;
       }
     }
-    if (key === "receipt") {
-      // 다시 찍는 경우, 이전 인식 결과가 잠깐 남아있지 않도록 초기화
-      setReceiptOcr({ status: "idle" });
-    }
+    // (예전엔 여기서 영수증 OCR 결과를 미리 초기화했는데, 그러면 "다시 촬영하기"를
+    // 눌렀다가 ✕로 취소만 해도 멀쩡한 이전 영수증의 인식 결과가 사라졌다. 초기화는
+    // 실제로 새 사진이 찍힌 시점(capturePhoto)에만 한다.)
     setActiveShot(key);
   };
 
@@ -125,8 +124,11 @@ export default function VerifyScreen() {
         setShotsBase64((prev) => ({ ...prev, [shotKey]: photo.base64 ?? null }));
       }
       setActiveShot(null);
-      if (shotKey === "receipt" && photo?.base64) {
-        runReceiptOcr(photo.base64);
+      if (shotKey === "receipt") {
+        // 새 영수증 사진이 찍혔으니 이전 인식 결과는 버리고 다시 돌린다. base64가 없으면
+        // (드문 디바이스 이슈) 옛 결과가 새 사진 밑에 남지 않도록 idle로만 되돌린다.
+        if (photo?.base64) runReceiptOcr(photo.base64);
+        else setReceiptOcr({ status: "idle" });
       }
     } catch {
       // 카메라 촬영 실패(디바이스 이슈 등) 시 스캔 화면을 유지해 다시 시도할 수 있게 함.
@@ -208,7 +210,13 @@ export default function VerifyScreen() {
         <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
         <View style={s.scanOverlay}>
           <View style={[s.scanTopBar, { paddingTop: Math.max(insets.top, 20) + 12 }]}>
-            <TouchableOpacity style={s.scanIconBtn} onPress={() => setActiveShot(null)}>
+            {/* 촬영(takePictureAsync) 중에 오버레이를 닫으면 카메라가 언마운트돼 촬영이
+                실패한다. Android 하드웨어 뒤로가기와 똑같이 촬영 중엔 잠근다. */}
+            <TouchableOpacity
+              style={[s.scanIconBtn, capturing && { opacity: 0.3 }]}
+              onPress={() => setActiveShot(null)}
+              disabled={capturing}
+            >
               <Text style={s.scanIconBtnText}>✕</Text>
             </TouchableOpacity>
             <Text style={s.scanTopTitle}>{meta.label} 촬영</Text>

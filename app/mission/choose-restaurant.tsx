@@ -65,13 +65,24 @@ export default function ChooseRestaurantScreen() {
     };
   }, []);
 
+  // 검색 요청 순번. 반경 슬라이더를 연달아 움직이거나 "반경 넓혀서 찾기"를 빠르게
+  // 누르면 검색이 동시에 여러 개 날아가는데, 네트워크 순서에 따라 먼저 보낸(좁은 반경)
+  // 응답이 나중에 도착해 최신 반경의 결과를 덮어써버릴 수 있었다. 화면에 "3km 이내"라고
+  // 써놓고 1km 결과만 보이는 식이라, 요청마다 순번을 매기고 최신 요청의 응답만 반영한다.
+  // 화면을 떠난 뒤 늦게 도착하는 응답도 (mountedRef) 같이 무시한다.
+  const searchSeqRef = useRef(0);
+
   const runSearch = async (lat: number, lng: number, radius: number) => {
+    const seq = ++searchSeqRef.current;
+    const isStale = () => seq !== searchSeqRef.current || !mountedRef.current;
     setState("loading");
     try {
       const results = await searchNearbyRestaurants(params.name_kr, lat, lng, radius);
+      if (isStale()) return;
       setRestaurants(results);
       setState(results.length === 0 ? "empty" : "ok");
     } catch (err: any) {
+      if (isStale()) return;
       setErrorMsg(err?.message ?? "식당을 불러오는 중 오류가 발생했어요.");
       setState("error");
     }
