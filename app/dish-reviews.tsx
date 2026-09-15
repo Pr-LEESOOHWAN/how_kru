@@ -167,11 +167,18 @@ export default function DishReviewsScreen() {
   };
 
   const toggleReplies = async (reviewId: string) => {
+    // 이미 불러오는 중이면 연타해도 중복 요청/접기 하지 않음
+    if (loadingReplies[reviewId]) return;
     if (openReplies[reviewId] !== undefined) {
       // 이미 열려 있으면 접기
       setOpenReplies((prev) => ({ ...prev, [reviewId]: undefined }));
       return;
     }
+    // 답글 영역(스피너 포함)은 openReplies[reviewId]가 undefined가 아닐 때만 그려지는데,
+    // 그동안은 fetch가 끝난 뒤에야 값을 넣어서 로딩 중엔 스피너가 한 번도 안 보이고
+    // "답글 보기"를 눌러도 잠시 아무 반응이 없는 것처럼 보였다. 빈 배열로 먼저 열어두고
+    // 스피너를 보여준 뒤, 실패하면 다시 닫아서 "답글 보기"로 재시도할 수 있게 한다.
+    setOpenReplies((prev) => ({ ...prev, [reviewId]: [] }));
     setLoadingReplies((prev) => ({ ...prev, [reviewId]: true }));
     try {
       const replies = await getReplies(reviewId);
@@ -179,6 +186,7 @@ export default function DishReviewsScreen() {
     } catch (err) {
       // 실패하면 "답글 보기"를 눌러도 아무 반응이 없던 부분 - 이유를 알려서 다시 시도할 수 있게 함
       console.error("대댓글 로딩 오류:", err);
+      setOpenReplies((prev) => ({ ...prev, [reviewId]: undefined }));
       Alert.alert("답글을 불러오지 못했어요", "네트워크를 확인하고 다시 시도해주세요.");
     } finally {
       setLoadingReplies((prev) => ({ ...prev, [reviewId]: false }));
