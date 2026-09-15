@@ -199,16 +199,41 @@ export default function DishReviewsScreen() {
     setPostingReplyFor(reviewId);
     try {
       await addReply(reviewId, user.uid, user.displayName || "익명", content);
-      setReplyDrafts((prev) => ({ ...prev, [reviewId]: "" }));
-      const replies = await getReplies(reviewId);
-      setOpenReplies((prev) => ({ ...prev, [reviewId]: replies }));
-      setReviews((prev) =>
-        prev.map((r) => (r.id === reviewId ? { ...r, replyCount: r.replyCount + 1 } : r))
-      );
     } catch (err) {
       // 실패 시 아무 반응 없이 조용히 끝나던 부분 - 이유를 알려주고 입력한 내용은 남겨서 재시도 가능하게 함
       console.error("대댓글 작성 오류:", err);
       Alert.alert("답글 등록 실패", "답글을 등록하지 못했어요. 잠시 후 다시 시도해주세요.");
+      setPostingReplyFor(null);
+      return;
+    }
+
+    // 여기까지 왔으면 답글은 이미 서버에 저장된 상태. 아래 목록 새로고침이 실패하더라도
+    // "등록 실패"로 안내하면 안 된다 - 그동안은 같은 try 안에 있어서 새로고침만 실패해도
+    // 등록 실패 알림이 떴고, 사용자가 다시 '등록'을 눌러 같은 답글이 두 번 달렸다.
+    setReplyDrafts((prev) => ({ ...prev, [reviewId]: "" }));
+    setReviews((prev) =>
+      prev.map((r) => (r.id === reviewId ? { ...r, replyCount: r.replyCount + 1 } : r))
+    );
+    try {
+      const replies = await getReplies(reviewId);
+      setOpenReplies((prev) => ({ ...prev, [reviewId]: replies }));
+    } catch (err) {
+      // 새로고침만 실패한 경우: 방금 쓴 답글을 화면에 임시로 붙여둔다 (다음에 답글을
+      // 접었다 펴면 서버 목록으로 다시 채워짐).
+      console.error("대댓글 새로고침 오류:", err);
+      setOpenReplies((prev) => ({
+        ...prev,
+        [reviewId]: [
+          ...(prev[reviewId] ?? []),
+          {
+            id: `local-${Date.now()}`,
+            userId: user.uid,
+            userName: user.displayName || "익명",
+            content,
+            createdAt: null,
+          },
+        ],
+      }));
     } finally {
       setPostingReplyFor(null);
     }
