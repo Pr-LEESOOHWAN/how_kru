@@ -167,7 +167,18 @@ export default function VerifyScreen() {
     });
 
   const handleVerify = async () => {
-    if (!bothTaken || !shotsBase64.sign || !shotsBase64.food) return;
+    if (!bothTaken || verifying) return;
+    // 드물게 takePictureAsync가 uri만 주고 base64를 못 주는 기기가 있다. 이 경우
+    // 미리보기는 정상인데 서버로 보낼 데이터가 없어서, 예전엔 "인증하기"를 눌러도
+    // 아무 반응 없이 조용히 끝났다. 어느 사진이 문제인지 알려주고 재촬영을 유도한다.
+    if (!shotsBase64.sign || !shotsBase64.food) {
+      const missing = !shotsBase64.sign ? SHOT_META.sign.label : SHOT_META.food.label;
+      Alert.alert(
+        "사진을 다시 찍어주세요",
+        `${missing} 사진 데이터를 읽지 못했어요. 해당 사진을 다시 촬영해주세요.`
+      );
+      return;
+    }
     setVerifying(true);
     try {
       const result = await verifyMission({

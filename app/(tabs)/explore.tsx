@@ -41,7 +41,9 @@ type GroupedDishes = {
   [category: string]: Dish[];
 };
 
-export default function HomeScreen() {
+// (예전 이름이 HomeScreen이라 index.tsx의 홈 화면과 React DevTools/에러 스택에서
+//  구분이 안 됐음 - 파일 역할에 맞게 ExploreScreen으로 정정)
+export default function ExploreScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();

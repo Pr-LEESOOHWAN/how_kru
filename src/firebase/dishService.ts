@@ -103,15 +103,21 @@ export const markDishCompleted = async (
   return { alreadyCompleted };
 };
 
-// "이 요리의 킥이 뭐였나요?" 답변만 별도로 저장
+// "이 요리의 킥이 뭐였나요?" 답변만 별도로 저장.
+// 요리 하나당 답변 1개만 유지한다. 예전엔 arrayUnion으로 그냥 덧붙이기만 해서,
+// 이미 완료한 요리를 다시 미션으로 진행하며 다른 답을 고르면 같은 dish 항목이
+// 두 개씩 쌓였다(같은 답이면 arrayUnion이 걸러주지만 다른 답이면 중복). 이전 답을
+// 빼고 최신 답으로 갈아끼운다. (completed_dishes처럼 "요리당 1건"이 이 필드의 의도)
 export const saveKickChoice = async (
   userId: string,
   dishId: string,
   choice: string
 ) => {
+  const user = await getUser(userId);
+  const others = (user?.kick_choices ?? []).filter((k) => k.dish !== dishId);
   await setDoc(
     doc(db, "users", userId),
-    { kick_choices: arrayUnion({ dish: dishId, choice }) },
+    { kick_choices: [...others, { dish: dishId, choice }] },
     { merge: true }
   );
 };
