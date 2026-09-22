@@ -35,6 +35,15 @@ export default function MissionCompleteScreen() {
     foodPhotoUri?: string;
   }>();
   const saved = useRef(false);
+  // markDishCompleted()는 화면을 벗어난 뒤에도 응답이 올 수 있는 비동기 호출이라,
+  // 언마운트 후 setSaving/setAlreadyCompleted가 실행되거나(React 경고) 이미 화면을
+  // 떠난 사용자에게 "저장 실패, 다시 시도할까요?" Alert가 뜨는 것을 막기 위해 추적한다.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   // 이미 완료했던 요리를 다시 완료한 경우(XP 중복 지급 없음). 다음 화면(kick →
   // level-progress)에도 params로 넘겨서 진행률 "+X% 상승" 계산이 어긋나지 않게 한다.
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
@@ -71,10 +80,15 @@ export default function MissionCompleteScreen() {
     if (!params.dishId || !user) return;
     setSaving(true);
     markDishCompleted(user.uid, params.dishId)
-      .then(({ alreadyCompleted: dup }) => setAlreadyCompleted(dup))
-      .finally(() => setSaving(false))
+      .then(({ alreadyCompleted: dup }) => {
+        if (mountedRef.current) setAlreadyCompleted(dup);
+      })
+      .finally(() => {
+        if (mountedRef.current) setSaving(false);
+      })
       .catch((err) => {
         console.error("[mission/complete] markDishCompleted failed:", err);
+        if (!mountedRef.current) return;
         Alert.alert(
           "완료 기록 저장 실패",
           "네트워크 문제로 미션 완료가 저장되지 않았어요. 다시 시도할까요?",
