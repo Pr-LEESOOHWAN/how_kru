@@ -272,7 +272,21 @@ export const addReply = async (
   );
 };
 
-// 현재 레벨에서 완료된 음식 수 계산
+// 이미 손에 들고 있는 유저 완료 목록 + 레벨 요리 목록으로 "이 레벨에서 완료한 개수"를
+// 계산하는 순수 함수. 홈 탭/레벨 진행 화면은 어차피 유저 문서와 레벨 요리 목록을
+// 직접 불러오는데, 예전엔 그 위에 getProgressInLevel()을 또 호출해서 같은 유저 문서와
+// 같은 레벨 쿼리를 한 번 더 읽고 있었다(홈 탭은 포커스될 때마다 새로고침하므로
+// 매번 Firestore 읽기가 두 배로 나갔음). 이미 받은 데이터로 계산하면 그 중복이 사라진다.
+export const countProgressInLevel = (
+  completedDishes: string[] | undefined,
+  levelDishes: Pick<Dish, "id">[]
+): number => {
+  const levelDishIds = new Set(levelDishes.map((d) => d.id));
+  return (completedDishes ?? []).filter((id) => levelDishIds.has(id)).length;
+};
+
+// 현재 레벨에서 완료된 음식 수 계산 (유저 문서 + 레벨 요리 목록을 직접 조회하는 버전.
+// 이미 그 데이터를 갖고 있는 화면에서는 countProgressInLevel()을 쓰는 편이 낫다)
 export const getProgressInLevel = async (
   userId: string,
   level: number
@@ -281,7 +295,5 @@ export const getProgressInLevel = async (
   if (!user) return 0;
 
   const levelDishes = await getDishesByLevel(level);
-  const levelDishIds = levelDishes.map((d) => d.id);
-
-  return (user.completed_dishes ?? []).filter((id) => levelDishIds.includes(id)).length;
+  return countProgressInLevel(user.completed_dishes, levelDishes);
 };

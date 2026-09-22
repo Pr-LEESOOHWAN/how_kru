@@ -6,6 +6,7 @@
 import { addDoc, getDoc, getDocs, setDoc } from "firebase/firestore";
 import {
   addReview,
+  countProgressInLevel,
   Dish,
   getDishesByLevel,
   getFallbackDishPhoto,
@@ -125,6 +126,24 @@ describe("getProgressInLevel", () => {
       fakeDishSnapshot([{ id: "d1" }, { id: "d2" }, { id: "d3" }])
     );
     await expect(getProgressInLevel("u1", 1)).resolves.toBe(2);
+  });
+});
+
+// 홈 탭/레벨 진행 화면이 이미 불러온 유저 문서 + 레벨 요리 목록으로 진행 개수를
+// 계산할 때 쓰는 순수 함수 (getProgressInLevel과 같은 결과를 내야 한다).
+describe("countProgressInLevel", () => {
+  const levelDishes = [{ id: "d1" }, { id: "d2" }, { id: "d3" }];
+
+  it("completed_dishes가 없는(레거시) 유저도 0을 반환한다", () => {
+    expect(countProgressInLevel(undefined, levelDishes)).toBe(0);
+  });
+
+  it("완료한 요리 중 해당 레벨에 속한 것만 센다", () => {
+    expect(countProgressInLevel(["d1", "d3", "other-level-dish"], levelDishes)).toBe(2);
+  });
+
+  it("레벨에 요리가 하나도 없으면 0을 반환한다", () => {
+    expect(countProgressInLevel(["d1"], [])).toBe(0);
   });
 });
 

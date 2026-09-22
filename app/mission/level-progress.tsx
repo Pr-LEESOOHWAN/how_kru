@@ -1,5 +1,5 @@
 import { useAuth } from "@/src/contexts/AuthContext";
-import { getProgressInLevel, getUser, levelUp } from "@/src/firebase/dishService";
+import { countProgressInLevel, getDishesByLevel, getUser, levelUp } from "@/src/firebase/dishService";
 import { db } from "@/src/firebase/firebaseConfig";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
@@ -44,10 +44,13 @@ export default function LevelProgressScreen() {
         const user = await getUser(authUser.uid);
         const level = Math.min(user?.current_level ?? 1, MAX_LEVEL);
 
-        const [levelSnap, progress] = await Promise.all([
+        // 진행 개수는 위에서 받은 유저 문서 + 레벨 요리 목록으로 바로 계산한다
+        // (예전엔 getProgressInLevel()이 유저 문서를 한 번 더 읽었음).
+        const [levelSnap, levelDishes] = await Promise.all([
           getDoc(doc(db, "levels", String(level))),
-          getProgressInLevel(authUser.uid, level),
+          getDishesByLevel(level),
         ]);
+        const progress = countProgressInLevel(user?.completed_dishes, levelDishes);
         const levelData = (levelSnap.exists() ? levelSnap.data() : {}) as LevelDoc;
         // levels/{level} 문서(또는 required_count)가 없으면 진행률 표시용으로만
         // progress를 기준값으로 대신 쓴다. 이 fallback 값을 그대로 레벨업 판정에

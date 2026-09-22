@@ -1,6 +1,6 @@
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useLanguage } from "@/src/contexts/LanguageContext";
-import { Dish, getDishesByLevel, getFallbackDishPhoto, getProgressInLevel, getUser } from "@/src/firebase/dishService";
+import { countProgressInLevel, Dish, getDishesByLevel, getFallbackDishPhoto, getUser } from "@/src/firebase/dishService";
 import { db } from "@/src/firebase/firebaseConfig";
 import { logOut } from "@/src/firebase/authService";
 import { t } from "@/src/i18n/strings";
@@ -93,11 +93,13 @@ export default function HomeScreen() {
         const level = Math.min(user?.current_level ?? DEFAULT_LEVEL, MAX_LEVEL);
         const completed = new Set(user?.completed_dishes ?? []);
 
-        const [levelSnap, progress, levelDishes] = await Promise.all([
+        // 진행 개수는 위에서 받은 유저 문서 + 아래 레벨 요리 목록으로 바로 계산한다
+        // (예전엔 getProgressInLevel()이 같은 유저 문서/레벨 쿼리를 한 번 더 읽었음).
+        const [levelSnap, levelDishes] = await Promise.all([
           getDoc(doc(db, "levels", String(level))),
-          getProgressInLevel(authUser.uid, level),
           getDishesByLevel(level),
         ]);
+        const progress = countProgressInLevel(user?.completed_dishes, levelDishes);
         const levelData = (levelSnap.exists() ? levelSnap.data() : {}) as LevelDoc;
         const requiredCount = levelData.required_count ?? Math.max(progress, 1);
 
