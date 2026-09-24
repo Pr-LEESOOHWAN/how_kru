@@ -20,8 +20,12 @@ export default function LevelProgressScreen() {
   // alreadyCompleted: complete.tsx에서 "이미 완료했던 요리를 다시 완료"한 경우 "1"로
   // 넘어온다. 이때는 이번 미션으로 진행 개수가 늘어난 게 아니므로 "+X% 상승"
   // 계산에서 이전 값을 progress-1로 잡으면 안 된다.
-  const params = useLocalSearchParams<{ name_kr: string; alreadyCompleted?: string }>();
+  const params = useLocalSearchParams<{ dishId?: string; name_kr: string; alreadyCompleted?: string }>();
   const alreadyCompleted = params.alreadyCompleted === "1";
+  // Explore 탭에서는 현재 레벨이 아닌 요리로도 미션을 할 수 있다. 그 경우 이번 완료는
+  // 현재 레벨 진행 개수에 안 들어가는데, 예전엔 무조건 progress-1을 "이전 값"으로 잡아서
+  // 실제로는 변화가 없는데도 "+X% 상승했어요"가 뜨는 버그가 있었다.
+  const [outsideLevel, setOutsideLevel] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [display, setDisplay] = useState(FALLBACK);
@@ -60,7 +64,10 @@ export default function LevelProgressScreen() {
         const hasRequiredCount = levelSnap.exists() && typeof levelData.required_count === "number";
         const requiredCount = levelData.required_count ?? Math.max(progress, 1);
 
-        const prevProgress = alreadyCompleted ? progress : Math.max(0, progress - 1);
+        // dishId를 모르면(예전 흐름 호환) 기존처럼 현재 레벨 요리였다고 가정한다.
+        const isOutsideLevel = !!params.dishId && !levelDishes.some((d) => d.id === params.dishId);
+        const countedNow = !alreadyCompleted && !isOutsideLevel;
+        const prevProgress = countedNow ? Math.max(0, progress - 1) : progress;
         const prevPct = Math.min(100, Math.round((prevProgress / requiredCount) * 100));
         const newPct = Math.min(100, Math.round((progress / requiredCount) * 100));
         const didLevelUp = hasRequiredCount && progress >= requiredCount && level < MAX_LEVEL;
@@ -98,6 +105,7 @@ export default function LevelProgressScreen() {
             isMaxLevel: shownLevel >= MAX_LEVEL,
           });
           setLeveledUp(levelUpSaved);
+          setOutsideLevel(isOutsideLevel);
         }
       } catch (err) {
         console.error("[mission/level-progress] 진행률 로딩 오류:", err);
@@ -174,6 +182,8 @@ export default function LevelProgressScreen() {
               ? "레벨 업! 🎉"
               : alreadyCompleted
                 ? "이미 완료했던 요리라 진행률은 그대로예요"
+                : outsideLevel
+                  ? "다른 레벨 요리라 현재 레벨 진행률엔 반영되지 않아요"
                 : `+${Math.max(0, display.newPct - display.prevPct)}% 상승했어요 🎉`}
           </Text>
 
