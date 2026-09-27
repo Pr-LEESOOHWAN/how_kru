@@ -6,7 +6,7 @@
 
 import { initializeApp } from "firebase/app";
 import { doc, getFirestore, writeBatch } from "firebase/firestore";
-import dishes from "./dishes.json" assert { type: "json" };
+import dishes from "./dishes.json" with { type: "json" };
 
 // ⚠️ 본인의 Firebase config로 교체하세요
 const firebaseConfig = {
