@@ -374,7 +374,7 @@ export default function DishReviewsScreen() {
               <View style={s.photoPreviewThumbWrap}>
                 <Image source={{ uri: photoUri }} style={s.photoPreviewThumb} contentFit="cover" />
                 <TouchableOpacity
-                  style={s.photoPreviewRemove}
+                  style={[s.photoPreviewRemove, posting && { opacity: 0.4 }]}
                   onPress={() => setPhotoUri(null)}
                   disabled={posting}
                 >
@@ -400,7 +400,7 @@ export default function DishReviewsScreen() {
           )}
           <View style={s.composerRow}>
             <TouchableOpacity
-              style={s.photoPickBtn}
+              style={[s.photoPickBtn, (!user || posting) && { opacity: 0.4 }]}
               onPress={pickPhoto}
               disabled={!user || posting}
             >

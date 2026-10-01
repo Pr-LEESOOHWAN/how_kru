@@ -1,12 +1,12 @@
 import { withJosa } from "@/src/i18n/josa";
 import { getPlaceReviews, GoogleReview, PlacesApiError } from "@/src/services/places";
+import { Image } from "expo-image";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   ImageBackground,
   Linking,
   Platform,
@@ -273,7 +273,12 @@ export default function NavigateScreen() {
                 <View key={r.id} style={s.reviewRow}>
                   <View style={s.reviewRowHeader}>
                     {r.authorPhotoUrl ? (
-                      <Image source={{ uri: r.authorPhotoUrl }} style={s.reviewAvatar} />
+                      <Image
+                        source={{ uri: r.authorPhotoUrl }}
+                        style={s.reviewAvatar}
+                        contentFit="cover"
+                        transition={150}
+                      />
                     ) : (
                       <View style={[s.reviewAvatar, s.reviewAvatarFallback]}>
                         <Text style={{ fontSize: 11, color: "#888" }}>{r.authorName.charAt(0)}</Text>
