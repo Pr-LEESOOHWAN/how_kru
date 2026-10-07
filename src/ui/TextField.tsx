@@ -31,7 +31,8 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
   const [focused, setFocused] = useState(false);
   const [revealed, setRevealed] = useState(false);
 
-  const borderColor = error ? theme.colors.danger : focused ? theme.colors.primary : theme.colors.border;
+  // 기본 테두리도 3:1(borderControl) - 흐린 구분선 색이면 빈 입력창의 경계가 안 보인다.
+  const borderColor = error ? theme.colors.danger : focused ? theme.colors.primary : theme.colors.borderControl;
 
   return (
     <View style={s.wrap}>

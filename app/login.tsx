@@ -105,13 +105,14 @@ export default function LoginScreen() {
 }
 
 const useStyles = makeStyles((t) => ({
-  checkRow: { flexDirection: "row", alignItems: "center", gap: t.space.sm, alignSelf: "flex-start", minHeight: 36 },
+  checkRow: { flexDirection: "row", alignItems: "center", gap: t.space.sm, alignSelf: "flex-start", minHeight: 44 },
   checkbox: {
     width: 22,
     height: 22,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: t.colors.borderStrong,
+    // 꺼진 체크박스도 테두리만으로 보여야 해서 컨트롤용 테두리(3:1)를 쓴다.
+    borderColor: t.colors.borderControl,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: t.colors.surface,

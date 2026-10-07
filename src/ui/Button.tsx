@@ -68,7 +68,9 @@ export function Button({
       style={[
         s.base,
         {
-          height: HEIGHT[size],
+          // 고정 height면 시스템 글자 크기를 키웠을 때 라벨 위아래가 잘린다 - 최소 높이만 정하고 늘어나게 둔다.
+          minHeight: HEIGHT[size],
+          paddingVertical: theme.space.xs,
           backgroundColor: bg,
           borderColor: border ?? "transparent",
           paddingHorizontal: size === "sm" ? theme.space.md : theme.space.xl,

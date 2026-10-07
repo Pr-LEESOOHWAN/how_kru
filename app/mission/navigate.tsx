@@ -286,14 +286,25 @@ export default function NavigateScreen() {
                           {author}
                         </Text>
                         <View style={s.ratingRow}>
-                          {Array.from({ length: 5 }, (_, i) => (
-                            <Icons.Star
-                              key={i}
-                              size={11}
-                              color={i < Math.round(r.rating) ? theme.colors.warning : theme.colors.border}
-                              weight="fill"
-                            />
-                          ))}
+                          {/* 별 5개는 스크린리더가 "별점 4/5"처럼 한 번에 읽게 묶는다. 빈 별은 흐린 채움
+                              대신 윤곽선으로 그려서(모양 차이) 색 대비가 낮아도 개수가 구분되게 한다. */}
+                          <View
+                            style={s.stars}
+                            accessible
+                            accessibilityLabel={t("choose.ratingA11y", { rating: `${r.rating}/5` })}
+                          >
+                            {Array.from({ length: 5 }, (_, i) => {
+                              const filled = i < Math.round(r.rating);
+                              return (
+                                <Icons.Star
+                                  key={i}
+                                  size={11}
+                                  color={filled ? theme.colors.warning : theme.colors.textTertiary}
+                                  weight={filled ? "fill" : "regular"}
+                                />
+                              );
+                            })}
+                          </View>
                           <Text variant="caption" color="textTertiary">
                             {" "}
                             {r.relativeTime}
@@ -367,6 +378,7 @@ const useStyles = makeStyles((t) => ({
   reviewsHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   reviewsLoading: { marginVertical: t.space.sm },
   ratingRow: { flexDirection: "row", alignItems: "center", gap: 2 },
+  stars: { flexDirection: "row", gap: 2 },
   review: { backgroundColor: t.colors.surfaceAlt, borderRadius: t.radius.md, padding: t.space.md, gap: t.space.sm },
   reviewHead: { flexDirection: "row", alignItems: "center", gap: t.space.sm },
   avatar: { width: 28, height: 28, borderRadius: 14 },

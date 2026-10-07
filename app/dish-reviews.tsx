@@ -391,7 +391,7 @@ export default function DishReviewsScreen() {
                   disabled={posting}
                   accessibilityLabel={t("reviews.removePhoto")}
                   style={[s.previewRemove, posting && s.dim]}
-                  hitSlop={8}
+                  hitSlop={11}
                 >
                   <Icons.X size={12} color="#FFFFFF" weight="bold" />
                 </PressableScale>

@@ -12,6 +12,9 @@
 //   올라가는 채움은 한 톤 깊은 primaryFill(#D63A16, 4.69:1)을 쓴다.
 // - 작은 글씨가 브랜드색이어야 하면 primaryTint 배경 + primaryText 글씨 조합(5:1 이상).
 // - textTertiary는 흰 카드와 캔버스 배경 양쪽에서 4.5:1을 넘기도록 잡았다.
+// - success/warning 글씨는 각자의 Tint 배경 위에서도 4.5:1(2026-10 접근성 감사에서 4.24/4.45라 한 톤 내림).
+// - border/borderStrong은 구분선용(장식). 입력창 테두리처럼 컨트롤 경계는 borderControl(3:1).
+// - onImage는 하얀 사진 위에서도 흰 글씨가 4.5:1이 되도록 불투명도를 잡았다.
 
 /** 브랜드 램프 - 고추(gochu) 주황빨강. 기존 #FF5722를 살짝 깊게 눌러 형광기를 뺐다. */
 export const gochu = {
@@ -36,6 +39,8 @@ export type ColorTokens = {
   surfaceAlt: string;
   border: string;
   borderStrong: string;
+  /** 입력창·체크박스처럼 테두리로 "여기가 조작하는 곳"임을 알려야 하는 컨트롤 - 3:1 이상 */
+  borderControl: string;
 
   text: string;
   textSecondary: string;
@@ -76,6 +81,7 @@ export const lightColors: ColorTokens = {
   surfaceAlt: "#EFEDEB",
   border: "#E3E1DE",
   borderStrong: "#CFCCC8",
+  borderControl: "#8A857F",
 
   text: "#1F1D1B",
   textSecondary: "#4F4B46",
@@ -89,9 +95,9 @@ export const lightColors: ColorTokens = {
   primaryText: gochu[700],
   onPrimary: "#FFFFFF",
 
-  success: "#23824D",
+  success: "#1E7A47",
   successTint: "#E6F4EC",
-  warning: "#9A6700",
+  warning: "#916100",
   warningTint: "#FFF4DB",
   danger: "#C9302C",
   dangerTint: "#FDECEB",
@@ -99,7 +105,7 @@ export const lightColors: ColorTokens = {
   infoTint: "#E8F0FB",
 
   scrim: "rgba(23,22,21,0.45)",
-  onImage: "rgba(23,22,21,0.58)",
+  onImage: "rgba(23,22,21,0.62)",
   skeleton: "#E8E6E3",
 };
 
@@ -109,6 +115,7 @@ export const darkColors: ColorTokens = {
   surfaceAlt: "#272523",
   border: "#34322F",
   borderStrong: "#46433F",
+  borderControl: "#75706A",
 
   text: "#F3F1EE",
   textSecondary: "#C2BEB8",

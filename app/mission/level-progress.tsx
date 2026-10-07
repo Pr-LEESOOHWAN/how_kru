@@ -248,7 +248,7 @@ export default function LevelProgressScreen() {
             <Text variant="title3" style={[s.onFill, s.tabular]}>
               {display.badges}
             </Text>
-            <Text variant="caption" style={s.onFillDim}>
+            <Text variant="caption" style={s.onFill}>
               {t("lp.completedDishes")}
             </Text>
           </View>
@@ -294,7 +294,6 @@ const useStyles = makeStyles((t) => ({
   },
   cardRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   onFill: { color: t.colors.onPrimary },
-  onFillDim: { color: t.colors.onPrimary, opacity: 0.85 },
   track: {
     height: 10,
     borderRadius: t.radius.pill,
@@ -309,7 +308,8 @@ const useStyles = makeStyles((t) => ({
     alignItems: "center",
     gap: t.space.sm,
     marginTop: t.space.md,
-    backgroundColor: "rgba(255,255,255,0.16)",
+    // 흰 글씨가 올라가므로 채움보다 어둡게(흰색을 얹으면 작은 글씨 대비가 4.5:1 아래로 떨어진다).
+    backgroundColor: "rgba(0,0,0,0.14)",
     borderRadius: t.radius.md,
     paddingHorizontal: t.space.lg,
     paddingVertical: t.space.md,

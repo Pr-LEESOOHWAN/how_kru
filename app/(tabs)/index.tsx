@@ -338,7 +338,8 @@ const useStyles = makeStyles((t) => ({
   },
   levelTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   levelBadge: {
-    backgroundColor: "rgba(255,255,255,0.2)",
+    // 흰 글씨 바탕은 채움보다 어둡게 - 흰색 20%를 얹으면 3.6:1로 작은 글씨 기준 미달이었다(검정 16%는 6.2:1).
+    backgroundColor: "rgba(0,0,0,0.16)",
     borderRadius: t.radius.pill,
     paddingHorizontal: t.space.md,
     paddingVertical: t.space.xs,

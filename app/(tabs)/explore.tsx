@@ -184,7 +184,7 @@ export default function ExploreScreen() {
           style={s.searchInput}
         />
         {query ? (
-          <PressableScale onPress={() => setQuery("")} accessibilityLabel={t("explore.clearSearch")} hitSlop={8}>
+          <PressableScale onPress={() => setQuery("")} accessibilityLabel={t("explore.clearSearch")} hitSlop={14}>
             <Icons.X size={16} color={theme.colors.textTertiary} weight="bold" />
           </PressableScale>
         ) : null}
@@ -202,8 +202,11 @@ export default function ExploreScreen() {
                 onPress={() => setCategory(key)}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: active }}
-                accessibilityLabel={key === ALL ? label : t("explore.filterA11y", { name: label })}
+                // 개수도 같이 읽어 준다(화면에는 라벨 옆에 작게 보인다).
+                accessibilityLabel={`${key === ALL ? label : t("explore.filterA11y", { name: label })}, ${count}`}
                 style={[s.chip, active && s.chipActive]}
+                // 36pt 칩 + 위아래 4 = 44pt 터치 영역
+                hitSlop={{ top: 4, bottom: 4 }}
               >
                 <Text variant="caption" style={[s.chipText, active && s.chipTextActive]}>
                   {label}
@@ -414,12 +417,12 @@ const useStyles = makeStyles((t) => ({
     flexDirection: "row",
     alignItems: "center",
     gap: t.space.sm,
-    height: 46,
+    minHeight: 46,
     paddingHorizontal: t.space.md + t.space.xxs,
     borderRadius: t.radius.md,
     backgroundColor: t.colors.surface,
     borderWidth: 1,
-    borderColor: t.colors.border,
+    borderColor: t.colors.borderControl,
   },
   searchInput: { flex: 1, ...t.type.body, color: t.colors.text, paddingVertical: 0 },
   chips: { gap: t.space.sm, paddingRight: t.space.lg },
@@ -427,7 +430,7 @@ const useStyles = makeStyles((t) => ({
     flexDirection: "row",
     alignItems: "center",
     gap: t.space.xs + t.space.xxs,
-    height: 36,
+    minHeight: 36,
     paddingHorizontal: t.space.md + t.space.xxs,
     borderRadius: t.radius.pill,
     backgroundColor: t.colors.surface,

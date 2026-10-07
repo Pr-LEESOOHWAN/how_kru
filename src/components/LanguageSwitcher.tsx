@@ -31,7 +31,8 @@ export function LanguageSwitcher() {
             accessibilityLabel={t(`lang.${lang}`)}
             onPress={() => setLanguage(lang)}
             style={[s.chip, active && s.chipActive]}
-            hitSlop={4}
+            // 36pt 칩 + 위아래 4 = 44pt 터치 영역(옆 칩과 겹치지 않게 좌우는 간격만큼만)
+            hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
           >
             <Text variant="caption" style={{ color: active ? theme.colors.onPrimary : theme.colors.textSecondary, fontWeight: "700" }}>
               {SHORT_LABEL[lang]}
@@ -55,8 +56,8 @@ const useStyles = makeStyles((t) => ({
     padding: t.space.xs,
   },
   chip: {
-    minWidth: 34,
-    height: 30,
+    minWidth: 40,
+    minHeight: 36,
     paddingHorizontal: t.space.sm,
     borderRadius: t.radius.pill,
     alignItems: "center",

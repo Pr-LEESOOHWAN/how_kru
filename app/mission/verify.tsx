@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, BackHandler, Linking, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { OverlayIconButton, ScanCorners, ShutterButton } from "@/src/components/ScanParts";
+import { OverlayIconButton, OverlayLabel, overlayTextShadow, ScanCorners, ShutterButton } from "@/src/components/ScanParts";
 import { useI18n, type MessageKey } from "@/src/i18n";
 import { dishName } from "@/src/i18n/content";
 import { MissionVerifyError, verifyMission, type ReasonCode, type VerifyMissionResult } from "@/src/services/missionVerify";
@@ -209,14 +209,14 @@ export default function VerifyScreen() {
                 <Icons.X size={20} color="#FFFFFF" weight="bold" />
               </OverlayIconButton>
             </View>
-            <Text variant="title3" style={[s.white, s.bold]} accessibilityRole="header">
+            <Text variant="title3" style={[s.white, s.bold, overlayTextShadow]} accessibilityRole="header">
               {t("verify.captureTitle", { shot: t(meta.label) })}
             </Text>
             <View style={s.camSpacer} />
           </View>
-          <Text variant="callout" align="center" style={[s.camGuide, s.dimWhite]}>
-            {t(meta.guide)}
-          </Text>
+          <View style={s.camGuide}>
+            <OverlayLabel>{t(meta.guide)}</OverlayLabel>
+          </View>
           <ScanCorners size={Math.min(width * 0.72, 320)} />
           <View style={[s.camBottom, { paddingBottom: insets.bottom + theme.space.lg }]}>
             <ShutterButton onPress={capturePhoto} busy={capturing} accessibilityLabel={t("camera.capture")} />
@@ -433,7 +433,6 @@ const useStyles = makeStyles((t) => ({
   flex1: { flex: 1 },
   bold: { fontWeight: "700" },
   white: { color: "#FFFFFF" },
-  dimWhite: { color: "rgba(255,255,255,0.8)" },
   dim: { opacity: 0.3 },
   content: { padding: t.space.xl, gap: t.space.xl, paddingBottom: t.space.xxl },
   info: {
@@ -470,7 +469,8 @@ const useStyles = makeStyles((t) => ({
     marginBottom: t.space.xs,
   },
   tapHint: { flexDirection: "row", alignItems: "center", gap: t.space.xs, marginTop: t.space.sm },
-  tileDone: { position: "absolute", top: t.space.sm, right: t.space.sm, backgroundColor: "#FFFFFF", borderRadius: t.radius.pill },
+  // 체크 아이콘 뒤 원은 테마 면 색 - 흰 원이면 다크 테마의 밝은 초록이 1.9:1로 묻힌다.
+  tileDone: { position: "absolute", top: t.space.sm, right: t.space.sm, backgroundColor: t.colors.surface, borderRadius: t.radius.pill },
   retakeChip: {
     position: "absolute",
     bottom: t.space.sm,
@@ -520,6 +520,6 @@ const useStyles = makeStyles((t) => ({
   camOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)" },
   camTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: t.space.xl, paddingBottom: t.space.lg },
   camSpacer: { width: 44 },
-  camGuide: { paddingHorizontal: t.space.xxxl, marginBottom: t.space.xxl },
+  camGuide: { paddingHorizontal: t.space.xl, marginBottom: t.space.xxl },
   camBottom: { flex: 1, alignItems: "center", justifyContent: "center" },
 }));

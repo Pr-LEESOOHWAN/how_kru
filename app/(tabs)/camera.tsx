@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert, Linking, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { OverlayIconButton, ScanCorners, ShutterButton } from "@/src/components/ScanParts";
+import { OverlayIconButton, OverlayLabel, overlayTextShadow, ScanCorners, ShutterButton } from "@/src/components/ScanParts";
 import { useI18n } from "@/src/i18n";
 import { makeStyles, useTheme } from "@/src/theme/ThemeContext";
+import { lightColors } from "@/src/theme/tokens";
 import { Button, Icons, PressableScale, Text, triggerHaptic } from "@/src/ui";
 
 type ScanMode = "restaurant" | "food";
@@ -48,10 +49,10 @@ export default function CameraScreen() {
         <View style={s.permissionIcon}>
           <Icons.Camera size={36} color={theme.colors.primary} weight="duotone" />
         </View>
-        <Text variant="title2" align="center" style={s.white}>
+        <Text variant="title2" align="center">
           {t("perm.cameraTitle")}
         </Text>
-        <Text variant="callout" align="center" style={s.dimText}>
+        <Text variant="callout" align="center" color="textSecondary">
           {t("camera.permDesc")}
         </Text>
         <View style={s.permissionActions}>
@@ -95,7 +96,7 @@ export default function CameraScreen() {
           <OverlayIconButton onPress={() => router.back()} accessibilityLabel={t("common.close")}>
             <Icons.X size={20} color="#FFFFFF" weight="bold" />
           </OverlayIconButton>
-          <Text variant="title3" style={[s.white, s.bold]} accessibilityRole="header">
+          <Text variant="title3" style={[s.white, s.bold, overlayTextShadow]} accessibilityRole="header">
             {scanMode === "restaurant" ? t("camera.titleRestaurant") : t("camera.titleFood")}
           </Text>
           <OverlayIconButton
@@ -110,9 +111,9 @@ export default function CameraScreen() {
           </OverlayIconButton>
         </View>
 
-        <Text variant="callout" align="center" style={[s.dimText, s.guide]}>
-          {scanMode === "restaurant" ? t("camera.guideRestaurant") : t("camera.guideFood")}
-        </Text>
+        <View style={s.guide}>
+          <OverlayLabel>{scanMode === "restaurant" ? t("camera.guideRestaurant") : t("camera.guideFood")}</OverlayLabel>
+        </View>
 
         <ScanCorners size={Math.min(width * 0.75, 340)}>
           <View style={[s.status, scanned && s.statusDone]}>
@@ -161,11 +162,12 @@ const useStyles = makeStyles((t) => ({
   root: { flex: 1, backgroundColor: "#000000" },
   white: { color: "#FFFFFF" },
   bold: { fontWeight: "700" },
-  dimText: { color: "rgba(255,255,255,0.78)" },
 
+  // 권한 안내는 카메라 영상이 없는 일반 화면이라 테마를 따른다. (예전엔 늘 검정 바탕이라 라이트
+  // 테마의 고스트 버튼 글씨(진한 브랜드색)가 검정 위에서 2.9:1로 묻혔다.)
   permission: {
     flex: 1,
-    backgroundColor: "#121110",
+    backgroundColor: t.colors.bg,
     alignItems: "center",
     justifyContent: "center",
     padding: t.space.xxxl,
@@ -175,7 +177,7 @@ const useStyles = makeStyles((t) => ({
     width: 80,
     height: 80,
     borderRadius: t.radius.pill,
-    backgroundColor: "rgba(242,84,45,0.16)",
+    backgroundColor: t.colors.primaryTint,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: t.space.sm,
@@ -190,7 +192,7 @@ const useStyles = makeStyles((t) => ({
     paddingHorizontal: t.space.xl,
     paddingBottom: t.space.lg,
   },
-  guide: { paddingHorizontal: t.space.xxxl, marginBottom: t.space.xxl },
+  guide: { paddingHorizontal: t.space.xl, marginBottom: t.space.xxl },
   status: {
     flexDirection: "row",
     alignItems: "center",
@@ -200,7 +202,9 @@ const useStyles = makeStyles((t) => ({
     paddingVertical: t.space.sm,
     borderRadius: t.radius.pill,
   },
-  statusDone: { backgroundColor: t.colors.success },
+  // 카메라 화면은 테마와 무관하게 늘 어두우므로 흰 글씨와 5:1이 나오는 라이트 테마 초록을 고정으로 쓴다
+  // (다크 테마 초록 #5CC98A는 흰 글씨와 2:1).
+  statusDone: { backgroundColor: lightColors.success },
   modes: {
     flexDirection: "row",
     alignSelf: "center",
