@@ -25,6 +25,9 @@ const STRINGS = {
 
 export type StringKey = keyof typeof STRINGS;
 
+// [임시] 새 다국어 시스템(src/i18n/index.ts)으로 옮기는 중인 레거시 사전. 남은 화면을
+// 전환하면 이 파일은 삭제한다. ja/zh는 여기 없으니 영어로 폴백.
 export function t(key: StringKey, language: Language): string {
-  return STRINGS[key][language] ?? STRINGS[key].ko;
+  const entry = STRINGS[key] as Record<string, string>;
+  return entry[language] ?? entry.en ?? entry.ko;
 }

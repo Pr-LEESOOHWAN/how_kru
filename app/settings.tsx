@@ -1,88 +1,99 @@
-import { useLanguage, type Language } from "@/src/contexts/LanguageContext";
-import { t } from "@/src/i18n/strings";
-import { useRouter } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Alert, ScrollView, View } from "react-native";
 
-const LANGUAGE_OPTIONS: { code: Language; labelKey: "languageKorean" | "languageEnglish"; flag: string }[] = [
-  { code: "ko", labelKey: "languageKorean", flag: "🇰🇷" },
-  { code: "en", labelKey: "languageEnglish", flag: "🇺🇸" },
+import { SUPPORTED_LANGUAGES, type Language } from "@/src/contexts/LanguageContext";
+import { logOut } from "@/src/firebase/authService";
+import { useI18n } from "@/src/i18n";
+import { makeStyles, useThemePreference, type ThemePreference } from "@/src/theme/ThemeContext";
+import { Button, Card, Icons, ListRow, Screen, ScreenHeader, Text } from "@/src/ui";
+
+/** 각 언어는 그 언어 자신의 이름으로 (못 읽는 언어로 된 화면에서도 찾을 수 있게) */
+const ENDONYM: Record<Language, string> = { ko: "한국어", en: "English", ja: "日本語", zh: "中文" };
+
+const THEME_OPTIONS: { value: ThemePreference; labelKey: "settings.themeSystem" | "settings.themeLight" | "settings.themeDark"; icon: Icons.Icon }[] = [
+  { value: "system", labelKey: "settings.themeSystem", icon: Icons.Compass },
+  { value: "light", labelKey: "settings.themeLight", icon: Icons.Sun },
+  { value: "dark", labelKey: "settings.themeDark", icon: Icons.Moon },
 ];
 
 export default function SettingsScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { language, setLanguage } = useLanguage();
+  const { t, language, setLanguage } = useI18n();
+  const { preference, setPreference } = useThemePreference();
+  const s = useStyles();
+
+  const handleLogout = () => {
+    Alert.alert(t("settings.logoutConfirm"), undefined, [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("settings.logout"),
+        style: "destructive",
+        // 로그아웃되면 AuthContext의 user가 null이 되고, app/_layout.tsx의 Stack.Protected
+        // 가드가 자동으로 /login으로 보낸다.
+        onPress: () => logOut().catch((err) => console.error("[settings] 로그아웃 오류:", err)),
+      },
+    ]);
+  };
 
   return (
-    <View style={s.root}>
-      <View style={[s.header, { paddingTop: Math.max(insets.top, 20) + 14 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Text style={s.backText}>‹</Text>
-        </TouchableOpacity>
-        <Text style={s.headerTitle}>{t("settingsTitle", language)}</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <View style={s.section}>
-        <Text style={s.sectionTitle}>{t("languageSectionTitle", language)}</Text>
-        <Text style={s.sectionDesc}>{t("languageSectionDesc", language)}</Text>
-
-        <View style={s.optionList}>
-          {LANGUAGE_OPTIONS.map((opt) => {
-            const active = language === opt.code;
-            return (
-              <TouchableOpacity
-                key={opt.code}
-                style={[s.optionRow, active && s.optionRowActive]}
-                activeOpacity={0.75}
-                onPress={() => setLanguage(opt.code)}
-              >
-                <Text style={s.optionFlag}>{opt.flag}</Text>
-                <Text style={[s.optionLabel, active && s.optionLabelActive]}>
-                  {t(opt.labelKey, language)}
-                </Text>
-                {active && <Text style={s.optionCheck}>✓</Text>}
-              </TouchableOpacity>
-            );
-          })}
+    <Screen>
+      <ScreenHeader title={t("settings.title")} />
+      <ScrollView contentContainerStyle={s.content}>
+        <View style={s.section}>
+          <Text variant="title3" accessibilityRole="header">
+            {t("settings.language")}
+          </Text>
+          <Text variant="callout" color="textSecondary">
+            {t("settings.languageDesc")}
+          </Text>
+          <Card padding={0} style={s.group}>
+            {SUPPORTED_LANGUAGES.map((lang, i) => (
+              <ListRow
+                key={lang}
+                accessibilityRole="radio"
+                title={ENDONYM[lang]}
+                subtitle={lang === language ? undefined : t(`lang.${lang}`)}
+                selected={lang === language}
+                onPress={() => setLanguage(lang)}
+                isLast={i === SUPPORTED_LANGUAGES.length - 1}
+              />
+            ))}
+          </Card>
         </View>
 
-        <View style={s.noteBox}>
-          <Text style={s.noteTitle}>ℹ️ {t("languageNoteTitle", language)}</Text>
-          <Text style={s.noteText}>{t("languageNote", language)}</Text>
+        <View style={s.section}>
+          <Text variant="title3" accessibilityRole="header">
+            {t("settings.appearance")}
+          </Text>
+          <Text variant="callout" color="textSecondary">
+            {t("settings.appearanceDesc")}
+          </Text>
+          <Card padding={0} style={s.group}>
+            {THEME_OPTIONS.map((opt, i) => (
+              <ListRow
+                key={opt.value}
+                accessibilityRole="radio"
+                icon={opt.icon}
+                title={t(opt.labelKey)}
+                selected={preference === opt.value}
+                onPress={() => setPreference(opt.value)}
+                isLast={i === THEME_OPTIONS.length - 1}
+              />
+            ))}
+          </Card>
         </View>
-      </View>
-    </View>
+
+        <View style={s.section}>
+          <Text variant="title3" accessibilityRole="header">
+            {t("settings.account")}
+          </Text>
+          <Button title={t("settings.logout")} icon={Icons.SignOut} variant="danger" onPress={handleLogout} fullWidth />
+        </View>
+      </ScrollView>
+    </Screen>
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#F5F5F5" },
-  header: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    backgroundColor: "#fff", paddingHorizontal: 12, paddingBottom: 14,
-    borderBottomWidth: 0.5, borderBottomColor: "#eee",
-  },
-  backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  backText: { fontSize: 28, color: "#222" },
-  headerTitle: { fontSize: 17, fontWeight: "bold", color: "#222" },
-  section: { padding: 20 },
-  sectionTitle: { fontSize: 15, fontWeight: "bold", color: "#222", marginBottom: 4 },
-  sectionDesc: { fontSize: 13, color: "#888", marginBottom: 16 },
-  optionList: {
-    backgroundColor: "#fff", borderRadius: 14, overflow: "hidden", borderWidth: 0.5, borderColor: "#eee",
-  },
-  optionRow: {
-    flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 16,
-    borderBottomWidth: 0.5, borderBottomColor: "#f0f0f0",
-  },
-  optionRowActive: { backgroundColor: "#FFF0EC" },
-  optionFlag: { fontSize: 20 },
-  optionLabel: { flex: 1, fontSize: 15, color: "#333", fontWeight: "600" },
-  optionLabelActive: { color: "#FF5722" },
-  optionCheck: { fontSize: 16, color: "#FF5722", fontWeight: "bold" },
-  noteBox: { marginTop: 16, backgroundColor: "#FFF7E8", borderRadius: 12, padding: 14 },
-  noteTitle: { fontSize: 12, fontWeight: "bold", color: "#8A6D1D", marginBottom: 4 },
-  noteText: { fontSize: 12, color: "#8A6D1D", lineHeight: 18 },
-});
+const useStyles = makeStyles((t) => ({
+  content: { padding: t.space.xl, gap: t.space.xxxl, paddingBottom: t.space.huge },
+  section: { gap: t.space.sm },
+  group: { marginTop: t.space.sm },
+}));

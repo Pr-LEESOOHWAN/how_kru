@@ -13,6 +13,7 @@ import {
 } from "firebase/auth";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { Platform } from "react-native";
+import type { MessageKey } from "@/src/i18n/types";
 import { auth, db } from "./firebaseConfig";
 
 // @ts-expect-error - firebaseConfig.ts와 동일한 이유(RN 빌드에만 존재, 타입 선언 누락)
@@ -70,27 +71,28 @@ export function subscribeToAuthChanges(callback: (user: User | null) => void) {
   return onAuthStateChanged(auth, callback);
 }
 
-export function getAuthErrorMessage(error: unknown): string {
+/** Firebase Auth 오류 코드 -> 화면에 보여줄 번역 키 (다국어화 이전엔 한국어 문장을 바로 반환했다) */
+export function authErrorKey(error: unknown): MessageKey {
   const code = typeof error === "object" && error !== null && "code" in error
     ? String((error as { code: unknown }).code)
     : "";
 
   switch (code) {
     case "auth/invalid-email":
-      return "이메일 형식이 올바르지 않아요.";
+      return "auth.error.invalidEmail";
     case "auth/email-already-in-use":
-      return "이미 가입된 이메일이에요.";
+      return "auth.error.emailInUse";
     case "auth/weak-password":
-      return "비밀번호는 6자 이상이어야 해요.";
+      return "auth.error.weakPassword";
     case "auth/invalid-credential":
     case "auth/wrong-password":
     case "auth/user-not-found":
-      return "이메일 또는 비밀번호가 올바르지 않아요.";
+      return "auth.error.wrongCredentials";
     case "auth/too-many-requests":
-      return "너무 여러 번 시도했어요. 잠시 후 다시 시도해주세요.";
+      return "auth.error.tooMany";
     case "auth/network-request-failed":
-      return "네트워크 연결을 확인해주세요.";
+      return "auth.error.network";
     default:
-      return "문제가 발생했어요. 다시 시도해주세요.";
+      return "auth.error.unknown";
   }
 }

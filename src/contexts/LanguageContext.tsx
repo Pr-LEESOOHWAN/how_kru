@@ -1,16 +1,35 @@
-// 환경설정 > 언어 기능.
+// 앱 언어 컨텍스트 (한국어 / English / 日本語 / 中文).
 //
-// 지금 앱 화면 대부분은 한국어로 하드코딩되어 있어서(전체 화면 다국어화는 별도의
-// 큰 작업), 이 컨텍스트는 우선 "언어 설정값을 저장/전환하는 기반"을 만드는 역할을
-// 합니다. src/i18n/strings.ts에 등록된 문구들은 즉시 언어에 따라 바뀌고,
-// 앞으로 다른 화면들도 이 방식으로 하나씩 다국어 지원을 넓혀갈 수 있습니다.
+// 호꾸는 외국인 대상 앱인데 2026-10 다국어화 전까지는 문구가 거의 전부 한국어로 고정돼
+// 있었다. 이제 모든 화면 문구는 src/i18n/locales/*의 사전을 거친다.
+//
+// 기본 언어: 사용자가 환경설정에서 고른 적이 있으면 그 값, 아니면 기기 언어를 따른다
+// (지원하지 않는 언어면 영어). 고른 적이 없는 동안은 저장하지 않아서, 기기 언어를 바꾸면
+// 앱도 따라 바뀐다.
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getLocales } from "expo-localization";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export type Language = "ko" | "en";
+export type Language = "ko" | "en" | "ja" | "zh";
+
+export const SUPPORTED_LANGUAGES: Language[] = ["ko", "en", "ja", "zh"];
 
 const STORAGE_KEY = "how_kru_language";
+
+function isLanguage(value: unknown): value is Language {
+  return typeof value === "string" && (SUPPORTED_LANGUAGES as string[]).includes(value);
+}
+
+/** 기기 언어 -> 지원 언어. zh-Hant(대만/홍콩)도 지금은 간체 사전으로 보낸다. */
+export function deviceLanguage(): Language {
+  try {
+    const code = getLocales()[0]?.languageCode ?? "";
+    return isLanguage(code) ? code : "en";
+  } catch {
+    return "en";
+  }
+}
 
 type LanguageContextValue = {
   language: Language;
@@ -25,18 +44,16 @@ const LanguageContext = createContext<LanguageContextValue>({
 });
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>("ko");
+  const [language, setLanguageState] = useState<Language>(deviceLanguage);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
         const saved = await AsyncStorage.getItem(STORAGE_KEY);
-        if (saved === "ko" || saved === "en") {
-          setLanguageState(saved);
-        }
+        if (isLanguage(saved)) setLanguageState(saved);
       } catch {
-        // 저장된 값을 못 읽어와도 기본값(한국어)으로 계속 진행
+        // 저장된 값을 못 읽어오면 기기 언어로 계속 진행
       } finally {
         setLoaded(true);
       }
