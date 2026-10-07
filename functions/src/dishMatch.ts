@@ -8,9 +8,24 @@
 
 import { detectFoodTerms } from "./vision";
 
+/**
+ * code: 클라이언트가 사용자 언어로 이유를 보여주기 위한 기계용 코드(2026-10 다국어화).
+ * reason: 예전 앱 빌드가 그대로 보여주는 한국어 문장 - 이미 설치된 구버전 앱 호환을 위해 유지.
+ */
+export type DishMatchCode =
+  | "dish_name_hit"
+  | "dish_tag_hit"
+  | "dish_similar_category"
+  | "dish_mismatch"
+  | "dish_nothing_detected"
+  | "dish_detect_failed";
+
 export type DishMatchResult = {
   matched: boolean;
   confidence: "high" | "medium" | "low";
+  code: DishMatchCode;
+  /** 감지된 대표 용어(최대 3개) - dish_mismatch 등에서 "사진에서 이렇게 보였어요" 표시용 */
+  terms?: string[];
   reason: string;
 };
 
@@ -32,7 +47,7 @@ export async function judgeDishPhoto(params: {
     terms = await detectFoodTerms(imageBase64);
   } catch (err) {
     console.error("[judgeDishPhoto] Vision 감지 실패:", err);
-    return { matched: false, confidence: "low", reason: "사진 판정 중 오류가 발생했어요." };
+    return { matched: false, confidence: "low", code: "dish_detect_failed", reason: "사진 판정 중 오류가 발생했어요." };
   }
 
   const normTerms = terms.map(normalize);
@@ -54,13 +69,13 @@ export async function judgeDishPhoto(params: {
     (t) => t === targetName || (targetName.length > 3 && t.includes(targetName))
   );
   if (nameHit) {
-    return { matched: true, confidence: "high", reason: `사진에서 '${nameHit}'로 인식됐어요.` };
+    return { matched: true, confidence: "high", code: "dish_name_hit", terms: [nameHit], reason: `사진에서 '${nameHit}'로 인식됐어요.` };
   }
 
   // 2) dishes 컬렉션에 등록된 태그와 겹치면 중간 신뢰도로 통과.
   const tagHit = targetTags.find((t) => normTerms.includes(t));
   if (tagHit) {
-    return { matched: true, confidence: "medium", reason: `사진에서 '${tagHit}' 관련 특징이 감지됐어요.` };
+    return { matched: true, confidence: "medium", code: "dish_tag_hit", terms: [tagHit], reason: `사진에서 '${tagHit}' 관련 특징이 감지됐어요.` };
   }
 
   // 3) 카테고리 정도만 겹치면(예: "soup", "stew") - 확정 매칭은 아니지만 완전히
@@ -69,6 +84,7 @@ export async function judgeDishPhoto(params: {
     return {
       matched: false,
       confidence: "low",
+      code: "dish_similar_category",
       reason: "정확한 요리명까지는 확인 못 했지만, 비슷한 종류의 음식으로는 보여요.",
     };
   }
@@ -76,6 +92,8 @@ export async function judgeDishPhoto(params: {
   return {
     matched: false,
     confidence: "low",
+    code: terms.length > 0 ? "dish_mismatch" : "dish_nothing_detected",
+    ...(terms.length > 0 ? { terms: terms.slice(0, 3) } : {}),
     reason:
       terms.length > 0
         ? `사진에서 '${terms.slice(0, 3).join(", ")}' 정도만 인식됐고, '${dishNameKr}'와는 달라 보여요.`

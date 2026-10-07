@@ -28,6 +28,7 @@ describe("judgeDishPhoto", () => {
     });
     expect(result.matched).toBe(true);
     expect(result.confidence).toBe("high");
+    expect(result.code).toBe("dish_name_hit");
   });
 
   it("이름은 안 맞아도 등록된 태그와 겹치면 medium confidence로 매칭된다", async () => {
@@ -41,6 +42,7 @@ describe("judgeDishPhoto", () => {
     });
     expect(result.matched).toBe(true);
     expect(result.confidence).toBe("medium");
+    expect(result.code).toBe("dish_tag_hit");
   });
 
   it("회귀: 아주 흔한 한 단어 라벨(예: 'soup')만으로는 요리명에 그 단어가 포함된다는 " +
@@ -69,6 +71,7 @@ describe("judgeDishPhoto", () => {
     });
     expect(result.matched).toBe(false);
     expect(result.reason).toContain("비슷한 종류");
+    expect(result.code).toBe("dish_similar_category");
   });
 
   it("아무 특징도 감지되지 않으면 matched는 false이고 그 사실을 알려준다", async () => {
@@ -80,6 +83,7 @@ describe("judgeDishPhoto", () => {
     });
     expect(result.matched).toBe(false);
     expect(result.reason).toContain("인식하지 못했어요");
+    expect(result.code).toBe("dish_nothing_detected");
   });
 
   it("완전히 관련 없는 요리 라벨이 감지되면 matched는 false다", async () => {
@@ -103,5 +107,19 @@ describe("judgeDishPhoto", () => {
     });
     expect(result.matched).toBe(false);
     expect(result.confidence).toBe("low");
+    expect(result.code).toBe("dish_detect_failed");
+  });
+
+  it("관련 없는 라벨만 감지되면 dish_mismatch 코드와 함께 감지된 용어(최대 3개)를 돌려준다", async () => {
+    mockDetectFoodTerms.mockResolvedValueOnce(["pizza", "cheese", "italian food", "tomato"]);
+    const result = await judgeDishPhoto({
+      imageBase64: "x",
+      dishNameKr: "비빔밥",
+      dishNameEn: "Bibimbap",
+      category: "rice",
+      tags: ["korean"],
+    });
+    expect(result.code).toBe("dish_mismatch");
+    expect(result.terms).toEqual(["pizza", "cheese", "italian food"]);
   });
 });

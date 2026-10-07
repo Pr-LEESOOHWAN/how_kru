@@ -2,7 +2,7 @@ import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 
-import { judgeDishPhoto } from "./dishMatch";
+import { judgeDishPhoto, type DishMatchResult } from "./dishMatch";
 import { matchRestaurantName } from "./nameMatch";
 import { extractText } from "./vision";
 
@@ -18,6 +18,15 @@ type VerifyMissionRequest = {
 };
 
 type Verdict = "pass" | "uncertain" | "fail";
+
+/**
+ * 판정 이유를 언어와 무관한 코드로도 돌려준다(2026-10 다국어화). 새 앱은 이걸 사용자 언어로
+ * 번역해서 보여주고, 이미 설치된 구버전 앱은 기존 reasons(한국어 문장)를 계속 그대로 쓴다.
+ */
+type ReasonCode =
+  | { code: "name_not_found" }
+  | { code: "name_mismatch"; restaurant: string }
+  | { code: DishMatchResult["code"]; terms?: string[] };
 
 type DishDoc = {
   name_kr: string;
@@ -95,15 +104,20 @@ export const verifyMission = onCall(
     }
 
     const reasons: string[] = [];
+    const reasonCodes: ReasonCode[] = [];
     if (!nameResult.matched) {
       reasons.push(
         nameResult.source === "none"
           ? "간판/영수증에서 상호명을 확인하지 못했어요."
           : `사진에서 읽은 글자가 '${restaurantName}'와 달라 보여요.`
       );
+      reasonCodes.push(
+        nameResult.source === "none" ? { code: "name_not_found" } : { code: "name_mismatch", restaurant: restaurantName }
+      );
     }
     if (!dishJudgement.matched) {
       reasons.push(dishJudgement.reason || `사진이 '${dish.name_kr}'로 보이지 않아요.`);
+      reasonCodes.push({ code: dishJudgement.code, ...(dishJudgement.terms ? { terms: dishJudgement.terms } : {}) });
     }
 
     // 예전엔 로그가 하나도 안 남아서, 실제로 몇 번 호출됐는데도(functions:log 확인)
@@ -118,6 +132,6 @@ export const verifyMission = onCall(
       dishMatch: dishJudgement,
     });
 
-    return { verdict, nameMatch: nameResult, dishMatch: dishJudgement, reasons };
+    return { verdict, nameMatch: nameResult, dishMatch: dishJudgement, reasons, reasonCodes };
   }
 );
