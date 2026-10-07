@@ -64,4 +64,68 @@ export const en: PluralMessages = {
   "settings.account": "Account",
   "settings.logout": "Log out",
   "settings.logoutConfirm": "Log out of HOW KRU?",
+
+  // 하단 탭
+  "tabs.home": "Home",
+  "tabs.explore": "Explore",
+  "tabs.levels": "Levels",
+  "tabs.scan": "Scan",
+
+  // 요리 카드
+  "dish.startMission": "Start mission",
+  "dish.cardHint": "Opens the mission",
+  "dish.detailHint": "Opens dish details",
+
+  // 홈
+  "home.greeting": "Welcome back, {name}",
+  "home.settingsA11y": "Open settings",
+  "home.levelLabel": "Current level",
+  "home.levelProgress": "This level {progress}/{required}",
+  "home.badges": { one: "{count} badge", other: "{count} badges" },
+  "home.levelCardHint": "See every dish by level",
+  "home.progressA11y": "Level progress {pct} percent",
+  "home.todayTitle": "Today's challenge",
+  "home.todaySub": "New picks every day",
+  "home.loadError": "Couldn't load today's challenge",
+  "home.loadErrorHint": "Check your connection and try again.",
+  "home.empty": "No dishes found for this level",
+
+  // 미션 시작
+  "mission.startTitle": "Mission",
+  "mission.guideTitle": "How it works",
+  "mission.step1": "Pick a nearby restaurant",
+  "mission.step2": "Follow directions there",
+  "mission.step3": "Verify with photos of the sign and dish",
+  "mission.step4": "Earn XP and a badge",
+  "mission.reward": "+{xp} XP when you finish",
+  "mission.alreadyDone": "Already completed. No extra XP this time",
+  "mission.viewReviews": "See reviews for this dish",
+  "mission.startCta": "Start mission",
+
+  // 탐색
+  "explore.title": "Explore the menu",
+  "explore.count": { one: "{count} dish", other: "{count} dishes" },
+  "explore.searchPlaceholder": "Search dishes",
+  "explore.clearSearch": "Clear search",
+  "explore.all": "All",
+  "explore.filterA11y": "Show {name} dishes",
+  "explore.loadError": "Couldn't load the menu",
+  "explore.empty": "No dishes to show",
+  "explore.noResults": "No dishes match \"{query}\"",
+  "explore.noResultsHint": "Try another name, or search in Korean or English.",
+
+  // 요리 상세
+  "dish.spice": "Spice",
+  "dish.category": "Category",
+  "dish.tags": "Good to know",
+  "dish.howToEnjoy": "Ways to enjoy it",
+  "dish.reviews": "Reviews",
+  "dish.retryMission": "Do it again",
+
+  // 레벨별 요리
+  "levels.title": "Dishes by level",
+  "levels.mine": "My level",
+  "levels.progress": "{done} of {total} done",
+  "levels.cleared": "Cleared",
+  "levels.loadError": "Couldn't load levels",
 };

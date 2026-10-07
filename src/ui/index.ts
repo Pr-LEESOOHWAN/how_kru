@@ -1,4 +1,5 @@
 export { Badge, type BadgeTone } from "./Badge";
+export { BottomSheet } from "./BottomSheet";
 export { Button } from "./Button";
 export { Card } from "./Card";
 export * as Icons from "./icons";

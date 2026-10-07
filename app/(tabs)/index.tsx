@@ -1,15 +1,18 @@
-import { useAuth } from "@/src/contexts/AuthContext";
-import { useLanguage } from "@/src/contexts/LanguageContext";
-import { countProgressInLevel, Dish, getDishesByLevel, getFallbackDishPhoto, getUser } from "@/src/firebase/dishService";
-import { db } from "@/src/firebase/firebaseConfig";
-import { logOut } from "@/src/firebase/authService";
-import { t } from "@/src/i18n/strings";
-import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { doc, getDoc } from "firebase/firestore";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { DishCard } from "@/src/components/DishCard";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { countProgressInLevel, Dish, getDishesByLevel, getFallbackDishPhoto, getUser } from "@/src/firebase/dishService";
+import { db } from "@/src/firebase/firebaseConfig";
+import { useI18n } from "@/src/i18n";
+import { levelTitle } from "@/src/i18n/content";
+import { missionStartParams } from "@/src/lib/missionParams";
+import { makeStyles, useTheme } from "@/src/theme/ThemeContext";
+import { Icons, PressableScale, Screen, Skeleton, StateView, Text } from "@/src/ui";
 
 const MAX_LEVEL = 12;
 const DEFAULT_LEVEL = 1;
@@ -18,20 +21,12 @@ type LevelDoc = { title?: string; required_count?: number };
 
 type HomeState = {
   level: number;
-  levelTitle: string;
+  storedLevelTitle?: string;
   xpPct: number;
   progress: number;
   requiredCount: number;
   badges: number;
 };
-
-const SpiceIcon = ({ level }: { level: number }) => (
-  <View style={{ flexDirection: "row" }}>
-    {Array.from({ length: 5 }, (_, i) => (
-      <Text key={i} style={{ fontSize: 11, opacity: i < level ? 1 : 0.2 }}>🌶️</Text>
-    ))}
-  </View>
-);
 
 // 오늘의 도전과제 후보(현재 레벨의 미완료 요리 우선)에서 날짜 기준으로 2개를 순환 선택.
 // 매일 조금씩 다른 요리가 보이되, 같은 날 안에서는 화면을 다시 열어도 같은 요리가 뜨도록 함.
@@ -52,16 +47,16 @@ function pickTodayChallenges(levelDishes: Dish[], completedIds: Set<string>): Di
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const { t, language } = useI18n();
+  const s = useStyles();
   const { user: authUser } = useAuth();
-  const { language } = useLanguage();
 
   const [loading, setLoading] = useState(true);
-  // 데이터 로딩 실패를 "이 레벨엔 요리가 없어요"로 잘못 보여주지 않도록 별도 에러 상태로
-  // 구분한다 (explore.tsx, dish-reviews.tsx, levels.tsx 등 다른 화면에서 이미 쓰던 패턴).
+  // 데이터 로딩 실패를 "이 레벨엔 요리가 없어요"로 잘못 보여주지 않도록 별도 에러 상태로 구분한다.
   const [loadError, setLoadError] = useState(false);
   const [home, setHome] = useState<HomeState>({
     level: DEFAULT_LEVEL,
-    levelTitle: "",
     xpPct: 0,
     progress: 0,
     requiredCount: 1,
@@ -69,13 +64,12 @@ export default function HomeScreen() {
   });
   const [challenges, setChallenges] = useState<Dish[]>([]);
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
-  // 공식 사진(dish.image)이 없는 요리만, 유저 리뷰 사진으로 보완한 썸네일.
-  // explore.tsx/levels.tsx와 동일한 패턴 (dishId -> imageUrl).
+  // 공식 사진(dish.image)이 없는 요리만, 유저 리뷰 사진으로 보완한 썸네일 (dishId -> imageUrl).
   const [fallbackPhotos, setFallbackPhotos] = useState<Record<string, string>>({});
   // authUser가 바뀌지 않아도 재시도 버튼/화면 재진입으로 다시 불러올 수 있게 별도 트리거로 관리
   const [reloadTick, setReloadTick] = useState(0);
-  // 첫 로딩인지 여부. 첫 로딩에만 전체 화면 스피너를 띄우고, 이후 새로고침은
-  // 기존 화면을 그대로 둔 채 조용히 갱신해서 탭을 오갈 때 화면이 깜빡이지 않게 한다.
+  // 첫 로딩에만 스켈레톤을 띄우고, 이후 새로고침은 기존 화면을 그대로 둔 채 조용히 갱신해서
+  // 탭을 오갈 때 화면이 깜빡이지 않게 한다.
   const firstLoadRef = useRef(true);
 
   useEffect(() => {
@@ -85,7 +79,6 @@ export default function HomeScreen() {
     }
     let cancelled = false;
     (async () => {
-      // 아직 보여줄 데이터가 없을 때(첫 로딩/에러 후 재시도)만 스피너를 띄운다.
       if (firstLoadRef.current || loadError) setLoading(true);
       setLoadError(false);
       try {
@@ -93,8 +86,7 @@ export default function HomeScreen() {
         const level = Math.min(user?.current_level ?? DEFAULT_LEVEL, MAX_LEVEL);
         const completed = new Set(user?.completed_dishes ?? []);
 
-        // 진행 개수는 위에서 받은 유저 문서 + 아래 레벨 요리 목록으로 바로 계산한다
-        // (예전엔 getProgressInLevel()이 같은 유저 문서/레벨 쿼리를 한 번 더 읽었음).
+        // 진행 개수는 위에서 받은 유저 문서 + 아래 레벨 요리 목록으로 바로 계산한다.
         const [levelSnap, levelDishes] = await Promise.all([
           getDoc(doc(db, "levels", String(level))),
           getDishesByLevel(level),
@@ -107,7 +99,7 @@ export default function HomeScreen() {
         setCompletedIds(completed);
         setHome({
           level,
-          levelTitle: levelData.title ?? `Level ${level}`,
+          storedLevelTitle: levelData.title,
           xpPct: Math.min(100, Math.round((progress / requiredCount) * 100)),
           progress,
           requiredCount,
@@ -116,8 +108,7 @@ export default function HomeScreen() {
         const todayChallenges = pickTodayChallenges(levelDishes, completed);
         setChallenges(todayChallenges);
 
-        // 공식 사진이 없는 요리만 리뷰 사진으로 보완 시도 (explore.tsx/levels.tsx와 동일 -
-        // 백그라운드 조회, 실패해도 조용히 무시하고 🍽️ 자리표시자로 남음).
+        // 공식 사진이 없는 요리만 리뷰 사진으로 보완 시도 (백그라운드, 실패하면 자리표시 그림으로 남음).
         todayChallenges.filter((d) => !d.image).forEach((d) => {
           getFallbackDishPhoto(d.id)
             .then((url) => {
@@ -138,16 +129,13 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-    // loadError는 "스피너를 띄울지" 판단에만 쓰는 읽기 전용 값이라 의존성에 넣지 않는다
+    // loadError는 "스켈레톤을 띄울지" 판단에만 쓰는 읽기 전용 값이라 의존성에 넣지 않는다
     // (넣으면 에러 → 재시도 시 effect가 두 번 도는 루프가 된다).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser, reloadTick]);
 
-  // 미션을 마치면 level-progress 화면이 router.dismissAll() → replace("/(tabs)")로
-  // 홈으로 돌려보내는데, 홈 탭은 그동안 계속 마운트된 상태라 최초 1회 불러온 데이터를
-  // 그대로 들고 있었다. 그래서 미션을 완료해도 레벨 카드의 XP/진행도·배지 개수·
-  // "완료" 스탬프가 앱을 껐다 켤 때까지 갱신되지 않았음. 화면에 다시 포커스가 올
-  // 때마다 조용히 다시 불러온다. (최초 진입은 위 effect가 이미 처리하므로 첫 포커스는 건너뜀)
+  // 미션을 마치고 홈으로 돌아왔을 때 레벨 카드/완료 표시가 앱 재시작 전까지 갱신되지 않던
+  // 문제 때문에, 화면에 다시 포커스가 올 때마다 조용히 다시 불러온다(첫 포커스는 건너뜀).
   useFocusEffect(
     useCallback(() => {
       if (firstLoadRef.current) return;
@@ -155,219 +143,232 @@ export default function HomeScreen() {
     }, [])
   );
 
-  const displayName = authUser?.displayName || authUser?.email?.split("@")[0] || "친구";
+  const displayName = authUser?.displayName || authUser?.email?.split("@")[0] || t("common.friend");
   const avatarLetter = displayName.charAt(0).toUpperCase();
-
-  const handleLogout = () => {
-    Alert.alert("로그아웃", "로그아웃 하시겠어요?", [
-      { text: "취소", style: "cancel" },
-      {
-        text: "로그아웃",
-        style: "destructive",
-        onPress: () => {
-          // 로그아웃 성공 시 AuthContext의 user가 null이 되고,
-          // app/_layout.tsx의 Stack.Protected 가드가 자동으로 /login으로 보낸다.
-          logOut().catch((err) => console.error("[home] 로그아웃 오류:", err));
-        },
-      },
-    ]);
-  };
-
-  const startMission = (dish: Dish) => {
-    const thumb = dish.image || fallbackPhotos[dish.id];
-    router.push({
-      pathname: "/mission/start",
-      params: {
-        dishId: dish.id,
-        name_kr: dish.name_kr,
-        name_en: dish.name_en,
-        desc: dish.category ? `${dish.category} · Lv.${dish.level}` : `Lv.${dish.level}`,
-        spice: String(dish.spice_level ?? 0),
-        // 미션 시작 화면에서 요리 사진을 보여주기 위해 함께 넘김 (없으면 이모지 fallback)
-        ...(thumb ? { image: thumb } : {}),
-        // 이미 완료한 요리면 미션 시작 화면에서 "+50 XP" 대신 중복 지급 안내를 보여줌
-        ...(completedIds.has(dish.id) ? { completed: "1" } : {}),
-      },
-    });
-  };
-
-  if (loading) {
-    return (
-      <View style={[s.root, { alignItems: "center", justifyContent: "center" }]}>
-        <ActivityIndicator color="#FF5722" />
-      </View>
-    );
-  }
+  const retry = () => setReloadTick((v) => v + 1);
 
   return (
-    <View style={s.root}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-
-        {/* 헤더 */}
-        <View style={[s.header, { paddingTop: Math.max(insets.top, 20) + 12 }]}>
-          <View>
-            <Text style={s.appTitle}>HOW KRU 🌶️</Text>
-            <Text style={s.greeting}>{t("homeGreeting", language)}, {displayName}!</Text>
+    <Screen>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[s.content, { paddingTop: insets.top + theme.space.lg }]}
+      >
+        {/* 헤더 - 로그아웃은 환경설정으로 옮겼다(헤더에 위험 버튼이 상시 노출돼 있었음) */}
+        <View style={s.header}>
+          <View style={s.avatar} accessibilityElementsHidden importantForAccessibility="no">
+            <Text variant="title3" style={s.avatarText}>
+              {avatarLetter}
+            </Text>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <TouchableOpacity onPress={() => router.push("/settings")} style={s.iconBtn}>
-              <Text style={s.iconBtnText}>⚙️</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleLogout} style={s.logoutBtn}>
-              <Text style={s.logoutText}>로그아웃</Text>
-            </TouchableOpacity>
-            <View style={s.avatar}>
-              <Text style={s.avatarText}>{avatarLetter}</Text>
-            </View>
+          <View style={s.headerText}>
+            <Text variant="caption" color="textTertiary" style={s.brand}>
+              HOW KRU
+            </Text>
+            <Text variant="title2" numberOfLines={1} accessibilityRole="header">
+              {t("home.greeting", { name: displayName })}
+            </Text>
           </View>
+          <PressableScale
+            onPress={() => router.push("/settings")}
+            accessibilityLabel={t("home.settingsA11y")}
+            style={s.iconBtn}
+          >
+            <Icons.GearSix size={22} color={theme.colors.textSecondary} />
+          </PressableScale>
         </View>
 
-        {/* 레벨 카드 */}
-        <TouchableOpacity
-          style={s.levelCard}
-          activeOpacity={0.85}
-          onPress={() => router.push("/levels")}
-        >
-          <View style={s.levelRow}>
-            <Text style={s.levelLabel}>Current Level</Text>
-            <Text style={s.levelBadge}>Lv.{home.level}</Text>
-          </View>
-          <Text style={s.levelTitle}>{home.levelTitle}</Text>
-          <Text style={s.xpLabel}>XP Progress</Text>
-          <View style={s.xpBg}>
-            <View style={[s.xpFill, { width: `${home.xpPct}%` as any }]} />
-          </View>
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <Text style={s.xpText}>Progress</Text>
-            <Text style={s.xpText}>{home.xpPct}%</Text>
-          </View>
-          <View style={s.metaRow}>
-            <Text style={s.metaText}>🏅 {home.badges} Badges</Text>
-            <Text style={s.metaText}>📍 이번 레벨 {home.progress}/{home.requiredCount}</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* 오늘의 미션 */}
-        <View style={s.sectionRow}>
-          <Text style={s.sectionTitle}>🔥 Today's Challenge</Text>
-          <Text style={s.sectionSub}>Level {home.level}</Text>
-        </View>
-
-        {loadError ? (
-          <View style={s.errorBox}>
-            <Text style={s.emptyText}>오늘의 미션을 불러오지 못했어요.</Text>
-            <TouchableOpacity style={s.retryBtn} onPress={() => setReloadTick((v) => v + 1)}>
-              <Text style={s.retryBtnText}>다시 시도</Text>
-            </TouchableOpacity>
-          </View>
-        ) : challenges.length === 0 ? (
-          <Text style={s.emptyText}>이 레벨의 요리를 찾을 수 없어요.</Text>
+        {loading ? (
+          <HomeSkeleton />
         ) : (
-          // 타베로그 참고: 썸네일을 위에 크게, 정보는 아래에 - explore.tsx/levels.tsx와
-          // 같은 방향이지만 이 화면엔 카드가 1~2개뿐이라 그리드가 아니라 세로로 쌓는다.
-          challenges.map((dish) => {
-            const thumb = dish.image || fallbackPhotos[dish.id];
-            return (
-              <TouchableOpacity
-                key={dish.id}
-                style={s.missionCard}
-                activeOpacity={0.85}
-                onPress={() => startMission(dish)}
-              >
-                <View style={s.missionImageWrap}>
-                  {thumb ? (
-                    <Image
-                      source={{ uri: thumb }}
-                      style={s.missionImage}
-                      contentFit="cover"
-                      transition={150}
-                    />
-                  ) : (
-                    <View style={s.missionImageFallback}>
-                      <Text style={{ fontSize: 40 }}>🍽️</Text>
-                    </View>
-                  )}
-                  {completedIds.has(dish.id) && (
-                    <View style={s.doneBadge}>
-                      <Text style={s.doneBadgeText}>완료</Text>
-                    </View>
-                  )}
+          <>
+            {/* 레벨 카드 */}
+            <PressableScale
+              onPress={() => router.push("/levels")}
+              scaleTo={0.98}
+              accessibilityLabel={`${t("home.levelLabel")} ${t("common.levelShort", { level: home.level })}, ${levelTitle(home.level, home.storedLevelTitle, language)}, ${t("home.progressA11y", { pct: home.xpPct })}`}
+              accessibilityHint={t("home.levelCardHint")}
+              style={s.levelCard}
+            >
+              <View style={s.levelTop}>
+                <Text variant="callout" style={s.onFill}>
+                  {t("home.levelLabel")}
+                </Text>
+                <View style={s.levelBadge}>
+                  <Text variant="caption" style={[s.onFill, s.bold]}>
+                    {t("common.levelShort", { level: home.level })}
+                  </Text>
                 </View>
-                <View style={s.missionBody}>
-                  <Text style={s.missionNameKr}>{dish.name_kr}</Text>
-                  <Text style={s.missionNameEn}>{dish.name_en}</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                      <Text style={s.missionDesc} numberOfLines={1}>{dish.category}</Text>
-                      <SpiceIcon level={dish.spice_level ?? 0} />
-                    </View>
-                    <View style={s.missionBtn}>
-                      <Text style={{ fontSize: 16 }}>📷</Text>
-                    </View>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            );
-          })
-        )}
+              </View>
+              <Text variant="title1" style={s.onFill} numberOfLines={2}>
+                {levelTitle(home.level, home.storedLevelTitle, language)}
+              </Text>
 
-        <View style={{ height: 30 }} />
+              <View style={s.progressRow}>
+                <View style={s.progressTrack}>
+                  <View style={[s.progressFill, { width: `${home.xpPct}%` }]} />
+                </View>
+                <Text variant="caption" style={[s.onFill, s.bold, s.tabular]}>
+                  {home.xpPct}%
+                </Text>
+              </View>
+
+              <View style={s.metaRow}>
+                <View style={s.metaItem}>
+                  <Icons.Medal size={16} color={theme.colors.onPrimary} weight="fill" />
+                  <Text variant="caption" style={s.onFill}>
+                    {t("home.badges", { count: home.badges })}
+                  </Text>
+                </View>
+                <View style={s.metaItem}>
+                  <Icons.MapPin size={16} color={theme.colors.onPrimary} weight="fill" />
+                  <Text variant="caption" style={[s.onFill, s.tabular]}>
+                    {t("home.levelProgress", { progress: home.progress, required: home.requiredCount })}
+                  </Text>
+                </View>
+                <Icons.CaretRight size={18} color={theme.colors.onPrimary} style={s.metaChevron} />
+              </View>
+            </PressableScale>
+
+            {/* 오늘의 도전 */}
+            <View style={s.sectionHead}>
+              <View style={s.sectionTitleRow}>
+                <Icons.Fire size={20} color={theme.colors.primary} weight="fill" />
+                <Text variant="title3" style={s.bold} accessibilityRole="header">
+                  {t("home.todayTitle")}
+                </Text>
+              </View>
+              <Text variant="caption" color="textTertiary">
+                {t("home.todaySub")}
+              </Text>
+            </View>
+
+            {loadError ? (
+              <StateView
+                icon={Icons.WifiSlash}
+                tone="danger"
+                title={t("home.loadError")}
+                message={t("home.loadErrorHint")}
+                actionLabel={t("common.retry")}
+                onAction={retry}
+              />
+            ) : challenges.length === 0 ? (
+              <StateView icon={Icons.BowlFood} title={t("home.empty")} />
+            ) : (
+              <View style={s.cards}>
+                {challenges.map((dish) => (
+                  <DishCard
+                    key={dish.id}
+                    dish={dish}
+                    variant="hero"
+                    fallbackImage={fallbackPhotos[dish.id]}
+                    completed={completedIds.has(dish.id)}
+                    ctaLabel={t("dish.startMission")}
+                    accessibilityHint={t("dish.cardHint")}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/mission/start",
+                        params: missionStartParams(dish, {
+                          thumb: dish.image || fallbackPhotos[dish.id],
+                          completed: completedIds.has(dish.id),
+                        }),
+                      })
+                    }
+                  />
+                ))}
+              </View>
+            )}
+          </>
+        )}
       </ScrollView>
+    </Screen>
+  );
+}
+
+/** 첫 로딩 동안 실제 레이아웃 모양 그대로 보여주는 자리표시자 */
+function HomeSkeleton() {
+  const theme = useTheme();
+  const s = useStyles();
+  return (
+    <View style={s.skeleton}>
+      <Skeleton height={178} radius={theme.radius.xl} />
+      <Skeleton width={140} height={20} style={{ marginTop: theme.space.lg }} />
+      {[0, 1].map((i) => (
+        <View key={i} style={s.skeletonCard}>
+          <Skeleton height={200} radius={0} />
+          <View style={{ padding: theme.space.lg, gap: theme.space.sm }}>
+            <Skeleton width="60%" height={18} />
+            <Skeleton width="35%" height={12} />
+          </View>
+        </View>
+      ))}
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#F5F5F5" },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#fff", padding: 18 },
-  appTitle: { fontSize: 20, fontWeight: "bold", color: "#222" },
-  greeting: { fontSize: 13, color: "#888", marginTop: 2 },
-  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#FF7043", alignItems: "center", justifyContent: "center" },
-  avatarText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  logoutBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, backgroundColor: "#F5F5F5" },
-  logoutText: { fontSize: 12, color: "#888", fontWeight: "600" },
+const useStyles = makeStyles((t) => ({
+  content: { paddingHorizontal: t.space.lg, paddingBottom: t.space.huge, gap: t.space.lg },
+  header: { flexDirection: "row", alignItems: "center", gap: t.space.md },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: t.radius.pill,
+    backgroundColor: t.colors.primaryTint,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: { color: t.colors.primaryText, fontWeight: "800" },
+  headerText: { flex: 1 },
+  brand: { letterSpacing: 1.2, fontWeight: "700" },
   iconBtn: {
-    width: 32, height: 32, borderRadius: 16, backgroundColor: "#F5F5F5",
-    alignItems: "center", justifyContent: "center",
+    width: 44,
+    height: 44,
+    borderRadius: t.radius.pill,
+    backgroundColor: t.colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: t.colors.border,
   },
-  iconBtnText: { fontSize: 15 },
-  levelCard: { margin: 14, borderRadius: 18, backgroundColor: "#FF5722", padding: 18 },
-  levelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
-  levelLabel: { fontSize: 12, color: "rgba(255,255,255,0.8)" },
-  levelBadge: { backgroundColor: "rgba(255,255,255,0.25)", color: "#fff", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, fontSize: 12, fontWeight: "bold" },
-  levelTitle: { fontSize: 20, fontWeight: "bold", color: "#fff", marginBottom: 14 },
-  xpLabel: { fontSize: 12, color: "rgba(255,255,255,0.7)", marginBottom: 6 },
-  xpBg: { height: 7, backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 4, overflow: "hidden", marginBottom: 4 },
-  xpFill: { height: "100%", backgroundColor: "#fff", borderRadius: 4 },
-  xpText: { fontSize: 12, color: "rgba(255,255,255,0.85)", marginBottom: 10 },
-  metaRow: { flexDirection: "row", gap: 16 },
-  metaText: { fontSize: 12, color: "rgba(255,255,255,0.9)" },
-  sectionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 },
-  sectionTitle: { fontSize: 16, fontWeight: "bold", color: "#222" },
-  sectionSub: { fontSize: 12, color: "#888" },
-  // 오늘의 미션 카드 (타베로그 참고: 썸네일을 위에 크게)
-  missionCard: {
-    backgroundColor: "#fff", marginHorizontal: 14, marginBottom: 12, borderRadius: 16,
-    overflow: "hidden", borderWidth: 0.5, borderColor: "#eee",
+
+  levelCard: {
+    backgroundColor: t.colors.primaryFill,
+    borderRadius: t.radius.xl,
+    padding: t.space.xl,
+    gap: t.space.sm,
+    boxShadow: t.elevation.raised,
   },
-  missionImageWrap: { width: "100%", aspectRatio: 16 / 10, backgroundColor: "#FFF0EC", position: "relative" },
-  missionImage: { width: "100%", height: "100%" },
-  missionImageFallback: { flex: 1, alignItems: "center", justifyContent: "center" },
-  doneBadge: {
-    position: "absolute", top: 10, right: 10, backgroundColor: "#4CAF50",
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+  levelTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  levelBadge: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: t.radius.pill,
+    paddingHorizontal: t.space.md,
+    paddingVertical: t.space.xs,
   },
-  doneBadgeText: { fontSize: 11, fontWeight: "bold", color: "#fff" },
-  missionBody: { padding: 14 },
-  missionNameKr: { fontSize: 17, fontWeight: "bold", color: "#222" },
-  missionNameEn: { fontSize: 12, color: "#FF5722", marginTop: 2 },
-  missionDesc: { fontSize: 12, color: "#888" },
-  missionBtn: { width: 40, height: 40, backgroundColor: "#FF5722", borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  emptyText: { fontSize: 13, color: "#999", textAlign: "center", marginTop: 20 },
-  errorBox: { alignItems: "center", marginTop: 20, gap: 12 },
-  retryBtn: {
-    backgroundColor: "#FF5722", borderRadius: 20,
-    paddingHorizontal: 20, paddingVertical: 10,
+  onFill: { color: t.colors.onPrimary },
+  bold: { fontWeight: "700" },
+  tabular: { fontVariant: ["tabular-nums"] },
+  progressRow: { flexDirection: "row", alignItems: "center", gap: t.space.md, marginTop: t.space.sm },
+  progressTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: t.radius.pill,
+    backgroundColor: "rgba(255,255,255,0.28)",
+    overflow: "hidden",
   },
-  retryBtnText: { color: "#fff", fontSize: 13, fontWeight: "bold" },
-});
+  progressFill: { height: "100%", borderRadius: t.radius.pill, backgroundColor: t.colors.onPrimary },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: t.space.lg, marginTop: t.space.xs },
+  metaItem: { flexDirection: "row", alignItems: "center", gap: t.space.xs + t.space.xxs },
+  metaChevron: { marginLeft: "auto" },
+
+  sectionHead: { marginTop: t.space.sm, gap: t.space.xxs },
+  sectionTitleRow: { flexDirection: "row", alignItems: "center", gap: t.space.sm },
+  cards: { gap: t.space.lg },
+
+  skeleton: { gap: t.space.md },
+  skeletonCard: {
+    backgroundColor: t.colors.surface,
+    borderRadius: t.radius.lg,
+    overflow: "hidden",
+    marginTop: t.space.sm,
+  },
+}));

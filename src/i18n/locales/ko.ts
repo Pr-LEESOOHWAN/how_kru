@@ -69,4 +69,68 @@ export const ko = {
   "settings.account": "계정",
   "settings.logout": "로그아웃",
   "settings.logoutConfirm": "로그아웃할까요?",
+
+  // 하단 탭
+  "tabs.home": "홈",
+  "tabs.explore": "탐색",
+  "tabs.levels": "레벨",
+  "tabs.scan": "스캔",
+
+  // 요리 카드
+  "dish.startMission": "미션 시작",
+  "dish.cardHint": "미션 시작 화면을 엽니다",
+  "dish.detailHint": "요리 정보를 엽니다",
+
+  // 홈
+  "home.greeting": "{name}님, 다시 오셨네요",
+  "home.settingsA11y": "환경설정 열기",
+  "home.levelLabel": "현재 레벨",
+  "home.levelProgress": "이번 레벨 {progress}/{required}",
+  "home.badges": "배지 {count}개",
+  "home.levelCardHint": "레벨별 요리 전체를 봅니다",
+  "home.progressA11y": "레벨 진행률 {pct}퍼센트",
+  "home.todayTitle": "오늘의 도전",
+  "home.todaySub": "매일 바뀌는 추천 요리",
+  "home.loadError": "오늘의 도전을 불러오지 못했어요",
+  "home.loadErrorHint": "인터넷 연결을 확인하고 다시 시도해 주세요.",
+  "home.empty": "이 레벨의 요리를 찾지 못했어요",
+
+  // 미션 시작
+  "mission.startTitle": "미션",
+  "mission.guideTitle": "이렇게 진행돼요",
+  "mission.step1": "근처 식당 고르기",
+  "mission.step2": "길찾기로 찾아가기",
+  "mission.step3": "간판과 요리 사진으로 인증하기",
+  "mission.step4": "XP와 배지 받기",
+  "mission.reward": "완료하면 +{xp} XP",
+  "mission.alreadyDone": "이미 완료한 요리예요. XP는 다시 지급되지 않아요",
+  "mission.viewReviews": "이 요리 리뷰 보기",
+  "mission.startCta": "미션 시작하기",
+
+  // 탐색
+  "explore.title": "메뉴 탐색",
+  "explore.count": "요리 {count}개",
+  "explore.searchPlaceholder": "요리 이름으로 찾기",
+  "explore.clearSearch": "검색어 지우기",
+  "explore.all": "전체",
+  "explore.filterA11y": "{name} 요리만 보기",
+  "explore.loadError": "메뉴를 불러오지 못했어요",
+  "explore.empty": "표시할 메뉴가 없어요",
+  "explore.noResults": "'{query}'에 맞는 요리가 없어요",
+  "explore.noResultsHint": "다른 이름이나 한글/영문으로 검색해 보세요.",
+
+  // 요리 상세
+  "dish.spice": "맵기",
+  "dish.category": "분류",
+  "dish.tags": "특징",
+  "dish.howToEnjoy": "이렇게 즐겨보세요",
+  "dish.reviews": "리뷰 보기",
+  "dish.retryMission": "다시 도전하기",
+
+  // 레벨별 요리
+  "levels.title": "레벨별 요리",
+  "levels.mine": "내 레벨",
+  "levels.progress": "{done}/{total} 완료",
+  "levels.cleared": "통과한 레벨",
+  "levels.loadError": "레벨 정보를 불러오지 못했어요",
 } as const;

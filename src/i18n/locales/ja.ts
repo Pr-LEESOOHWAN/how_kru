@@ -64,4 +64,68 @@ export const ja: Messages = {
   "settings.account": "アカウント",
   "settings.logout": "ログアウト",
   "settings.logoutConfirm": "ログアウトしますか？",
+
+  // 하단 탭
+  "tabs.home": "ホーム",
+  "tabs.explore": "探す",
+  "tabs.levels": "レベル",
+  "tabs.scan": "スキャン",
+
+  // 요리 카드
+  "dish.startMission": "ミッション開始",
+  "dish.cardHint": "ミッション画面を開きます",
+  "dish.detailHint": "料理の詳細を開きます",
+
+  // 홈
+  "home.greeting": "おかえりなさい、{name}さん",
+  "home.settingsA11y": "設定を開く",
+  "home.levelLabel": "現在のレベル",
+  "home.levelProgress": "このレベル {progress}/{required}",
+  "home.badges": "バッジ {count}個",
+  "home.levelCardHint": "レベル別の料理をすべて見る",
+  "home.progressA11y": "レベル進捗 {pct}パーセント",
+  "home.todayTitle": "今日のチャレンジ",
+  "home.todaySub": "毎日変わるおすすめ",
+  "home.loadError": "今日のチャレンジを読み込めませんでした",
+  "home.loadErrorHint": "接続を確認して、もう一度お試しください。",
+  "home.empty": "このレベルの料理が見つかりませんでした",
+
+  // 미션 시작
+  "mission.startTitle": "ミッション",
+  "mission.guideTitle": "ミッションの流れ",
+  "mission.step1": "近くのお店を選ぶ",
+  "mission.step2": "道案内でお店へ",
+  "mission.step3": "看板と料理の写真で認証",
+  "mission.step4": "XPとバッジを獲得",
+  "mission.reward": "達成で +{xp} XP",
+  "mission.alreadyDone": "達成済みの料理です。XPは重複して付与されません",
+  "mission.viewReviews": "この料理のレビューを見る",
+  "mission.startCta": "ミッションを始める",
+
+  // 탐색
+  "explore.title": "メニューを探す",
+  "explore.count": "料理 {count}品",
+  "explore.searchPlaceholder": "料理名で検索",
+  "explore.clearSearch": "検索をクリア",
+  "explore.all": "すべて",
+  "explore.filterA11y": "{name}の料理だけ表示",
+  "explore.loadError": "メニューを読み込めませんでした",
+  "explore.empty": "表示できる料理がありません",
+  "explore.noResults": "「{query}」に一致する料理はありません",
+  "explore.noResultsHint": "別の名前や韓国語・英語でも検索できます。",
+
+  // 요리 상세
+  "dish.spice": "辛さ",
+  "dish.category": "分類",
+  "dish.tags": "特徴",
+  "dish.howToEnjoy": "おすすめの食べ方",
+  "dish.reviews": "レビュー",
+  "dish.retryMission": "もう一度挑戦",
+
+  // 레벨별 요리
+  "levels.title": "レベル別の料理",
+  "levels.mine": "現在のレベル",
+  "levels.progress": "{done}/{total} 達成",
+  "levels.cleared": "クリア済み",
+  "levels.loadError": "レベル情報を読み込めませんでした",
 };

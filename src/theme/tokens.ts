@@ -5,9 +5,12 @@
 // 브랜드와 다른 빨강(#E63946)을 쓰고 있었다. 화면 코드는 이제 raw 값 대신 아래 의미 기반
 // 토큰(colors.surface, type.title2, space.lg ...)만 쓴다.
 //
-// 대비 기준(WCAG AA): 일반 텍스트 4.5:1, 굵은 14pt 이상/18pt 이상 텍스트 3:1.
-// - 브랜드 채움(primary) 위의 흰 글씨는 3:1대라 "굵은 14pt 이상" 라벨(버튼)에만 쓴다.
-//   작은 글씨가 브랜드색이어야 하면 primaryTint 배경 + primaryText 글씨 조합을 쓴다(5:1 이상).
+// 대비 기준(WCAG AA): 일반 텍스트 4.5:1, 큰 텍스트(굵게 14pt≈18.7px / 18pt≈24px 이상) 3:1,
+// 아이콘 등 비텍스트 3:1.
+// - 선명한 브랜드색(primary #F2542D)은 흰 글씨와 3.46:1이라 "글씨가 올라가는 채움"에는 못 쓴다.
+//   아이콘·진행바·고추·포인트 테두리처럼 비텍스트 용도로만 쓰고(3:1 충족), 버튼처럼 흰 글씨가
+//   올라가는 채움은 한 톤 깊은 primaryFill(#D63A16, 4.69:1)을 쓴다.
+// - 작은 글씨가 브랜드색이어야 하면 primaryTint 배경 + primaryText 글씨 조합(5:1 이상).
 // - textTertiary는 흰 카드와 캔버스 배경 양쪽에서 4.5:1을 넘기도록 잡았다.
 
 /** 브랜드 램프 - 고추(gochu) 주황빨강. 기존 #FF5722를 살짝 깊게 눌러 형광기를 뺐다. */
@@ -39,8 +42,11 @@ export type ColorTokens = {
   textTertiary: string;
   textDisabled: string;
 
+  /** 선명한 브랜드색 - 아이콘/진행바/포인트(비텍스트) 전용 */
   primary: string;
   primaryPressed: string;
+  /** 흰 글씨가 올라가는 브랜드 채움(버튼 등) - AA 4.5:1 */
+  primaryFill: string;
   /** 선택 상태/브랜드 칩 배경 */
   primaryTint: string;
   /** 브랜드색 글씨(작은 글씨도 AA 통과) */
@@ -78,6 +84,7 @@ export const lightColors: ColorTokens = {
 
   primary: gochu[500],
   primaryPressed: gochu[600],
+  primaryFill: "#D63A16",
   primaryTint: "#FFEDE6",
   primaryText: gochu[700],
   onPrimary: "#FFFFFF",
@@ -108,9 +115,10 @@ export const darkColors: ColorTokens = {
   textTertiary: "#9B968F",
   textDisabled: "#6A6661",
 
-  // 어두운 배경에서 브랜드가 탁해 보이지 않게 한 톤 밝히되, 흰 버튼 라벨 3:1은 유지.
+  // 어두운 배경에서 브랜드가 탁해 보이지 않게 한 톤 밝힌다(비텍스트 용도라 3:1이면 충분).
   primary: "#F25C35",
   primaryPressed: "#DB4A24",
+  primaryFill: "#D63A16",
   primaryTint: "#3B2620",
   primaryText: "#FF9474",
   onPrimary: "#FFFFFF",

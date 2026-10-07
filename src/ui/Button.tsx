@@ -27,7 +27,7 @@ const HEIGHT: Record<Size, number> = { sm: 36, md: 46, lg: 54 };
 
 /**
  * 버튼 하나로 통일. 라벨은 한 줄을 넘기지 않게 짧게 쓴다.
- * primary 위 흰 글씨는 대비가 3:1대라 굵은 15pt 이상으로만 쓴다(sm은 tonal/secondary 권장).
+ * primary는 primaryFill(흰 글씨 4.69:1) 위에 그린다 - 선명한 브랜드색은 글씨 배경으로 쓰지 않는다.
  */
 export function Button({
   title,
@@ -47,7 +47,7 @@ export function Button({
   const c = theme.colors;
 
   const palette: Record<Variant, { bg: string; fg: string; border?: string }> = {
-    primary: { bg: c.primary, fg: c.onPrimary },
+    primary: { bg: c.primaryFill, fg: c.onPrimary },
     secondary: { bg: c.surface, fg: c.text, border: c.borderStrong },
     tonal: { bg: c.primaryTint, fg: c.primaryText },
     ghost: { bg: "transparent", fg: c.primaryText },

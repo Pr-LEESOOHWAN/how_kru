@@ -70,9 +70,9 @@ export const getUser = async (userId: string): Promise<User | null> => {
   return snap.exists() ? (snap.data() as User) : null;
 };
 
-// 미션 완료 시 보상 XP. app/mission/start.tsx, app/mission/complete.tsx의
-// "완료 시 보상 +50 XP" 안내 문구와 반드시 같은 값을 유지해야 한다.
-const MISSION_COMPLETE_XP = 50;
+// 미션 완료 시 보상 XP. 미션 시작/완료 화면은 이 상수를 그대로 보여준다(문구에 숫자를
+// 하드코딩하지 않으므로 여기만 바꾸면 화면도 같이 바뀐다).
+export const MISSION_COMPLETE_XP = 50;
 
 // 음식 완료만 먼저 처리 (Kick 답변은 별도 화면에서 나중에 받음)
 // signUp() 시점에 users 문서에 xp: 0 필드를 만들어두는데도 이 필드를 갱신하는

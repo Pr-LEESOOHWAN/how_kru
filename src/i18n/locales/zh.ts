@@ -64,4 +64,68 @@ export const zh: Messages = {
   "settings.account": "账号",
   "settings.logout": "退出登录",
   "settings.logoutConfirm": "确定要退出登录吗？",
+
+  // 하단 탭
+  "tabs.home": "首页",
+  "tabs.explore": "探索",
+  "tabs.levels": "等级",
+  "tabs.scan": "扫描",
+
+  // 요리 카드
+  "dish.startMission": "开始任务",
+  "dish.cardHint": "打开任务页面",
+  "dish.detailHint": "打开菜品详情",
+
+  // 홈
+  "home.greeting": "欢迎回来，{name}",
+  "home.settingsA11y": "打开设置",
+  "home.levelLabel": "当前等级",
+  "home.levelProgress": "本级进度 {progress}/{required}",
+  "home.badges": "{count} 枚徽章",
+  "home.levelCardHint": "查看各等级的全部菜品",
+  "home.progressA11y": "等级进度百分之{pct}",
+  "home.todayTitle": "今日挑战",
+  "home.todaySub": "每日更新推荐",
+  "home.loadError": "无法加载今日挑战",
+  "home.loadErrorHint": "请检查网络后重试。",
+  "home.empty": "未找到本级菜品",
+
+  // 미션 시작
+  "mission.startTitle": "任务",
+  "mission.guideTitle": "任务流程",
+  "mission.step1": "选择附近的餐厅",
+  "mission.step2": "按导航前往",
+  "mission.step3": "拍招牌和菜品照片认证",
+  "mission.step4": "获得经验值和徽章",
+  "mission.reward": "完成可得 +{xp} XP",
+  "mission.alreadyDone": "这道菜已完成，不会重复获得经验值",
+  "mission.viewReviews": "查看这道菜的评价",
+  "mission.startCta": "开始任务",
+
+  // 탐색
+  "explore.title": "浏览菜单",
+  "explore.count": "共 {count} 道菜",
+  "explore.searchPlaceholder": "搜索菜品",
+  "explore.clearSearch": "清除搜索",
+  "explore.all": "全部",
+  "explore.filterA11y": "只看{name}",
+  "explore.loadError": "无法加载菜单",
+  "explore.empty": "暂无菜品",
+  "explore.noResults": "没有与“{query}”匹配的菜品",
+  "explore.noResultsHint": "试试其他名称，或用韩文、英文搜索。",
+
+  // 요리 상세
+  "dish.spice": "辣度",
+  "dish.category": "分类",
+  "dish.tags": "特点",
+  "dish.howToEnjoy": "推荐吃法",
+  "dish.reviews": "评价",
+  "dish.retryMission": "再次挑战",
+
+  // 레벨별 요리
+  "levels.title": "各等级菜品",
+  "levels.mine": "我的等级",
+  "levels.progress": "已完成 {done}/{total}",
+  "levels.cleared": "已通关",
+  "levels.loadError": "无法加载等级信息",
 };

@@ -1,163 +1,171 @@
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const SpiceIcon = ({ level }: { level: number }) => (
-  <View style={{ flexDirection: "row" }}>
-    {Array.from({ length: 5 }, (_, i) => (
-      <Text key={i} style={{ fontSize: 15, opacity: i < level ? 1 : 0.2 }}>🌶️</Text>
-    ))}
-  </View>
-);
+import { MISSION_COMPLETE_XP } from "@/src/firebase/dishService";
+import { useI18n, type MessageKey } from "@/src/i18n";
+import { categoryLabel, dishName, dishSubName } from "@/src/i18n/content";
+import { makeStyles, useTheme } from "@/src/theme/ThemeContext";
+import { Badge, Button, Card, Icons, Screen, ScreenHeader, SpiceMeter, Text } from "@/src/ui";
 
-const STEPS = [
-  { icon: "🏪", label: "근처 식당 선택하기" },
-  { icon: "🧭", label: "길찾기로 이동하기" },
-  { icon: "📷", label: "상호 · 요리 사진 인증하기" },
-  { icon: "🏅", label: "XP와 뱃지 획득하기" },
+const STEPS: { icon: Icons.Icon; labelKey: MessageKey }[] = [
+  { icon: Icons.Storefront, labelKey: "mission.step1" },
+  { icon: Icons.NavigationArrow, labelKey: "mission.step2" },
+  { icon: Icons.Camera, labelKey: "mission.step3" },
+  { icon: Icons.Medal, labelKey: "mission.step4" },
 ];
 
 export default function MissionStartScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const { t, language } = useI18n();
+  const s = useStyles();
   const params = useLocalSearchParams<{
     dishId: string;
     name_kr: string;
     name_en: string;
-    desc: string;
+    category?: string;
+    level?: string;
     spice: string;
     image?: string;
     // 홈/레벨 목록에서 이미 완료한 요리를 다시 눌렀을 때 "1". 완료 화면에서
     // XP가 +0으로 뜨기 전에 미리 알려주기 위한 용도(보상 문구만 바꿈, 미션은 그대로 진행 가능).
     completed?: string;
   }>();
-  const spice = Number(params.spice ?? 1);
+  const spice = Number(params.spice ?? 0);
   const alreadyCompleted = params.completed === "1";
-
-  const handleStart = () => {
-    router.push({
-      pathname: "/mission/choose-restaurant",
-      params,
-    });
-  };
+  const dish = { id: params.dishId, name_kr: params.name_kr, name_en: params.name_en };
+  const meta = [
+    categoryLabel(params.category, language),
+    params.level ? t("common.levelShort", { level: params.level }) : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <View style={s.root}>
-      <View style={[s.header, { paddingTop: Math.max(insets.top, 20) + 14 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Text style={s.backText}>‹</Text>
-        </TouchableOpacity>
-        <Text style={s.headerTitle}>미션 시작</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <Screen>
+      <ScreenHeader title={t("mission.startTitle")} />
 
-      {/* 요리 사진 + 설명 + 미션 안내 4단계 + 보상/리뷰 링크까지 세로로 길어서, 작은
-          화면(예: iPhone SE)에서는 아래쪽 "이 요리 리뷰 보기"까지 잘려 보였다.
-          스크롤 가능하게 바꾸고, "미션 시작하기" 버튼은 아래에 계속 고정해둔다. */}
-      <ScrollView
-        style={s.bodyScroll}
-        contentContainerStyle={s.body}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={s.dishCard}>
-          {params.image ? (
-            <Image source={{ uri: params.image }} style={s.dishImage} contentFit="cover" transition={150} />
+      {/* 사진 + 설명 + 미션 안내 + 보상/리뷰 링크까지 세로로 길어서 작은 화면(예: iPhone SE)에서
+          잘리지 않게 스크롤하고, "미션 시작하기" 버튼은 아래에 고정한다. */}
+      <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
+        <View style={s.hero}>
+          <View style={s.photo}>
+            {params.image ? (
+              <Image source={{ uri: params.image }} style={s.photoImg} contentFit="cover" transition={150} />
+            ) : (
+              <Icons.BowlFood size={56} color={theme.colors.primary} weight="duotone" />
+            )}
+          </View>
+          <Text variant="display" align="center" accessibilityRole="header">
+            {dishName(dish, language)}
+          </Text>
+          <Text variant="body" color="primaryText" align="center">
+            {dishSubName(dish, language)}
+          </Text>
+          <SpiceMeter level={spice} size={16} showMildLabel />
+          {meta ? (
+            <Text variant="callout" color="textTertiary" align="center">
+              {meta}
+            </Text>
+          ) : null}
+        </View>
+
+        <Card>
+          <Text variant="title3" style={s.guideTitle} accessibilityRole="header">
+            {t("mission.guideTitle")}
+          </Text>
+          {STEPS.map((step, i) => {
+            const StepIcon = step.icon;
+            const last = i === STEPS.length - 1;
+            return (
+              <View key={step.labelKey} style={s.step}>
+                <View style={s.stepRail}>
+                  <View style={s.stepIcon}>
+                    <StepIcon size={18} color={theme.colors.primaryText} weight="bold" />
+                  </View>
+                  {!last ? <View style={s.connector} /> : null}
+                </View>
+                <Text variant="bodyStrong" style={s.stepLabel}>
+                  {t(step.labelKey)}
+                </Text>
+              </View>
+            );
+          })}
+        </Card>
+
+        <View style={s.rewardRow}>
+          {alreadyCompleted ? (
+            <Badge tone="neutral" icon={Icons.CheckCircle} label={t("mission.alreadyDone")} />
           ) : (
-            <Text style={{ fontSize: 56 }}>🍽️</Text>
+            <Badge tone="brand" icon={Icons.Medal} label={t("mission.reward", { xp: MISSION_COMPLETE_XP })} />
           )}
         </View>
 
-        <Text style={s.nameKr}>{params.name_kr}</Text>
-        <Text style={s.nameEn}>{params.name_en}</Text>
-        <SpiceIcon level={spice} />
-        <Text style={s.desc}>{params.desc}</Text>
-
-        <View style={s.stepsCard}>
-          <Text style={s.stepsTitle}>미션 안내</Text>
-          {STEPS.map((step, i) => (
-            <View key={step.label} style={s.stepRow}>
-              <View style={s.stepIconBox}>
-                <Text style={{ fontSize: 18 }}>{step.icon}</Text>
-              </View>
-              <Text style={s.stepLabel}>{step.label}</Text>
-              {i < STEPS.length - 1 && <View style={s.stepConnector} />}
-            </View>
-          ))}
+        <View style={s.center}>
+          <Button
+            title={t("mission.viewReviews")}
+            variant="ghost"
+            icon={Icons.ChatCircleDots}
+            onPress={() =>
+              router.push({
+                pathname: "/dish-reviews",
+                params: { dishId: params.dishId, name_kr: params.name_kr, name_en: params.name_en },
+              })
+            }
+          />
         </View>
-
-        <View style={[s.rewardPill, alreadyCompleted && s.rewardPillDone]}>
-          <Text style={[s.rewardText, alreadyCompleted && s.rewardTextDone]}>
-            {alreadyCompleted ? "✅ 이미 완료한 요리예요 · XP는 중복 지급되지 않아요" : "완료 시 보상 +50 XP 🏅"}
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={s.reviewLink}
-          onPress={() =>
-            router.push({
-              pathname: "/dish-reviews",
-              params: { dishId: params.dishId, name_kr: params.name_kr },
-            })
-          }
-        >
-          <Text style={s.reviewLinkText}>💬 이 요리 리뷰 보기</Text>
-        </TouchableOpacity>
       </ScrollView>
 
-      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 32) }]}>
-        <TouchableOpacity style={s.startBtn} onPress={handleStart}>
-          <Text style={s.startBtnText}>미션 시작하기</Text>
-        </TouchableOpacity>
+      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, theme.space.xl) }]}>
+        <Button
+          title={t("mission.startCta")}
+          size="lg"
+          fullWidth
+          onPress={() => router.push({ pathname: "/mission/choose-restaurant", params })}
+        />
       </View>
-    </View>
+    </Screen>
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#F5F5F5" },
-  header: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    backgroundColor: "#fff", paddingHorizontal: 12, paddingBottom: 14,
-    borderBottomWidth: 0.5, borderBottomColor: "#eee",
+const useStyles = makeStyles((t) => ({
+  body: { padding: t.space.xl, gap: t.space.xl, paddingBottom: t.space.xxxl },
+  hero: { alignItems: "center", gap: t.space.sm },
+  photo: {
+    width: 132,
+    height: 132,
+    borderRadius: t.radius.pill,
+    backgroundColor: t.colors.primaryTint,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    marginBottom: t.space.sm,
+    boxShadow: t.elevation.card,
   },
-  backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  backText: { fontSize: 28, color: "#222" },
-  headerTitle: { fontSize: 17, fontWeight: "bold", color: "#222" },
-  bodyScroll: { flex: 1 },
-  body: { alignItems: "center", paddingHorizontal: 24, paddingTop: 28, paddingBottom: 24 },
-  dishCard: {
-    width: 120, height: 120, borderRadius: 60, backgroundColor: "#FFF0EC",
-    alignItems: "center", justifyContent: "center", marginBottom: 18, overflow: "hidden",
+  photoImg: { width: "100%", height: "100%" },
+  guideTitle: { fontWeight: "700", marginBottom: t.space.md },
+  step: { flexDirection: "row", gap: t.space.md },
+  stepRail: { alignItems: "center", width: 36 },
+  stepIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: t.radius.md,
+    backgroundColor: t.colors.primaryTint,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  dishImage: { width: "100%", height: "100%" },
-  nameKr: { fontSize: 26, fontWeight: "bold", color: "#222" },
-  nameEn: { fontSize: 15, color: "#FF5722", marginTop: 2, marginBottom: 8 },
-  desc: { fontSize: 14, color: "#888", textAlign: "center", marginTop: 10, lineHeight: 20 },
-  stepsCard: {
-    width: "100%", backgroundColor: "#fff", borderRadius: 16, padding: 18,
-    marginTop: 26, borderWidth: 0.5, borderColor: "#eee",
+  connector: { width: 2, height: t.space.lg, backgroundColor: t.colors.border, marginVertical: t.space.xxs },
+  stepLabel: { flex: 1, paddingTop: t.space.sm },
+  rewardRow: { alignItems: "center" },
+  center: { alignItems: "center" },
+  footer: {
+    paddingHorizontal: t.space.xl,
+    paddingTop: t.space.md,
+    backgroundColor: t.colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: t.colors.border,
   },
-  stepsTitle: { fontSize: 14, fontWeight: "bold", color: "#222", marginBottom: 14 },
-  stepRow: { flexDirection: "row", alignItems: "center", marginBottom: 18, position: "relative" },
-  stepIconBox: {
-    width: 36, height: 36, borderRadius: 10, backgroundColor: "#FFF0EC",
-    alignItems: "center", justifyContent: "center", marginRight: 12,
-  },
-  stepLabel: { fontSize: 14, color: "#333", fontWeight: "600" },
-  stepConnector: {
-    position: "absolute", left: 17, top: 36, width: 2, height: 18, backgroundColor: "#FFE0D6",
-  },
-  rewardPill: {
-    marginTop: 20, backgroundColor: "#FFF0EC", borderRadius: 20,
-    paddingHorizontal: 18, paddingVertical: 10,
-  },
-  rewardText: { color: "#FF5722", fontWeight: "bold", fontSize: 13 },
-  rewardPillDone: { backgroundColor: "#F0F0F0" },
-  rewardTextDone: { color: "#777" },
-  reviewLink: { marginTop: 14, paddingVertical: 8 },
-  reviewLinkText: { color: "#888", fontWeight: "600", fontSize: 13, textDecorationLine: "underline" },
-  footer: { padding: 20, paddingBottom: 32 },
-  startBtn: { backgroundColor: "#FF5722", borderRadius: 16, paddingVertical: 16, alignItems: "center" },
-  startBtnText: { color: "#fff", fontSize: 17, fontWeight: "bold" },
-});
+}));

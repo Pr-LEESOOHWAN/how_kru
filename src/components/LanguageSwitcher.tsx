@@ -62,5 +62,5 @@ const useStyles = makeStyles((t) => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  chipActive: { backgroundColor: t.colors.primary },
+  chipActive: { backgroundColor: t.colors.primaryFill },
 }));

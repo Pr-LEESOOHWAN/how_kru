@@ -1,70 +1,62 @@
-import { useAuth } from "@/src/contexts/AuthContext";
-import { useLanguage } from "@/src/contexts/LanguageContext";
-import { logOut } from "@/src/firebase/authService";
-import { db } from "@/src/firebase/firebaseConfig";
-import { getFallbackDishPhoto, getUser } from "@/src/firebase/dishService";
-import { t } from "@/src/i18n/strings";
-import { useFocusEffect, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
+import { useFocusEffect, useRouter } from "expo-router";
 import { collection, getDocs } from "firebase/firestore";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FlatList, ScrollView, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { DishCard } from "@/src/components/DishCard";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { getFallbackDishPhoto, getUser, type Dish } from "@/src/firebase/dishService";
+import { db } from "@/src/firebase/firebaseConfig";
+import { useI18n } from "@/src/i18n";
+import { categoryLabel, dishName, dishSubName, kickOptionLabel, tagLabel } from "@/src/i18n/content";
+import { missionStartParams } from "@/src/lib/missionParams";
+import { makeStyles, useTheme } from "@/src/theme/ThemeContext";
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  ScrollView,
-  StyleSheet,
+  Badge,
+  BottomSheet,
+  Button,
+  Icons,
+  PressableScale,
+  Screen,
+  Skeleton,
+  SpiceMeter,
+  StateView,
   Text,
-  TouchableOpacity,
-  View
-} from "react-native";
+} from "@/src/ui";
 
-// ─── 타입 ──────────────────────────────────────────
-// dishService.ts의 Dish와 동일한 실제 Firestore "dishes" 컬렉션 스키마.
-// (이 화면은 예전에 없어진 "dishes_800" 컬렉션 + desc_kr/desc_en 필드를 기준으로
-// 작성돼 있었는데, 실제 데이터에는 그런 컬렉션/필드가 없어 항상 빈 목록만 떴었음)
-type Dish = {
-  id: string;
-  no: number;
-  category: string;
-  name_kr: string;
-  name_en: string;
-  level?: number;
-  spice_level?: number;
-  tags?: string[];
-  kick_question?: string;
-  image?: string;
-};
+const ALL = "__all__";
 
-type GroupedDishes = {
-  [category: string]: Dish[];
-};
+/** 카테고리는 "구이/육류"처럼 조각이 이어진 형태라(47종, 대부분 1~2개짜리) 첫 조각으로 묶는다. */
+function primaryCategory(category?: string) {
+  return (category ?? "").split("/")[0]?.trim() || "";
+}
 
-// (예전 이름이 HomeScreen이라 index.tsx의 홈 화면과 React DevTools/에러 스택에서
-//  구분이 안 됐음 - 파일 역할에 맞게 ExploreScreen으로 정정)
+// (예전 이름이 HomeScreen이라 홈 화면과 DevTools/에러 스택에서 구분이 안 돼 ExploreScreen으로 정정)
 export default function ExploreScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const { t, language } = useI18n();
+  const s = useStyles();
   const { user: authUser } = useAuth();
-  const { language } = useLanguage();
-  const [grouped, setGrouped] = useState<GroupedDishes>({});
-  const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
-  const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
+
+  const [dishes, setDishes] = useState<Dish[]>([]);
   const [loading, setLoading] = useState(true);
   // 로딩 실패를 "메뉴가 없어요"로 잘못 보여주지 않도록 별도 에러 상태로 구분
-  // (dish-reviews.tsx 등 다른 화면에서 이미 쓰던 패턴을 여기에도 적용)
   const [loadError, setLoadError] = useState(false);
-  // 공식 사진(dish.image)이 없는 요리만, 유저 리뷰 사진으로 보완한 썸네일.
-  // dishId -> imageUrl. 메인 목록 로딩을 막지 않도록 별도로, 조용히 채워진다.
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<string>(ALL);
+  // 시트를 닫는 애니메이션 동안에도 내용이 남아 있어야 해서, 보여줄 요리와 열림 여부를 따로 둔다.
+  const [selected, setSelected] = useState<Dish | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  // 공식 사진(dish.image)이 없는 요리만, 유저 리뷰 사진으로 보완한 썸네일 (dishId -> imageUrl).
   const [fallbackPhotos, setFallbackPhotos] = useState<Record<string, string>>({});
-  // 내가 완료한 요리 id. 상세 모달에서 "미션 시작하기"로 넘어갈 때 index.tsx/levels.tsx와
-  // 똑같이 completed 플래그를 넘겨서, 이미 완료한 요리는 미션 시작 화면에서 XP 중복 지급
-  // 안 됨을 미리 안내받게 하기 위한 용도. (메뉴 목록 자체와는 무관하므로 실패해도 무시)
+  // 내가 완료한 요리 id - 카드의 완료 표시와, 미션 시작 화면의 XP 중복 지급 안내에 쓴다.
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
-  // getFallbackDishPhoto()는 화면이 언마운트된 뒤에도 응답이 올 수 있는 백그라운드 조회라,
-  // "컴포넌트가 마운트되지 않았는데 상태를 갱신하려 한다"는 React 경고를 막기 위해
-  // 언마운트 여부를 이 ref로 추적한다.
+  // getFallbackDishPhoto()는 화면이 언마운트된 뒤에도 응답이 올 수 있는 백그라운드 조회라
+  // 언마운트 여부를 추적해서 사라진 화면에 상태를 쓰지 않는다.
   const mountedRef = useRef(true);
   useEffect(() => {
     return () => {
@@ -72,37 +64,19 @@ export default function ExploreScreen() {
     };
   }, []);
 
-  // Firebase "dishes" 컬렉션에서 데이터 가져오기
   const fetchDishes = async () => {
     setLoading(true);
     setLoadError(false);
     try {
       const snapshot = await getDocs(collection(db, "dishes"));
-      const data: Dish[] = snapshot.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as Omit<Dish, "id">),
-      }));
+      const data = snapshot.docs
+        .map((d) => ({ id: d.id, ...(d.data() as Omit<Dish, "id">) }))
+        .sort((a, b) => Number(a.no) - Number(b.no));
+      if (!mountedRef.current) return;
+      setDishes(data);
 
-      // 카테고리별로 그룹화
-      const groups: GroupedDishes = {};
-      data.forEach((dish) => {
-        const cat = dish.category || "기타";
-        if (!groups[cat]) groups[cat] = [];
-        groups[cat].push(dish);
-      });
-
-      // 카테고리 내 번호 순 정렬
-      Object.keys(groups).forEach((cat) => {
-        groups[cat].sort((a, b) => Number(a.no) - Number(b.no));
-      });
-
-      setGrouped(groups);
-
-      // 공식 사진이 없는 요리에 한해서만 리뷰 사진으로 보완 시도. 목록 렌더링을
-      // 기다리게 하지 않고 백그라운드로 채워서 로딩된 카드마다 순차적으로 나타난다.
-      // 실패해도(리뷰 없음 포함) 그냥 기존 🍽️ 이모지 자리표시자로 남을 뿐이라 조용히 무시.
-      const missing = data.filter((d) => !d.image);
-      missing.forEach((d) => {
+      // 공식 사진이 없는 요리에 한해서만 리뷰 사진으로 보완 시도(백그라운드, 실패하면 자리표시 그림).
+      data.filter((d) => !d.image).forEach((d) => {
         getFallbackDishPhoto(d.id)
           .then((url) => {
             if (url && mountedRef.current) setFallbackPhotos((prev) => ({ ...prev, [d.id]: url }));
@@ -110,10 +84,10 @@ export default function ExploreScreen() {
           .catch(() => {});
       });
     } catch (err) {
-      console.error("데이터 로딩 오류:", err);
-      setLoadError(true);
+      console.error("메뉴 로딩 오류:", err);
+      if (mountedRef.current) setLoadError(true);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   };
 
@@ -122,8 +96,7 @@ export default function ExploreScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 완료 목록은 미션을 마치고 이 탭으로 돌아올 때마다 바뀔 수 있으므로(홈 탭과 같은
-  // 이유) 포커스될 때마다 조용히 다시 읽는다. 유저 문서 1건 조회라 부담이 없다.
+  // 완료 목록은 미션을 마치고 이 탭으로 돌아올 때마다 바뀔 수 있으므로 포커스마다 조용히 다시 읽는다.
   useFocusEffect(
     useCallback(() => {
       if (!authUser) return;
@@ -139,410 +112,344 @@ export default function ExploreScreen() {
     }, [authUser])
   );
 
-  // 상세 모달 → 미션 시작. index.tsx의 startMission() / levels.tsx 카드 탭과 동일한 params 형식.
+  // 필터 칩: 첫 조각 기준 대분류, 요리 수 많은 순
+  const categoryChips = useMemo(() => {
+    const counts = new Map<string, number>();
+    dishes.forEach((d) => {
+      const key = primaryCategory(d.category);
+      if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+    });
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [dishes]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return dishes.filter((d) => {
+      if (category !== ALL && primaryCategory(d.category) !== category) return false;
+      if (!q) return true;
+      return [dishName(d, language), d.name_kr, d.name_en].some((n) => n?.toLowerCase().includes(q));
+    });
+  }, [dishes, category, query, language]);
+
   const startMission = (dish: Dish) => {
-    const thumb = dish.image || fallbackPhotos[dish.id];
-    setSelectedDish(null);
+    setSheetOpen(false);
     router.push({
       pathname: "/mission/start",
-      params: {
-        dishId: dish.id,
-        name_kr: dish.name_kr,
-        name_en: dish.name_en,
-        desc: dish.category
-          ? dish.level ? `${dish.category} · Lv.${dish.level}` : dish.category
-          : dish.level ? `Lv.${dish.level}` : "",
-        spice: String(dish.spice_level ?? 0),
-        ...(thumb ? { image: thumb } : {}),
-        ...(completedIds.has(dish.id) ? { completed: "1" } : {}),
-      },
+      params: missionStartParams(dish, {
+        thumb: dish.image || fallbackPhotos[dish.id],
+        completed: completedIds.has(dish.id),
+      }),
     });
   };
 
   const openReviews = (dish: Dish) => {
-    setSelectedDish(null);
+    setSheetOpen(false);
     router.push({
       pathname: "/dish-reviews",
-      params: { dishId: dish.id, name_kr: dish.name_kr },
+      params: { dishId: dish.id, name_kr: dish.name_kr, name_en: dish.name_en },
     });
   };
 
-  const displayName = authUser?.displayName || authUser?.email?.split("@")[0] || "친구";
-  const avatarLetter = displayName.charAt(0).toUpperCase();
+  const header = (
+    <View style={[s.header, { paddingTop: insets.top + theme.space.lg }]}>
+      <View style={s.titleRow}>
+        <Text variant="title1" accessibilityRole="header">
+          {t("explore.title")}
+        </Text>
+        {!loading && !loadError ? (
+          <Text variant="callout" color="textTertiary">
+            {t("explore.count", { count: dishes.length })}
+          </Text>
+        ) : null}
+      </View>
 
-  const handleLogout = () => {
-    Alert.alert("로그아웃", "로그아웃 하시겠어요?", [
-      { text: "취소", style: "cancel" },
-      {
-        text: "로그아웃",
-        style: "destructive",
-        onPress: () => {
-          logOut().catch((err) => console.error("[explore] 로그아웃 오류:", err));
-        },
-      },
-    ]);
-  };
+      <View style={s.search}>
+        <Icons.MagnifyingGlass size={18} color={theme.colors.textTertiary} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder={t("explore.searchPlaceholder")}
+          placeholderTextColor={theme.colors.textTertiary}
+          selectionColor={theme.colors.primary}
+          accessibilityLabel={t("explore.searchPlaceholder")}
+          returnKeyType="search"
+          autoCorrect={false}
+          style={s.searchInput}
+        />
+        {query ? (
+          <PressableScale onPress={() => setQuery("")} accessibilityLabel={t("explore.clearSearch")} hitSlop={8}>
+            <Icons.X size={16} color={theme.colors.textTertiary} weight="bold" />
+          </PressableScale>
+        ) : null}
+      </View>
 
-  // 카테고리 토글
-  const toggleCategory = (cat: string) => {
-    setOpenCategories((prev) => {
-      const next = new Set(prev);
-      next.has(cat) ? next.delete(cat) : next.add(cat);
-      return next;
-    });
-  };
+      {categoryChips.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
+          {[[ALL, dishes.length] as [string, number], ...categoryChips].map(([key, count]) => {
+            const active = key === category;
+            const label = key === ALL ? t("explore.all") : categoryLabel(key, language);
+            return (
+              <PressableScale
+                key={key}
+                haptic="selection"
+                onPress={() => setCategory(key)}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: active }}
+                accessibilityLabel={key === ALL ? label : t("explore.filterA11y", { name: label })}
+                style={[s.chip, active && s.chipActive]}
+              >
+                <Text variant="caption" style={[s.chipText, active && s.chipTextActive]}>
+                  {label}
+                </Text>
+                <Text variant="caption" style={[s.chipCount, active && s.chipTextActive]}>
+                  {count}
+                </Text>
+              </PressableScale>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+    </View>
+  );
 
-  const categories = Object.keys(grouped);
+  const empty = loading ? (
+    <View style={s.skeletonGrid}>
+      {Array.from({ length: 6 }, (_, i) => (
+        <View key={i} style={s.skeletonCell}>
+          <Skeleton height={150} radius={theme.radius.lg} />
+          <Skeleton width="70%" height={14} />
+          <Skeleton width="45%" height={11} />
+        </View>
+      ))}
+    </View>
+  ) : loadError ? (
+    <StateView
+      icon={Icons.WifiSlash}
+      tone="danger"
+      title={t("explore.loadError")}
+      message={t("home.loadErrorHint")}
+      actionLabel={t("common.retry")}
+      onAction={fetchDishes}
+    />
+  ) : query.trim() ? (
+    <StateView
+      icon={Icons.MagnifyingGlass}
+      title={t("explore.noResults", { query: query.trim() })}
+      message={t("explore.noResultsHint")}
+      actionLabel={t("explore.clearSearch")}
+      onAction={() => setQuery("")}
+    />
+  ) : (
+    <StateView icon={Icons.BowlFood} title={t("explore.empty")} />
+  );
 
   return (
-    <View style={s.root}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-
-        {/* ── 헤더 ── */}
-        <View style={[s.header, { paddingTop: Math.max(insets.top, 20) + 12 }]}>
-          <View>
-            <Text style={s.appTitle}>HOW KRU 🌶️</Text>
-            <Text style={s.greeting}>{t("homeGreeting", language)}, {displayName}!</Text>
-          </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <TouchableOpacity onPress={() => router.push("/settings")} style={s.iconBtn}>
-              <Text style={s.iconBtnText}>⚙️</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleLogout} style={s.logoutBtn}>
-              <Text style={s.logoutText}>로그아웃</Text>
-            </TouchableOpacity>
-            <View style={s.avatar}>
-              <Text style={s.avatarText}>{avatarLetter}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ── 한식 메뉴 탐색 ── */}
-        <View style={s.sectionHeader}>
-          <Text style={s.sectionTitle}>🍽️ Korean Food Menu</Text>
-          <Text style={s.sectionSub}>{Object.values(grouped).flat().length} dishes</Text>
-        </View>
-
-        {loading ? (
-          <View style={s.loadingBox}>
-            <ActivityIndicator size="large" color="#FF5722" />
-            <Text style={s.loadingText}>Loading menus...</Text>
-          </View>
-        ) : loadError ? (
-          <View style={s.loadingBox}>
-            <Text style={{ fontSize: 30 }}>⚠️</Text>
-            <Text style={s.loadingText}>메뉴를 불러오지 못했어요.</Text>
-            <TouchableOpacity style={s.retryBtn} onPress={fetchDishes}>
-              <Text style={s.retryBtnText}>다시 시도</Text>
-            </TouchableOpacity>
-          </View>
-        ) : categories.length === 0 ? (
-          <View style={s.loadingBox}>
-            <Text style={{ fontSize: 30 }}>🍽️</Text>
-            <Text style={s.loadingText}>표시할 메뉴가 없어요.</Text>
-          </View>
-        ) : (
-          categories.map((cat) => (
-            <View key={cat} style={s.categoryBlock}>
-
-              {/* 카테고리 헤더 (토글 버튼) */}
-              <TouchableOpacity
-                style={s.categoryHeader}
-                onPress={() => toggleCategory(cat)}
-                activeOpacity={0.7}
-              >
-                <View style={s.categoryLeft}>
-                  <View style={s.categoryDot} />
-                  <Text style={s.categoryName}>{cat}</Text>
-                  <View style={s.countBadge}>
-                    <Text style={s.countText}>{grouped[cat].length}</Text>
-                  </View>
-                </View>
-                <Text style={s.chevron}>
-                  {openCategories.has(cat) ? "▲" : "▼"}
-                </Text>
-              </TouchableOpacity>
-
-              {/* 음식 카드 그리드 (토글 시 표시) - 타베로그 참고: 썸네일을 크게 */}
-              {openCategories.has(cat) && (
-                <View style={s.dishGrid}>
-                  {grouped[cat].map((dish) => {
-                    const thumb = dish.image || fallbackPhotos[dish.id];
-                    return (
-                    <TouchableOpacity
-                      key={dish.id}
-                      style={s.dishCard}
-                      onPress={() => setSelectedDish(dish)}
-                      activeOpacity={0.85}
-                    >
-                      <View style={s.dishCardImageWrap}>
-                        {thumb ? (
-                          <Image
-                            source={{ uri: thumb }}
-                            style={s.dishCardImage}
-                            contentFit="cover"
-                            transition={150}
-                          />
-                        ) : (
-                          <View style={s.dishCardImageFallback}>
-                            <Text style={{ fontSize: 34 }}>🍽️</Text>
-                          </View>
-                        )}
-                        <View style={s.dishCardNoBadge}>
-                          <Text style={s.dishCardNoBadgeText}>No.{dish.no}</Text>
-                        </View>
-                      </View>
-                      <View style={s.dishCardBody}>
-                        <Text style={s.dishCardNameKr} numberOfLines={1}>{dish.name_kr}</Text>
-                        <Text style={s.dishCardNameEn} numberOfLines={1}>{dish.name_en}</Text>
-                        <View style={s.dishCardSpiceRow}>
-                          {Array.from({ length: 5 }, (_, i) => (
-                            <Text
-                              key={i}
-                              style={[s.dishCardSpiceIcon, i >= (dish.spice_level ?? 0) && s.dishCardSpiceIconOff]}
-                            >
-                              🌶️
-                            </Text>
-                          ))}
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-          ))
-        )}
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
-
-      {/* ── 음식 상세 모달 ── */}
-      <Modal
-        visible={!!selectedDish}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setSelectedDish(null)}
-      >
-        <TouchableOpacity
-          style={s.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setSelectedDish(null)}
-        />
-        {selectedDish && (
-          <View style={s.modalSheet}>
-
-            {/* 핸들 */}
-            <View style={s.modalHandle} />
-
-            {/* 닫기 버튼 */}
-            <TouchableOpacity
-              style={s.closeBtn}
-              onPress={() => setSelectedDish(null)}
-            >
-              <Text style={s.closeBtnText}>✕</Text>
-            </TouchableOpacity>
-
-            {/* 내용이 길면(설명 텍스트 등) 75% 높이 안에서 잘리지 않고 스크롤되도록 감쌈 */}
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* 요리 사진 - 목록 카드에서는 크게 보여주면서 정작 상세 모달에는 사진이 없었음 */}
-              {(() => {
-                const thumb = selectedDish.image || fallbackPhotos[selectedDish.id];
-                return thumb ? (
-                  <Image
-                    source={{ uri: thumb }}
-                    style={s.modalImage}
-                    contentFit="cover"
-                    transition={150}
-                  />
-                ) : null;
-              })()}
-
-              {/* 번호 배지 + 완료 표시 */}
-              <View style={s.modalBadgeRow}>
-                <View style={s.modalNoBadge}>
-                  <Text style={s.modalNoText}>No. {selectedDish.no}</Text>
-                </View>
-                {completedIds.has(selectedDish.id) && (
-                  <View style={s.modalDoneBadge}>
-                    <Text style={s.modalDoneText}>✓ 완료</Text>
-                  </View>
-                )}
-              </View>
-
-              {/* 요리명 */}
-              <Text style={s.modalNameKr}>{selectedDish.name_kr}</Text>
-              <Text style={s.modalNameEn}>{selectedDish.name_en}</Text>
-
-              {/* 카테고리 태그 */}
-              <View style={s.modalTagRow}>
-                <View style={s.modalTag}>
-                  <Text style={s.modalTagText}>{selectedDish.category}</Text>
-                </View>
-              </View>
-
-              {/* 구분선 */}
-              <View style={s.divider} />
-
-              {/* 맵기 */}
-              <View style={s.descBlock}>
-                <View style={s.descLangBadge}>
-                  <Text style={s.descLangText}>맵기</Text>
-                </View>
-                <Text style={s.descText}>
-                  {selectedDish.spice_level
-                    ? "🌶️".repeat(Math.max(1, Math.min(5, selectedDish.spice_level)))
-                    : "안매워요"}
-                </Text>
-              </View>
-
-              {/* 태그 */}
-              {!!selectedDish.tags?.length && (
-                <View style={s.descBlock}>
-                  <View style={[s.descLangBadge, s.descLangBadgeEn]}>
-                    <Text style={[s.descLangText, s.descLangTextEn]}>특징</Text>
-                  </View>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                    {selectedDish.tags.map((tag) => (
-                      <View key={tag} style={s.modalTag}>
-                        <Text style={s.modalTagText}>{tag}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {/* 킥(즐기는 방법) */}
-              {!!selectedDish.kick_question && (
-                <View style={[s.descBlock, { marginBottom: 4 }]}>
-                  <View style={[s.descLangBadge, s.descLangBadgeEn]}>
-                    <Text style={[s.descLangText, s.descLangTextEn]}>이렇게 즐겨보세요</Text>
-                  </View>
-                  <Text style={s.descText}>{selectedDish.kick_question}</Text>
-                </View>
-              )}
-            </ScrollView>
-
-            {/* 상세를 보고 나서 바로 행동할 수 있는 진입점. 예전엔 여기서 막혀서 미션을
-                하려면 홈/레벨 화면으로 되돌아가 같은 요리를 다시 찾아야 했다. */}
-            <View style={[s.modalActions, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-              <TouchableOpacity style={s.modalSecondaryBtn} onPress={() => openReviews(selectedDish)}>
-                <Text style={s.modalSecondaryBtnText}>💬 리뷰 보기</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.modalPrimaryBtn} onPress={() => startMission(selectedDish)}>
-                <Text style={s.modalPrimaryBtnText}>
-                  {completedIds.has(selectedDish.id) ? "다시 도전하기" : "미션 시작하기"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
+    <Screen>
+      <FlatList
+        data={loading || loadError ? [] : filtered}
+        keyExtractor={(d) => d.id}
+        numColumns={2}
+        columnWrapperStyle={s.row}
+        contentContainerStyle={s.list}
+        ListHeaderComponent={header}
+        ListEmptyComponent={empty}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item }) => (
+          <View style={s.cell}>
+            <DishCard
+              dish={item}
+              fallbackImage={fallbackPhotos[item.id]}
+              completed={completedIds.has(item.id)}
+              accessibilityHint={t("dish.detailHint")}
+              onPress={() => {
+                setSelected(item);
+                setSheetOpen(true);
+              }}
+            />
           </View>
         )}
-      </Modal>
-    </View>
+      />
+
+      <DishDetailSheet
+        dish={selected}
+        open={sheetOpen}
+        image={selected ? selected.image || fallbackPhotos[selected.id] : undefined}
+        completed={selected ? completedIds.has(selected.id) : false}
+        onClose={() => setSheetOpen(false)}
+        onReviews={openReviews}
+        onStart={startMission}
+      />
+    </Screen>
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#F5F5F5" },
+type DetailProps = {
+  dish: Dish | null;
+  open: boolean;
+  image?: string;
+  completed: boolean;
+  onClose: () => void;
+  onReviews: (dish: Dish) => void;
+  onStart: (dish: Dish) => void;
+};
 
-  // 헤더
-  header: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    backgroundColor: "#fff", padding: 18,
-  },
-  appTitle: { fontSize: 20, fontWeight: "bold", color: "#222" },
-  greeting: { fontSize: 13, color: "#888", marginTop: 2 },
-  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#FF7043", alignItems: "center", justifyContent: "center" },
-  avatarText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  logoutBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, backgroundColor: "#F5F5F5" },
-  logoutText: { fontSize: 12, color: "#888", fontWeight: "600" },
-  iconBtn: {
-    width: 32, height: 32, borderRadius: 16, backgroundColor: "#F5F5F5",
-    alignItems: "center", justifyContent: "center",
-  },
-  iconBtnText: { fontSize: 15 },
+/**
+ * 요리 상세 시트. 예전 모달은 킥 "질문"(이 요리를 어떻게 즐겼나요?)을 "이렇게 즐겨보세요"
+ * 아래에 그대로 보여줬는데, 실제로 도움이 되는 건 질문이 아니라 선택지(추천 먹는 법)다.
+ */
+function DishDetailSheet({ dish: d, open, image, completed, onClose, onReviews, onStart }: DetailProps) {
+  const theme = useTheme();
+  const { t, language } = useI18n();
+  const s = useStyles();
 
-  // 섹션 헤더
-  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 4, paddingBottom: 10 },
-  sectionTitle: { fontSize: 16, fontWeight: "bold", color: "#222" },
-  sectionSub: { fontSize: 12, color: "#888" },
+  return (
+    <BottomSheet
+      visible={open && !!d}
+      onClose={onClose}
+      footer={
+        d ? (
+          <>
+            <View style={s.footerBtn}>
+              <Button title={t("dish.reviews")} variant="secondary" icon={Icons.ChatCircleDots} onPress={() => onReviews(d)} fullWidth />
+            </View>
+            <View style={s.footerBtnWide}>
+              <Button
+                title={completed ? t("dish.retryMission") : t("mission.startCta")}
+                icon={Icons.Camera}
+                onPress={() => onStart(d)}
+                fullWidth
+              />
+            </View>
+          </>
+        ) : null
+      }
+    >
+      {d ? (
+        <ScrollView contentContainerStyle={s.sheetContent} showsVerticalScrollIndicator={false}>
+          {image ? (
+            <Image source={{ uri: image }} style={s.sheetImage} contentFit="cover" transition={150} />
+          ) : null}
 
-  // 로딩
-  loadingBox: { alignItems: "center", padding: 40, gap: 12 },
-  loadingText: { color: "#888", fontSize: 14, textAlign: "center" },
-  retryBtn: {
-    marginTop: 4, backgroundColor: "#FF5722", borderRadius: 20,
-    paddingHorizontal: 20, paddingVertical: 10,
-  },
-  retryBtnText: { color: "#fff", fontSize: 13, fontWeight: "bold" },
+          <View style={s.badgeRow}>
+            <Badge label={t("common.dishNo", { no: d.no })} tone="brand" />
+            {d.level ? <Badge label={t("common.levelShort", { level: d.level })} /> : null}
+            {completed ? <Badge label={t("common.completed")} tone="success" icon={Icons.CheckCircle} /> : null}
+          </View>
 
-  // 카테고리 블록
-  categoryBlock: { marginHorizontal: 14, marginBottom: 8, borderRadius: 14, overflow: "hidden", backgroundColor: "#fff", borderWidth: 0.5, borderColor: "#eee" },
-  categoryHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 14 },
-  categoryLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  categoryDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#FF5722" },
-  categoryName: { fontSize: 14, fontWeight: "bold", color: "#222" },
-  countBadge: { backgroundColor: "#FFF0EC", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20 },
-  countText: { fontSize: 11, color: "#FF5722", fontWeight: "600" },
-  chevron: { fontSize: 11, color: "#888" },
+          <View>
+            <Text variant="display" accessibilityRole="header">
+              {dishName(d, language)}
+            </Text>
+            <Text variant="body" color="primaryText">
+              {dishSubName(d, language)}
+            </Text>
+          </View>
 
-  // 음식 카드 그리드 (2열, 타베로그 참고 - 썸네일을 크게)
-  dishGrid: {
-    flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between",
-    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4,
-    borderTopWidth: 0.5, borderTopColor: "#f0f0f0",
-  },
-  dishCard: {
-    width: "48%", backgroundColor: "#fff", borderRadius: 14, overflow: "hidden",
-    marginBottom: 12, borderWidth: 0.5, borderColor: "#eee",
-  },
-  dishCardImageWrap: { width: "100%", aspectRatio: 1, backgroundColor: "#FFF0EC", position: "relative" },
-  dishCardImage: { width: "100%", height: "100%" },
-  dishCardImageFallback: { flex: 1, alignItems: "center", justifyContent: "center" },
-  dishCardNoBadge: {
-    position: "absolute", top: 8, left: 8, backgroundColor: "rgba(0,0,0,0.55)",
-    borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3,
-  },
-  dishCardNoBadgeText: { fontSize: 10, color: "#fff", fontWeight: "bold" },
-  dishCardBody: { padding: 10 },
-  dishCardNameKr: { fontSize: 14, fontWeight: "700", color: "#222" },
-  dishCardNameEn: { fontSize: 11, color: "#888", marginTop: 2 },
-  dishCardSpiceRow: { flexDirection: "row", marginTop: 6 },
-  dishCardSpiceIcon: { fontSize: 10 },
-  dishCardSpiceIconOff: { opacity: 0.2 },
+          <View style={s.facts}>
+            <View style={s.fact}>
+              <Text variant="caption" color="textTertiary">
+                {t("dish.category")}
+              </Text>
+              <Text variant="bodyStrong">{categoryLabel(d.category, language)}</Text>
+            </View>
+            <View style={s.fact}>
+              <Text variant="caption" color="textTertiary">
+                {t("dish.spice")}
+              </Text>
+              <SpiceMeter level={d.spice_level ?? 0} size={16} showMildLabel />
+            </View>
+          </View>
 
-  // 모달
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
-  modalSheet: {
-    backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 24, paddingTop: 16, paddingBottom: 0, maxHeight: "82%",
+          {d.tags?.length ? (
+            <View style={s.block}>
+              <Text variant="caption" color="textTertiary">
+                {t("dish.tags")}
+              </Text>
+              <View style={s.tagWrap}>
+                {d.tags.map((tag) => (
+                  <Badge key={tag} label={tagLabel(tag, language)} />
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {d.kick_options?.length ? (
+            <View style={s.block}>
+              <Text variant="caption" color="textTertiary">
+                {t("dish.howToEnjoy")}
+              </Text>
+              {d.kick_options.map((opt) => (
+                <View key={opt} style={s.tip}>
+                  <Icons.Sparkle size={16} color={theme.colors.primary} weight="fill" />
+                  <Text variant="callout" style={s.tipText}>
+                    {kickOptionLabel(opt, language)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </ScrollView>
+      ) : null}
+    </BottomSheet>
+  );
+}
+
+const useStyles = makeStyles((t) => ({
+  list: { paddingHorizontal: t.space.lg, paddingBottom: t.space.huge, gap: t.space.md },
+  row: { gap: t.space.md },
+  cell: { flex: 1 },
+
+  header: { gap: t.space.md, marginBottom: t.space.xs },
+  titleRow: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
+  search: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: t.space.sm,
+    height: 46,
+    paddingHorizontal: t.space.md + t.space.xxs,
+    borderRadius: t.radius.md,
+    backgroundColor: t.colors.surface,
+    borderWidth: 1,
+    borderColor: t.colors.border,
   },
-  modalHandle: { width: 36, height: 4, backgroundColor: "#e0e0e0", borderRadius: 2, alignSelf: "center", marginBottom: 16 },
-  closeBtn: { position: "absolute", top: 20, right: 20, width: 32, height: 32, borderRadius: 16, backgroundColor: "#f5f5f5", alignItems: "center", justifyContent: "center" },
-  closeBtnText: { fontSize: 14, color: "#888" },
-  modalImage: { width: "100%", aspectRatio: 16 / 10, borderRadius: 16, backgroundColor: "#FFF0EC", marginBottom: 14 },
-  modalBadgeRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
-  modalNoBadge: { backgroundColor: "#FFF0EC", alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  modalNoText: { fontSize: 12, color: "#FF5722", fontWeight: "bold" },
-  modalDoneBadge: { backgroundColor: "#4CAF50", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  modalDoneText: { fontSize: 12, color: "#fff", fontWeight: "bold" },
-  modalActions: { flexDirection: "row", gap: 10, paddingTop: 14, borderTopWidth: 0.5, borderTopColor: "#eee", marginTop: 4 },
-  modalPrimaryBtn: { flex: 1.4, backgroundColor: "#FF5722", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
-  modalPrimaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "bold" },
-  modalSecondaryBtn: { flex: 1, backgroundColor: "#FFF0EC", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
-  modalSecondaryBtnText: { color: "#FF5722", fontSize: 14, fontWeight: "bold" },
-  modalNameKr: { fontSize: 26, fontWeight: "bold", color: "#222", marginBottom: 4 },
-  modalNameEn: { fontSize: 15, color: "#666", marginBottom: 12 },
-  modalTagRow: { flexDirection: "row", gap: 6, marginBottom: 16 },
-  modalTag: { backgroundColor: "#F5F5F5", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  modalTagText: { fontSize: 12, color: "#555" },
-  divider: { height: 0.5, backgroundColor: "#eee", marginBottom: 16 },
-  descBlock: { marginBottom: 16 },
-  descLangBadge: { backgroundColor: "#E8F5E9", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, alignSelf: "flex-start", marginBottom: 6 },
-  descLangText: { fontSize: 11, color: "#388E3C", fontWeight: "bold" },
-  descLangBadgeEn: { backgroundColor: "#E3F2FD" },
-  descLangTextEn: { color: "#1565C0" },
-  descText: { fontSize: 14, color: "#444", lineHeight: 22 },
-});
+  searchInput: { flex: 1, ...t.type.body, color: t.colors.text, paddingVertical: 0 },
+  chips: { gap: t.space.sm, paddingRight: t.space.lg },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: t.space.xs + t.space.xxs,
+    height: 36,
+    paddingHorizontal: t.space.md + t.space.xxs,
+    borderRadius: t.radius.pill,
+    backgroundColor: t.colors.surface,
+    borderWidth: 1,
+    borderColor: t.colors.border,
+  },
+  chipActive: { backgroundColor: t.colors.text, borderColor: t.colors.text },
+  chipText: { color: t.colors.textSecondary, fontWeight: "700", fontSize: 13 },
+  chipCount: { color: t.colors.textTertiary, fontVariant: ["tabular-nums"] },
+  chipTextActive: { color: t.colors.bg },
+
+  skeletonGrid: { flexDirection: "row", flexWrap: "wrap", gap: t.space.md },
+  skeletonCell: { width: "47.5%", gap: t.space.sm },
+
+  sheetContent: { paddingHorizontal: t.space.xl, paddingTop: t.space.md, paddingBottom: t.space.xl, gap: t.space.lg },
+  sheetImage: { width: "100%", aspectRatio: 16 / 10, borderRadius: t.radius.lg, backgroundColor: t.colors.primaryTint },
+  badgeRow: { flexDirection: "row", gap: t.space.sm, flexWrap: "wrap" },
+  facts: {
+    flexDirection: "row",
+    gap: t.space.md,
+    padding: t.space.lg,
+    borderRadius: t.radius.md,
+    backgroundColor: t.colors.surfaceAlt,
+  },
+  fact: { flex: 1, gap: t.space.xs },
+  block: { gap: t.space.sm },
+  tagWrap: { flexDirection: "row", flexWrap: "wrap", gap: t.space.sm },
+  tip: { flexDirection: "row", alignItems: "center", gap: t.space.sm },
+  tipText: { flex: 1 },
+  footerBtn: { flex: 1 },
+  footerBtnWide: { flex: 1.4 },
+}));

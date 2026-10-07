@@ -116,6 +116,6 @@ const useStyles = makeStyles((t) => ({
     justifyContent: "center",
     backgroundColor: t.colors.surface,
   },
-  checkboxOn: { backgroundColor: t.colors.primary, borderColor: t.colors.primary },
+  checkboxOn: { backgroundColor: t.colors.primaryFill, borderColor: t.colors.primaryFill },
   switchRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: t.space.xs },
 }));
