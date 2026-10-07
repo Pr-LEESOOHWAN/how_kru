@@ -101,8 +101,28 @@ export default function ChooseRestaurantScreen() {
         return;
       }
       setPermissionDenied(false);
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      // 실내/지하 등에서 getCurrentPositionAsync가 끝없이 대기하는 경우가 있어, 10초가 지나면
+      // 마지막으로 알려진 위치(캐시)로 대신 진행한다. 그것도 없으면 에러 화면 -> 다시 시도.
+      let pos: Location.LocationObject | null = null;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        pos = await Promise.race([
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error("location timeout")), 10000);
+          }),
+        ]);
+      } catch {
+        pos = await Location.getLastKnownPositionAsync();
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
       if (cancelledRef?.current) return;
+      if (!pos) {
+        setErrorMsg("현재 위치를 가져오지 못했어요. 잠시 후 다시 시도해주세요.");
+        setState("error");
+        return;
+      }
       setMyLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       await runSearch(pos.coords.latitude, pos.coords.longitude, radius);
     } catch (err: any) {
