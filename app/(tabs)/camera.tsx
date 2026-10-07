@@ -1,19 +1,13 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCallback, useEffect, useState } from "react";
-import {
-    Alert,
-    Dimensions,
-    Linking,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { Alert, Linking, StyleSheet, useWindowDimensions, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const { width } = Dimensions.get("window");
-const SCAN_SIZE = width * 0.75;
+import { OverlayIconButton, ScanCorners, ShutterButton } from "@/src/components/ScanParts";
+import { useI18n } from "@/src/i18n";
+import { makeStyles, useTheme } from "@/src/theme/ThemeContext";
+import { Button, Icons, PressableScale, Text, triggerHaptic } from "@/src/ui";
 
 type ScanMode = "restaurant" | "food";
 
@@ -24,10 +18,13 @@ export default function CameraScreen() {
   const [flash, setFlash] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const { t } = useI18n();
+  const s = useStyles();
 
-  // 탭 화면은 다른 탭으로 옮겨가도 언마운트되지 않아서, 그동안 카메라(와 켜둔 손전등)가
-  // 백그라운드에서 계속 돌아 배터리를 먹고 손전등이 홈 탭에서도 켜진 채 남아 있었다.
-  // 이 탭이 실제로 보일 때만 CameraView를 그리고, 벗어나면 손전등/스캔 상태도 초기화한다.
+  // 탭 화면은 다른 탭으로 옮겨가도 언마운트되지 않아서, 카메라(와 켜둔 손전등)가 백그라운드에서
+  // 계속 돌았다. 이 탭이 실제로 보일 때만 CameraView를 그리고, 벗어나면 손전등/스캔 상태도 초기화한다.
   const [isFocused, setIsFocused] = useState(false);
   useFocusEffect(
     useCallback(() => {
@@ -40,201 +37,187 @@ export default function CameraScreen() {
     }, [])
   );
 
-  // 권한 요청
   useEffect(() => {
-    if (!permission?.granted) {
-      requestPermission();
-    }
+    if (!permission?.granted) requestPermission();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 권한 없을 때
   if (!permission?.granted) {
     return (
-      <View style={s.permissionBox}>
-        <Text style={s.permissionEmoji}>📷</Text>
-        <Text style={s.permissionTitle}>카메라 권한이 필요해요</Text>
-        <Text style={s.permissionDesc}>
-          식당과 요리를 스캔하려면 카메라 접근 권한이 필요해요.
+      <View style={s.permission}>
+        <View style={s.permissionIcon}>
+          <Icons.Camera size={36} color={theme.colors.primary} weight="duotone" />
+        </View>
+        <Text variant="title2" align="center" style={s.white}>
+          {t("perm.cameraTitle")}
         </Text>
-        <TouchableOpacity style={s.permissionBtn} onPress={requestPermission}>
-          <Text style={s.permissionBtnText}>카메라 허용하기</Text>
-        </TouchableOpacity>
-        {/* 한 번 거부한 뒤에는 requestPermission()이 OS 다이얼로그를 다시 띄워주지
-            않는 기기가 많아서(특히 Android), 설정 앱으로 바로 이동하는 경로도 함께 제공한다. */}
-        <TouchableOpacity onPress={() => Linking.openSettings()}>
-          <Text style={s.permissionSettingsText}>설정에서 권한 열기</Text>
-        </TouchableOpacity>
+        <Text variant="callout" align="center" style={s.dimText}>
+          {t("camera.permDesc")}
+        </Text>
+        <View style={s.permissionActions}>
+          <Button title={t("camera.allow")} onPress={requestPermission} size="lg" fullWidth />
+          {/* 한 번 거부하면 requestPermission()이 OS 창을 다시 안 띄우는 기기가 많다(특히 Android). */}
+          <Button title={t("common.openSettings")} variant="ghost" onPress={() => Linking.openSettings()} fullWidth />
+        </View>
       </View>
     );
   }
 
   const handleCapture = () => {
     if (scanned) {
-      // 스캔 초기화
       setScanned(false);
       return;
     }
-    // 스캔 완료 처리 (추후 인식 로직 추가)
+    // 자동 인식은 아직 준비 중 - 미션 인증 흐름(mission/verify.tsx)에서는 서버 AI 판정이 동작한다.
     setScanned(true);
+    triggerHaptic("light");
     Alert.alert(
-      scanMode === "restaurant" ? "🏪 식당 스캔 완료!" : "🍽️ 음식 스캔 완료!",
-      "인식 기능은 준비 중이에요.\n곧 만나볼 수 있어요!",
+      scanMode === "restaurant" ? t("camera.doneTitleRestaurant") : t("camera.doneTitleFood"),
+      t("camera.comingSoon"),
       [
-        {
-          text: "다시 스캔하기",
-          onPress: () => setScanned(false),
-        },
-        {
-          text: "완료",
-          onPress: () => router.back(),
-        },
+        { text: t("camera.rescan"), onPress: () => setScanned(false) },
+        { text: t("common.ok"), onPress: () => router.back() },
       ]
     );
   };
 
+  const modes: { key: ScanMode; label: string; icon: typeof Icons.Storefront }[] = [
+    { key: "restaurant", label: t("camera.modeRestaurant"), icon: Icons.Storefront },
+    { key: "food", label: t("camera.modeFood"), icon: Icons.BowlFood },
+  ];
+
   return (
     <View style={s.root}>
-      {isFocused && (
-        <CameraView
-          style={StyleSheet.absoluteFill}
-          facing="back"
-          enableTorch={flash}
-        />
-      )}
+      {isFocused ? <CameraView style={StyleSheet.absoluteFill} facing="back" enableTorch={flash} /> : null}
 
-      {/* 어두운 오버레이 */}
       <View style={s.overlay}>
-
-        {/* 상단 헤더 */}
-        <View style={[s.topBar, { paddingTop: Math.max(insets.top, 20) + 12 }]}>
-          <TouchableOpacity style={s.iconBtn} onPress={() => router.back()}>
-            <Text style={s.iconBtnText}>✕</Text>
-          </TouchableOpacity>
-          <Text style={s.topTitle}>
-            {scanMode === "restaurant" ? "🏪 식당 스캔" : "🍽️ 음식 스캔"}
+        <View style={[s.topBar, { paddingTop: insets.top + theme.space.md }]}>
+          <OverlayIconButton onPress={() => router.back()} accessibilityLabel={t("common.close")}>
+            <Icons.X size={20} color="#FFFFFF" weight="bold" />
+          </OverlayIconButton>
+          <Text variant="title3" style={[s.white, s.bold]} accessibilityRole="header">
+            {scanMode === "restaurant" ? t("camera.titleRestaurant") : t("camera.titleFood")}
           </Text>
-          <TouchableOpacity
-            style={s.iconBtn}
-            onPress={() => setFlash(!flash)}
+          <OverlayIconButton
+            onPress={() => setFlash((v) => !v)}
+            accessibilityLabel={flash ? t("camera.flashOff") : t("camera.flashOn")}
           >
-            <Text style={s.iconBtnText}>{flash ? "⚡" : "🔦"}</Text>
-          </TouchableOpacity>
+            {flash ? (
+              <Icons.Lightning size={20} color={theme.colors.warning} weight="fill" />
+            ) : (
+              <Icons.Flashlight size={20} color="#FFFFFF" />
+            )}
+          </OverlayIconButton>
         </View>
 
-        {/* 가이드 텍스트 */}
-        <Text style={s.guideText}>
-          {scanMode === "restaurant"
-            ? "식당 간판이나 입구를 비춰주세요"
-            : "기록하고 싶은 요리를 비춰주세요"}
+        <Text variant="callout" align="center" style={[s.dimText, s.guide]}>
+          {scanMode === "restaurant" ? t("camera.guideRestaurant") : t("camera.guideFood")}
         </Text>
 
-        {/* 스캔 프레임 */}
-        <View style={s.scanArea}>
-          {/* 모서리 4개 */}
-          <View style={[s.corner, s.cornerTL]} />
-          <View style={[s.corner, s.cornerTR]} />
-          <View style={[s.corner, s.cornerBL]} />
-          <View style={[s.corner, s.cornerBR]} />
-
-          {/* 스캔 라인 애니메이션 대신 상태 표시 */}
-          {scanned ? (
-            <View style={s.scannedBadge}>
-              <Text style={s.scannedText}>✓ 스캔 완료</Text>
-            </View>
-          ) : (
-            <View style={s.scanningBadge}>
-              <Text style={s.scanningText}>스캔 중...</Text>
-            </View>
-          )}
-        </View>
-
-        {/* 스캔 모드 토글 */}
-        <View style={s.modeToggle}>
-          <TouchableOpacity
-            style={[s.modeBtn, scanMode === "restaurant" && s.modeBtnActive]}
-            onPress={() => { setScanMode("restaurant"); setScanned(false); }}
-          >
-            <Text style={[s.modeBtnText, scanMode === "restaurant" && s.modeBtnTextActive]}>
-              🏪 식당
+        <ScanCorners size={Math.min(width * 0.75, 340)}>
+          <View style={[s.status, scanned && s.statusDone]}>
+            {scanned ? <Icons.CheckCircle size={16} color="#FFFFFF" weight="fill" /> : null}
+            <Text variant="caption" style={[s.white, s.bold]}>
+              {scanned ? t("camera.scanned") : t("camera.scanning")}
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.modeBtn, scanMode === "food" && s.modeBtnActive]}
-            onPress={() => { setScanMode("food"); setScanned(false); }}
-          >
-            <Text style={[s.modeBtnText, scanMode === "food" && s.modeBtnTextActive]}>
-              🍽️ 음식
-            </Text>
-          </TouchableOpacity>
+          </View>
+        </ScanCorners>
+
+        <View style={s.modes} accessibilityRole="radiogroup">
+          {modes.map((m) => {
+            const active = scanMode === m.key;
+            const ModeIcon = m.icon;
+            return (
+              <PressableScale
+                key={m.key}
+                haptic="selection"
+                accessibilityRole="radio"
+                accessibilityState={{ checked: active }}
+                accessibilityLabel={m.label}
+                onPress={() => {
+                  setScanMode(m.key);
+                  setScanned(false);
+                }}
+                style={[s.mode, active && s.modeActive]}
+              >
+                <ModeIcon size={16} color={active ? "#FFFFFF" : "rgba(255,255,255,0.7)"} weight={active ? "fill" : "regular"} />
+                <Text variant="caption" style={[s.bold, { color: active ? "#FFFFFF" : "rgba(255,255,255,0.75)" }]}>
+                  {m.label}
+                </Text>
+              </PressableScale>
+            );
+          })}
         </View>
 
-        {/* 촬영 버튼 */}
-        <View style={s.bottomBar}>
-          <TouchableOpacity
-            style={[s.captureBtn, scanned && s.captureBtnScanned]}
-            onPress={handleCapture}
-            activeOpacity={0.8}
-          >
-            <View style={s.captureBtnInner} />
-          </TouchableOpacity>
+        <View style={[s.bottom, { paddingBottom: insets.bottom + theme.space.lg }]}>
+          <ShutterButton onPress={handleCapture} done={scanned} accessibilityLabel={t("camera.capture")} />
         </View>
-
       </View>
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#000" },
+const useStyles = makeStyles((t) => ({
+  root: { flex: 1, backgroundColor: "#000000" },
+  white: { color: "#FFFFFF" },
+  bold: { fontWeight: "700" },
+  dimText: { color: "rgba(255,255,255,0.78)" },
 
-  // 권한
-  permissionBox: { flex: 1, backgroundColor: "#111", alignItems: "center", justifyContent: "center", padding: 32 },
-  permissionEmoji: { fontSize: 48, marginBottom: 16 },
-  permissionTitle: { fontSize: 20, fontWeight: "bold", color: "#fff", marginBottom: 8 },
-  permissionDesc: { fontSize: 14, color: "#aaa", textAlign: "center", lineHeight: 22, marginBottom: 24 },
-  permissionBtn: { backgroundColor: "#FF5722", paddingHorizontal: 32, paddingVertical: 14, borderRadius: 14 },
-  permissionBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  permissionSettingsText: { color: "#aaa", fontSize: 13, marginTop: 18, textDecorationLine: "underline" },
-
-  // 오버레이
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)" },
-
-  // 상단 헤더
-  topBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingBottom: 16 },
-  iconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
-  iconBtnText: { fontSize: 16, color: "#fff" },
-  topTitle: { fontSize: 16, fontWeight: "bold", color: "#fff" },
-
-  // 가이드
-  guideText: { textAlign: "center", color: "rgba(255,255,255,0.75)", fontSize: 13, paddingHorizontal: 32, marginBottom: 24 },
-
-  // 스캔 프레임
-  scanArea: {
-    width: SCAN_SIZE, height: SCAN_SIZE,
-    alignSelf: "center",
-    alignItems: "center", justifyContent: "center",
-    position: "relative",
+  permission: {
+    flex: 1,
+    backgroundColor: "#121110",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: t.space.xxxl,
+    gap: t.space.md,
   },
-  corner: { position: "absolute", width: 28, height: 28, borderColor: "#FF5722", borderWidth: 3 },
-  cornerTL: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 6 },
-  cornerTR: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 6 },
-  cornerBL: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 6 },
-  cornerBR: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 6 },
-  scannedBadge: { backgroundColor: "rgba(76,175,80,0.85)", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
-  scannedText: { color: "#fff", fontWeight: "bold", fontSize: 14 },
-  scanningBadge: { backgroundColor: "rgba(0,0,0,0.4)", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
-  scanningText: { color: "rgba(255,255,255,0.6)", fontSize: 13 },
+  permissionIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: t.radius.pill,
+    backgroundColor: "rgba(242,84,45,0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: t.space.sm,
+  },
+  permissionActions: { alignSelf: "stretch", gap: t.space.sm, marginTop: t.space.lg },
 
-  // 모드 토글
-  modeToggle: { flexDirection: "row", alignSelf: "center", backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 30, padding: 4, marginTop: 32, gap: 4 },
-  modeBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 26 },
-  modeBtnActive: { backgroundColor: "#FF5722" },
-  modeBtnText: { fontSize: 13, color: "rgba(255,255,255,0.6)", fontWeight: "600" },
-  modeBtnTextActive: { color: "#fff" },
-
-  // 촬영 버튼
-  bottomBar: { flex: 1, alignItems: "center", justifyContent: "center" },
-  captureBtn: { width: 72, height: 72, borderRadius: 36, backgroundColor: "rgba(255,255,255,0.3)", alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: "#fff" },
-  captureBtnScanned: { borderColor: "#4CAF50" },
-  captureBtnInner: { width: 54, height: 54, borderRadius: 27, backgroundColor: "#fff" },
-});
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)" },
+  topBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: t.space.xl,
+    paddingBottom: t.space.lg,
+  },
+  guide: { paddingHorizontal: t.space.xxxl, marginBottom: t.space.xxl },
+  status: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: t.space.xs + t.space.xxs,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    paddingHorizontal: t.space.lg,
+    paddingVertical: t.space.sm,
+    borderRadius: t.radius.pill,
+  },
+  statusDone: { backgroundColor: t.colors.success },
+  modes: {
+    flexDirection: "row",
+    alignSelf: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: t.radius.pill,
+    padding: t.space.xs,
+    marginTop: t.space.xxxl,
+    gap: t.space.xs,
+  },
+  mode: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: t.space.xs + t.space.xxs,
+    paddingHorizontal: t.space.xl,
+    paddingVertical: t.space.sm + t.space.xxs,
+    borderRadius: t.radius.pill,
+  },
+  modeActive: { backgroundColor: t.colors.primaryFill },
+  bottom: { flex: 1, alignItems: "center", justifyContent: "center" },
+}));

@@ -1,26 +1,12 @@
 // 미션 인증(사진 3장) -> functions/src/index.ts의 verifyMission Cloud Function 호출.
-// 실제 판정 로직(OCR 상호명 대조 + Claude 요리 사진 판정)은 전부 서버(Functions)에서
-// 돈다 - Vision/Anthropic API 키를 클라이언트에 노출시키지 않기 위함.
+// 실제 판정 로직(OCR 상호명 대조 + Cloud Vision 요리 사진 판정)은 전부 서버에서 돈다 -
+// Vision API 키를 클라이언트에 노출시키지 않기 위함.
 
 import { FirebaseError } from "firebase/app";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "@/src/firebase/firebaseConfig";
 
-// functions/src/index.ts가 HttpsError로 던지는 코드 중, 서버가 이미 사용자에게 보여줄
-// 만한 한국어 메시지를 담아 보내는 것들(로그인 필요/잘못된 요청/존재하지 않는 요리 등).
-// 이 코드들은 err.message를 그대로 보여준다. 그 외(internal/unavailable/deadline-exceeded
-// 등 진짜 통신/서버 장애)는 아래의 일반 네트워크 안내 문구로 대체한다.
-const CLIENT_FACING_FUNCTIONS_ERROR_CODES = new Set([
-  "functions/invalid-argument",
-  "functions/not-found",
-  "functions/already-exists",
-  "functions/permission-denied",
-  "functions/failed-precondition",
-  "functions/resource-exhausted",
-  "functions/out-of-range",
-  "functions/unauthenticated",
-  "functions/unimplemented",
-]);
+import { functions } from "@/src/firebase/firebaseConfig";
+import type { MessageKey } from "@/src/i18n/types";
 
 export type Verdict = "pass" | "uncertain" | "fail";
 
@@ -30,20 +16,52 @@ export type NameMatchResult = {
   source: "sign" | "receipt" | "none";
 };
 
+export type DishMatchCode =
+  | "dish_name_hit"
+  | "dish_tag_hit"
+  | "dish_similar_category"
+  | "dish_mismatch"
+  | "dish_nothing_detected"
+  | "dish_detect_failed";
+
 export type DishMatchResult = {
   matched: boolean;
   confidence: "high" | "medium" | "low";
+  code?: DishMatchCode;
+  terms?: string[];
   reason: string;
 };
+
+/** 서버가 판정 이유를 언어와 무관하게 돌려주는 형태 (2026-10 다국어화) */
+export type ReasonCode =
+  | { code: "name_not_found" }
+  | { code: "name_mismatch"; restaurant: string }
+  | { code: DishMatchCode; terms?: string[] };
 
 export type VerifyMissionResult = {
   verdict: Verdict;
   nameMatch: NameMatchResult;
   dishMatch: DishMatchResult;
+  /** 한국어 문장 - 코드를 모르는 구버전 서버 응답일 때의 폴백 */
   reasons: string[];
+  reasonCodes?: ReasonCode[];
 };
 
-export class MissionVerifyError extends Error {}
+/** key: 화면에 보여줄 번역 키 */
+export class MissionVerifyError extends Error {
+  constructor(public readonly key: MessageKey) {
+    super(key);
+  }
+}
+
+// functions/src/index.ts가 HttpsError로 던지는 코드 -> 안내 문구. 이 셋은 다시 시도해도
+// 해결되지 않는 오류라 "네트워크를 확인하세요"로 뭉뚱그리면 안 된다. 그 외(internal/
+// unavailable/deadline-exceeded 등 진짜 통신/서버 장애)는 일반 통신 오류 안내로 보여준다.
+const ERROR_KEYS: Record<string, MessageKey> = {
+  "functions/unauthenticated": "verify.error.auth",
+  "functions/invalid-argument": "verify.error.missingPhotos",
+  "functions/not-found": "verify.error.dishNotFound",
+};
 
 const callVerifyMission = httpsCallable<
   {
@@ -68,19 +86,7 @@ export async function verifyMission(params: {
     return res.data;
   } catch (err) {
     console.error("[verifyMission] 호출 실패:", err);
-    // 서버가 이미 사용자 대상 메시지를 담아 보낸 경우(예: "로그인이 필요해요.",
-    // "요리 정보를 찾을 수 없어요.")에는 그 메시지를 그대로 보여준다. 예전엔 원인과
-    // 무관하게 항상 "네트워크 상태를 확인하고..."로 덮어써서, 실제로는 재시도해도
-    // 절대 해결되지 않는 오류(잘못된 요청 등)까지 네트워크 문제인 것처럼 안내했다.
-    if (
-      err instanceof FirebaseError &&
-      CLIENT_FACING_FUNCTIONS_ERROR_CODES.has(err.code) &&
-      err.message
-    ) {
-      throw new MissionVerifyError(err.message);
-    }
-    throw new MissionVerifyError(
-      "인증 서버와 통신하지 못했어요. 네트워크 상태를 확인하고 다시 시도해주세요."
-    );
+    const key = err instanceof FirebaseError ? ERROR_KEYS[err.code] : undefined;
+    throw new MissionVerifyError(key ?? "verify.error.network");
   }
 }

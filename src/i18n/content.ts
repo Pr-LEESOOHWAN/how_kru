@@ -163,6 +163,11 @@ const LEVEL_TITLES: Record<number, Omit<Tr4, "en">> = {
 
 /** 킥 선택지 (키 = Firestore에 저장된 한국어 원문) */
 const KICK_OPTIONS: Record<string, Tr> = {
+  // 요리 문서에 kick_options가 없을 때 쓰는 기본 선택지 (mission/kick.tsx)
+  "맛": { en: "Taste", ja: "味", zh: "味道" },
+  "식감": { en: "Texture", ja: "食感", zh: "口感" },
+  "냄새": { en: "Aroma", ja: "香り", zh: "气味" },
+  "생김새": { en: "Look", ja: "見た目", zh: "外观" },
   "케첩 찍어먹기": { en: "Dip in ketchup", ja: "ケチャップをつけて", zh: "蘸番茄酱" },
   "치즈 추가하기": { en: "Add cheese", ja: "チーズをトッピング", zh: "加奶酪" },
   "상추쌈에 마늘 올리기": { en: "Lettuce wrap with garlic", ja: "サンチュにニンニクをのせて包む", zh: "用生菜包上蒜片" },

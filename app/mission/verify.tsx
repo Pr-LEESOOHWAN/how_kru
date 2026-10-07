@@ -1,55 +1,51 @@
-import { extractTextFromImage, OcrApiError } from "@/src/services/ocr";
-import { MissionVerifyError, verifyMission } from "@/src/services/missionVerify";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  BackHandler,
-  Image,
-  Linking,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, BackHandler, Linking, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-type OcrState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "done"; text: string }
-  | { status: "error"; message: string };
+import { OverlayIconButton, ScanCorners, ShutterButton } from "@/src/components/ScanParts";
+import { useI18n, type MessageKey } from "@/src/i18n";
+import { dishName } from "@/src/i18n/content";
+import { MissionVerifyError, verifyMission, type ReasonCode, type VerifyMissionResult } from "@/src/services/missionVerify";
+import { extractTextFromImage } from "@/src/services/ocr";
+import { makeStyles, useTheme } from "@/src/theme/ThemeContext";
+import { BottomSheet, Button, Icons, PressableScale, Screen, ScreenHeader, Text, triggerHaptic } from "@/src/ui";
+
+type OcrState = { status: "idle" } | { status: "loading" } | { status: "done"; text: string } | { status: "error" };
 
 type ShotKey = "sign" | "food" | "receipt";
 
-const SHOT_META: Record<ShotKey, { label: string; sub: string; guide: string }> = {
-  sign: { label: "상호", sub: "(Restaurant Sign)", guide: "식당 간판/상호가 잘 보이게 비춰주세요" },
-  food: { label: "요리", sub: "(Food)", guide: "주문한 요리가 잘 보이게 비춰주세요" },
-  receipt: { label: "영수증", sub: "(Receipt)", guide: "영수증 전체가 잘 보이게 비춰주세요" },
+const SHOT_META: Record<ShotKey, { label: MessageKey; sub?: MessageKey; guide: MessageKey; icon: typeof Icons.Storefront }> = {
+  sign: { label: "verify.shot.sign", sub: "verify.shot.signSub", guide: "verify.guide.sign", icon: Icons.Storefront },
+  food: { label: "verify.shot.food", sub: "verify.shot.foodSub", guide: "verify.guide.food", icon: Icons.BowlFood },
+  receipt: { label: "verify.shot.receipt", guide: "verify.guide.receipt", icon: Icons.Receipt },
 };
 
 export default function VerifyScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const { t, language } = useI18n();
+  const s = useStyles();
   const params = useLocalSearchParams<{
     dishId: string;
     name_kr: string;
     name_en: string;
     restaurantName: string;
   }>();
+  const dish = dishName({ id: params.dishId, name_kr: params.name_kr, name_en: params.name_en }, language);
 
   const [shots, setShots] = useState<Record<ShotKey, string | null>>({ sign: null, food: null, receipt: null });
   // verifyMission 호출용 base64 (URI는 화면 표시용, base64는 서버 전송용으로 따로 들고 있는다)
-  const [shotsBase64, setShotsBase64] = useState<Record<ShotKey, string | null>>({
-    sign: null,
-    food: null,
-    receipt: null,
-  });
+  const [shotsBase64, setShotsBase64] = useState<Record<ShotKey, string | null>>({ sign: null, food: null, receipt: null });
   const [verifying, setVerifying] = useState(false);
   const [receiptOcr, setReceiptOcr] = useState<OcrState>({ status: "idle" });
+  // uncertain/fail 판정 결과 시트 (예전엔 Alert에 한국어 문장을 이어붙여 보여줬다)
+  const [result, setResult] = useState<VerifyMissionResult | null>(null);
+  const [resultOpen, setResultOpen] = useState(false);
 
   // 앱 자체 카메라 스캔 오버레이 상태
   const [activeShot, setActiveShot] = useState<ShotKey | null>(null);
@@ -57,9 +53,8 @@ export default function VerifyScreen() {
   const cameraRef = useRef<CameraView>(null);
   const [capturing, setCapturing] = useState(false);
 
-  // Android 하드웨어 뒤로가기: 카메라 오버레이가 열려 있으면 화면 전체를 빠져나가는 대신
-  // 오버레이만 닫는다. 그동안은 뒤로가기가 인증 화면 자체를 pop해서 이미 찍어둔 사진이
-  // 전부 날아갔음. (촬영 중에는 무시해서 takePictureAsync가 중간에 끊기지 않게 함)
+  // Android 뒤로가기: 카메라 오버레이가 열려 있으면 화면 전체가 아니라 오버레이만 닫는다
+  // (예전엔 인증 화면 자체가 닫혀 찍어둔 사진이 전부 날아갔다). 촬영 중에는 무시.
   useEffect(() => {
     if (!activeShot) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -69,10 +64,8 @@ export default function VerifyScreen() {
     return () => sub.remove();
   }, [activeShot, capturing]);
 
-  // 서버 인증(verifyMission)이 도는 몇 초 동안 Android 뒤로가기를 막는다. 그동안 화면을
-  // 빠져나가면 인증 결과가 이미 사라진 화면으로 돌아와 "pass"인데도 완료 화면으로
-  // 못 넘어가거나, 사진을 전부 잃고 처음부터 다시 찍어야 했다. (헤더의 ‹ 버튼과
-  // 재촬영 버튼도 같은 이유로 인증 중에는 잠근다)
+  // 서버 인증이 도는 동안 뒤로가기를 막는다 - 빠져나가면 "pass"인데도 완료 화면으로 못 가거나
+  // 사진을 전부 잃었다. (헤더 뒤로 버튼과 재촬영 버튼도 같은 이유로 잠근다)
   useEffect(() => {
     if (!verifying) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => true);
@@ -84,104 +77,76 @@ export default function VerifyScreen() {
     if (!permission?.granted) {
       const res = await requestPermission();
       if (!res.granted) {
-        // 권한 거부 시 아무 반응 없이 조용히 끝나던 부분 - 이유를 알려줌.
-        // 한 번 거부하면 requestPermission()이 다시 OS 다이얼로그를 띄워주지
-        // 않는 기기가 많아서(특히 Android), 안내 문구뿐 아니라 설정 앱으로
-        // 바로 이동할 수 있는 버튼도 함께 제공한다.
-        Alert.alert(
-          "카메라 권한이 필요해요",
-          "촬영 인증을 위해 카메라 권한을 허용해주세요. 설정에서 권한을 변경할 수 있어요.",
-          [
-            { text: "취소", style: "cancel" },
-            { text: "설정 열기", onPress: () => Linking.openSettings() },
-          ]
-        );
+        // 한 번 거부하면 OS 창이 다시 안 뜨는 기기가 많아서(특히 Android) 설정으로 보낼 수 있게 한다.
+        Alert.alert(t("perm.cameraTitle"), t("verify.permBody"), [
+          { text: t("common.cancel"), style: "cancel" },
+          { text: t("common.openSettings"), onPress: () => Linking.openSettings() },
+        ]);
         return;
       }
     }
-    // (예전엔 여기서 영수증 OCR 결과를 미리 초기화했는데, 그러면 "다시 촬영하기"를
-    // 눌렀다가 ✕로 취소만 해도 멀쩡한 이전 영수증의 인식 결과가 사라졌다. 초기화는
-    // 실제로 새 사진이 찍힌 시점(capturePhoto)에만 한다.)
+    // (영수증 인식 결과는 여기서 지우지 않는다 - 재촬영을 눌렀다 취소만 해도 결과가 사라졌었다.
+    // 초기화는 실제로 새 사진이 찍힌 시점에만 한다.)
     setActiveShot(key);
   };
 
   const capturePhoto = async () => {
-    // capturing 가드: 촬영 중 버튼을 연타해도 takePictureAsync가 중복 실행되지 않도록 방지.
+    // 촬영 중 버튼을 연타해도 takePictureAsync가 중복 실행되지 않도록 막는다.
     if (!cameraRef.current || !activeShot || capturing) return;
     setCapturing(true);
     const shotKey = activeShot;
     try {
-      // 세 장 다 verifyMission(서버 인증)에 base64로 보내야 하고, 영수증은 추가로
-      // 촬영 직후 OCR 미리보기에도 쓴다.
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.6,
-        base64: true,
-      });
-      if (photo?.uri) {
-        setShots((prev) => ({ ...prev, [shotKey]: photo.uri }));
-      }
-      if (photo?.base64) {
-        setShotsBase64((prev) => ({ ...prev, [shotKey]: photo.base64 ?? null }));
-      }
+      // 세 장 다 서버 인증에 base64로 보내야 하고, 영수증은 촬영 직후 인식 미리보기에도 쓴다.
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.6, base64: true });
+      if (photo?.uri) setShots((prev) => ({ ...prev, [shotKey]: photo.uri }));
+      if (photo?.base64) setShotsBase64((prev) => ({ ...prev, [shotKey]: photo.base64 ?? null }));
       setActiveShot(null);
       if (shotKey === "receipt") {
-        // 새 영수증 사진이 찍혔으니 이전 인식 결과는 버리고 다시 돌린다. base64가 없으면
-        // (드문 디바이스 이슈) 옛 결과가 새 사진 밑에 남지 않도록 idle로만 되돌린다.
         if (photo?.base64) runReceiptOcr(photo.base64);
         else setReceiptOcr({ status: "idle" });
       }
     } catch {
-      // 카메라 촬영 실패(디바이스 이슈 등) 시 스캔 화면을 유지해 다시 시도할 수 있게 함.
-      Alert.alert("촬영 실패", "사진을 찍지 못했어요. 다시 시도해주세요.");
+      // 촬영 실패(디바이스 이슈 등) 시 스캔 화면을 유지해 다시 시도할 수 있게 한다.
+      Alert.alert(t("verify.captureFailed"), t("common.tryAgainLater"));
     } finally {
       setCapturing(false);
     }
   };
 
-  // 영수증 사진에서 텍스트를 추출해 화면에 미리보기로 보여준다. 실제 상호명 매칭/인증
-  // 판정은 이 결과를 쓰지 않고, handleVerify()가 서버(verifyMission Cloud Function)에
-  // 사진을 다시 보내 그쪽에서 독립적으로 OCR + 판정한다 - 여기 결과는 사용자에게
-  // "이렇게 인식됐어요"를 미리 보여주는 용도일 뿐이다.
+  // 영수증 글자를 미리 보여주는 용도일 뿐 - 실제 판정은 서버가 사진을 다시 받아 독립적으로 한다.
   const runReceiptOcr = async (base64Image: string) => {
     setReceiptOcr({ status: "loading" });
     try {
-      const text = await extractTextFromImage(base64Image);
-      setReceiptOcr({ status: "done", text });
+      setReceiptOcr({ status: "done", text: await extractTextFromImage(base64Image) });
     } catch (err) {
-      const message = err instanceof OcrApiError ? err.message : "텍스트를 인식하지 못했어요.";
       console.error("영수증 OCR 오류:", err);
-      setReceiptOcr({ status: "error", message });
+      setReceiptOcr({ status: "error" });
     }
   };
 
   const bothTaken = !!shots.sign && !!shots.food;
 
-  // 요리 사진의 로컬 URI를 완료 화면까지 넘겨서, 거기서 "리뷰 남기기"로 들어가면
-  // 방금 인증에 쓴 그 사진을 다시 찍지 않고 바로 리뷰에 첨부할 수 있게 한다.
-  // (base64는 너무 커서 params로 못 넘기므로 URI만 넘김 - 앱 캐시의 파일이라
-  // 리뷰 작성까지 잠깐 사는 동안은 유효하다.)
-  const goToComplete = () =>
+  // 요리 사진의 로컬 URI를 완료 화면까지 넘겨서, "리뷰 남기기"에서 방금 인증에 쓴 사진을 바로
+  // 첨부할 수 있게 한다(base64는 너무 커서 URI만 - 앱 캐시 파일이라 리뷰 작성까지는 유효하다).
+  const goToComplete = () => {
+    setResultOpen(false);
     router.push({
       pathname: "/mission/complete",
       params: { ...params, ...(shots.food ? { foodPhotoUri: shots.food } : {}) },
     });
+  };
 
   const handleVerify = async () => {
     if (!bothTaken || verifying) return;
-    // 드물게 takePictureAsync가 uri만 주고 base64를 못 주는 기기가 있다. 이 경우
-    // 미리보기는 정상인데 서버로 보낼 데이터가 없어서, 예전엔 "인증하기"를 눌러도
-    // 아무 반응 없이 조용히 끝났다. 어느 사진이 문제인지 알려주고 재촬영을 유도한다.
+    // 드물게 takePictureAsync가 uri만 주고 base64를 못 주는 기기가 있다 - 어느 사진인지 알려준다.
     if (!shotsBase64.sign || !shotsBase64.food) {
-      const missing = !shotsBase64.sign ? SHOT_META.sign.label : SHOT_META.food.label;
-      Alert.alert(
-        "사진을 다시 찍어주세요",
-        `${missing} 사진 데이터를 읽지 못했어요. 해당 사진을 다시 촬영해주세요.`
-      );
+      const missing = t(!shotsBase64.sign ? "verify.shot.sign" : "verify.shot.food");
+      Alert.alert(t("verify.retakeNeeded"), t("verify.retakeNeededBody", { shot: missing }));
       return;
     }
     setVerifying(true);
     try {
-      const result = await verifyMission({
+      const res = await verifyMission({
         dishId: params.dishId,
         restaurantName: params.restaurantName,
         signPhotoBase64: shotsBase64.sign,
@@ -189,309 +154,372 @@ export default function VerifyScreen() {
         receiptPhotoBase64: shotsBase64.receipt ?? undefined,
       });
 
-      if (result.verdict === "pass") {
+      if (res.verdict === "pass") {
+        triggerHaptic("success");
         goToComplete();
         return;
       }
-
-      // 관대한 정책: 상호/요리가 확실히 안 맞아도 완전히 막지는 않는다.
-      // 이유를 보여주고, 재촬영을 권하되 강행할지는 사용자가 선택한다.
-      Alert.alert(
-        result.verdict === "fail" ? "인증 사진을 다시 확인해주세요" : "확인이 더 필요해요",
-        result.reasons.join("\n") || "상호명 또는 요리 사진이 잘 안 맞는 것 같아요.",
-        [
-          { text: "다시 촬영하기", style: "cancel" },
-          { text: "그래도 인증할래요", onPress: goToComplete },
-        ]
-      );
+      // 관대한 정책: 확실히 안 맞아도 완전히 막지는 않는다. 이유를 보여주고 재촬영을 권하되
+      // 강행할지는 사용자가 선택한다.
+      triggerHaptic(res.verdict === "fail" ? "error" : "warning");
+      setResult(res);
+      setResultOpen(true);
     } catch (err) {
-      const message =
-        err instanceof MissionVerifyError ? err.message : "인증 중 오류가 발생했어요. 다시 시도해주세요.";
-      Alert.alert("인증 실패", message);
+      triggerHaptic("error");
+      const key = err instanceof MissionVerifyError ? err.key : "verify.error.network";
+      Alert.alert(t("verify.error.title"), t(key));
     } finally {
       setVerifying(false);
     }
   };
 
-  // 스캔 오버레이가 열려 있으면 앱 자체 카메라 화면을 전체 화면으로 보여준다.
+  const reasonText = (rc: ReasonCode): string => {
+    switch (rc.code) {
+      case "name_mismatch":
+        return t("verify.reason.name_mismatch", { restaurant: rc.restaurant });
+      case "dish_mismatch":
+        return t("verify.reason.dish_mismatch", { terms: (rc.terms ?? []).join(", "), dish });
+      case "name_not_found":
+      case "dish_similar_category":
+      case "dish_nothing_detected":
+      case "dish_detect_failed":
+        return t(`verify.reason.${rc.code}`);
+      default:
+        return "";
+    }
+  };
+  // 코드를 모르는 응답(구버전 서버)이면 서버가 보낸 한국어 문장을 그대로 쓴다.
+  const reasons = result
+    ? result.reasonCodes?.length
+      ? result.reasonCodes.map(reasonText).filter(Boolean)
+      : result.reasons
+    : [];
+
+  // ── 촬영 오버레이 ──
   if (activeShot) {
     const meta = SHOT_META[activeShot];
     return (
-      <View style={s.root}>
+      <View style={s.camRoot}>
         <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
-        <View style={s.scanOverlay}>
-          <View style={[s.scanTopBar, { paddingTop: Math.max(insets.top, 20) + 12 }]}>
-            {/* 촬영(takePictureAsync) 중에 오버레이를 닫으면 카메라가 언마운트돼 촬영이
-                실패한다. Android 하드웨어 뒤로가기와 똑같이 촬영 중엔 잠근다. */}
-            <TouchableOpacity
-              style={[s.scanIconBtn, capturing && { opacity: 0.3 }]}
-              onPress={() => setActiveShot(null)}
-              disabled={capturing}
-            >
-              <Text style={s.scanIconBtnText}>✕</Text>
-            </TouchableOpacity>
-            <Text style={s.scanTopTitle}>{meta.label} 촬영</Text>
-            <View style={{ width: 40 }} />
+        <View style={s.camOverlay}>
+          <View style={[s.camTop, { paddingTop: insets.top + theme.space.md }]}>
+            {/* 촬영 중에 오버레이를 닫으면 카메라가 언마운트돼 촬영이 실패한다 - 촬영 중엔 잠근다. */}
+            <View style={capturing ? s.dim : undefined} pointerEvents={capturing ? "none" : "auto"}>
+              <OverlayIconButton onPress={() => setActiveShot(null)} accessibilityLabel={t("common.close")}>
+                <Icons.X size={20} color="#FFFFFF" weight="bold" />
+              </OverlayIconButton>
+            </View>
+            <Text variant="title3" style={[s.white, s.bold]} accessibilityRole="header">
+              {t("verify.captureTitle", { shot: t(meta.label) })}
+            </Text>
+            <View style={s.camSpacer} />
           </View>
-
-          <Text style={s.scanGuideText}>{meta.guide}</Text>
-
-          <View style={s.scanFrame}>
-            <View style={[s.corner, s.cornerTL]} />
-            <View style={[s.corner, s.cornerTR]} />
-            <View style={[s.corner, s.cornerBL]} />
-            <View style={[s.corner, s.cornerBR]} />
-          </View>
-
-          <View style={s.scanBottomBar}>
-            <TouchableOpacity
-              style={s.captureBtn}
-              activeOpacity={0.8}
-              onPress={capturePhoto}
-              disabled={capturing}
-            >
-              {capturing ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <View style={s.captureBtnInner} />
-              )}
-            </TouchableOpacity>
+          <Text variant="callout" align="center" style={[s.camGuide, s.dimWhite]}>
+            {t(meta.guide)}
+          </Text>
+          <ScanCorners size={Math.min(width * 0.72, 320)} />
+          <View style={[s.camBottom, { paddingBottom: insets.bottom + theme.space.lg }]}>
+            <ShutterButton onPress={capturePhoto} busy={capturing} accessibilityLabel={t("camera.capture")} />
           </View>
         </View>
       </View>
     );
   }
 
+  // ── 인증 화면 ──
   return (
-    <View style={s.root}>
-      <View style={[s.header, { paddingTop: Math.max(insets.top, 20) + 14 }]}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={[s.backBtn, verifying && { opacity: 0.3 }]}
-          disabled={verifying}
-        >
-          <Text style={s.backText}>‹</Text>
-        </TouchableOpacity>
-        <Text style={s.headerTitle} numberOfLines={1}>{params.name_kr} 인증하기</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <Screen>
+      <ScreenHeader title={t("verify.title", { dish })} backDisabled={verifying} />
 
-      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-      <View style={s.infoCard}>
-        <Text style={{ fontSize: 18 }}>📷</Text>
-        <Text style={s.infoText}>
-          상호와 요리를 사진으로 찍어주세요.{"\n"}두 장 모두 인증해야 완료돼요.
-        </Text>
-      </View>
-
-      <View style={s.shotsRow}>
-        <ShotColumn
-          shotKey="sign"
-          uri={shots.sign}
-          onPress={() => openScan("sign")}
-          onRetake={() => openScan("sign")}
-        />
-        <ShotColumn
-          shotKey="food"
-          uri={shots.food}
-          onPress={() => openScan("food")}
-          onRetake={() => openScan("food")}
-        />
-      </View>
-
-      <View style={s.receiptSection}>
-        <View style={s.receiptHeaderRow}>
-          <Text style={s.receiptTitle}>🧾 영수증 스캔</Text>
-          <Text style={s.receiptOptionalTag}>선택사항 · 추가 인증</Text>
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        <View style={s.info}>
+          <Icons.Camera size={20} color={theme.colors.primaryText} weight="fill" />
+          <Text variant="callout" color="primaryText" style={s.flex1}>
+            {t("verify.intro")}
+          </Text>
         </View>
-        <Text style={s.receiptDesc}>
-          영수증을 함께 인증하면 신뢰도가 더 높아져요. (필수는 아니에요)
-        </Text>
-        <TouchableOpacity
-          style={s.receiptBox}
-          activeOpacity={0.7}
-          onPress={() => openScan("receipt")}
-        >
-          {shots.receipt ? (
-            <Image source={{ uri: shots.receipt }} style={s.receiptImage} />
-          ) : (
-            <>
-              <Text style={{ fontSize: 22 }}>📷</Text>
-              <Text style={s.receiptBoxText}>영수증 스캔하기</Text>
-            </>
-          )}
-        </TouchableOpacity>
-        {shots.receipt && (
-          <TouchableOpacity
-            style={s.retakeBtn}
-            activeOpacity={0.75}
-            onPress={() => openScan("receipt")}
-          >
-            <Text style={s.retakeBtnText}>🔄 다시 촬영하기</Text>
-          </TouchableOpacity>
-        )}
 
-        {shots.receipt && receiptOcr.status === "loading" && (
-          <View style={[s.ocrBox, s.ocrLoadingRow]}>
-            <ActivityIndicator size="small" color="#FF5722" />
-            <Text style={s.ocrLoadingText}>영수증 글자 인식 중...</Text>
+        <View style={s.shotsRow}>
+          {(["sign", "food"] as const).map((key) => (
+            <ShotTile
+              key={key}
+              shotKey={key}
+              uri={shots[key]}
+              disabled={verifying}
+              onPress={() => openScan(key)}
+            />
+          ))}
+        </View>
+
+        <View style={s.receipt}>
+          <View style={s.receiptHead}>
+            <Icons.Receipt size={20} color={theme.colors.textSecondary} />
+            <Text variant="bodyStrong">{t("verify.receiptTitle")}</Text>
           </View>
-        )}
-        {receiptOcr.status === "done" && (
-          <View style={s.ocrBox}>
-            <Text style={s.ocrLabel}>🔎 인식된 텍스트</Text>
-            <Text style={s.ocrText}>
-              {receiptOcr.text.trim() || "인식된 글자가 없어요. 더 선명하게 다시 찍어보세요."}
-            </Text>
-          </View>
-        )}
-        {receiptOcr.status === "error" && (
-          <View style={s.ocrBox}>
-            <Text style={s.ocrErrorText}>⚠️ {receiptOcr.message}</Text>
-          </View>
-        )}
-      </View>
+          <Text variant="caption" color="textTertiary">
+            {t("verify.receiptDesc")}
+          </Text>
+
+          <PressableScale
+            onPress={() => openScan("receipt")}
+            disabled={verifying}
+            scaleTo={0.98}
+            accessibilityLabel={shots.receipt ? t("verify.retake") : t("verify.scanReceipt")}
+            style={[s.receiptBox, shots.receipt && s.receiptBoxFilled]}
+          >
+            {shots.receipt ? (
+              <>
+                <Image source={{ uri: shots.receipt }} style={StyleSheet.absoluteFill} contentFit="cover" />
+                <View style={s.retakeChip}>
+                  <Icons.ArrowClockwise size={14} color="#FFFFFF" weight="bold" />
+                  <Text variant="caption" style={[s.white, s.bold]}>
+                    {t("verify.retake")}
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <Icons.Camera size={24} color={theme.colors.textTertiary} />
+                <Text variant="caption" color="textSecondary" style={s.bold}>
+                  {t("verify.scanReceipt")}
+                </Text>
+              </>
+            )}
+          </PressableScale>
+
+          {shots.receipt && receiptOcr.status === "loading" ? (
+            <View style={[s.ocr, s.ocrRow]}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text variant="caption" color="textTertiary">
+                {t("verify.ocrLoading")}
+              </Text>
+            </View>
+          ) : null}
+          {receiptOcr.status === "done" ? (
+            <View style={s.ocr}>
+              <View style={s.ocrRow}>
+                <Icons.MagnifyingGlass size={14} color={theme.colors.primaryText} weight="bold" />
+                <Text variant="caption" color="primaryText" style={s.bold}>
+                  {t("verify.ocrResult")}
+                </Text>
+              </View>
+              <Text variant="caption" color="textSecondary">
+                {receiptOcr.text.trim() || t("verify.ocrEmpty")}
+              </Text>
+            </View>
+          ) : null}
+          {receiptOcr.status === "error" ? (
+            <View style={[s.ocr, s.ocrRow]}>
+              <Icons.WarningCircle size={14} color={theme.colors.danger} weight="bold" />
+              <Text variant="caption" color="danger">
+                {t("verify.ocrFailed")}
+              </Text>
+            </View>
+          ) : null}
+        </View>
       </ScrollView>
 
-      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-        <TouchableOpacity
-          style={[s.verifyBtn, !bothTaken && s.verifyBtnDisabled]}
-          disabled={!bothTaken || verifying}
-          onPress={handleVerify}
-        >
-          {verifying ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={s.verifyBtnText}>인증하기</Text>
-          )}
-        </TouchableOpacity>
+      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, theme.space.lg) }]}>
+        {verifying ? (
+          <Text variant="caption" color="textTertiary" align="center" accessibilityLiveRegion="polite">
+            {t("verify.checking")}
+          </Text>
+        ) : !bothTaken ? (
+          <Text variant="caption" color="textTertiary" align="center">
+            {t("verify.needBoth")}
+          </Text>
+        ) : null}
+        <Button title={t("verify.cta")} icon={Icons.SealCheck} size="lg" fullWidth disabled={!bothTaken} loading={verifying} onPress={handleVerify} haptic="none" />
       </View>
-    </View>
-  );
-}
 
-function ShotColumn({
-  shotKey,
-  uri,
-  onPress,
-  onRetake,
-}: {
-  shotKey: ShotKey;
-  uri: string | null;
-  onPress: () => void;
-  onRetake: () => void;
-}) {
-  const meta = SHOT_META[shotKey];
-  return (
-    <View style={{ flex: 1 }}>
-      <TouchableOpacity style={s.shotBox} activeOpacity={0.7} onPress={onPress}>
-        {uri ? (
-          <Image source={{ uri }} style={s.shotImage} />
-        ) : (
+      <BottomSheet
+        visible={resultOpen}
+        onClose={() => setResultOpen(false)}
+        footer={
           <>
-            <Text style={{ fontSize: 30 }}>📷</Text>
-            <Text style={s.shotLabel}>{meta.label}</Text>
-            <Text style={s.shotSub}>{meta.sub}</Text>
+            <View style={s.flex1}>
+              <Button title={t("verify.result.retake")} variant="secondary" icon={Icons.Camera} fullWidth onPress={() => setResultOpen(false)} />
+            </View>
+            <View style={s.flex1}>
+              <Button title={t("verify.result.proceed")} fullWidth onPress={goToComplete} />
+            </View>
           </>
-        )}
-      </TouchableOpacity>
-
-      {uri && (
-        <TouchableOpacity style={s.retakeBtn} activeOpacity={0.75} onPress={onRetake}>
-          <Text style={s.retakeBtnText}>🔄 다시 촬영하기</Text>
-        </TouchableOpacity>
-      )}
-    </View>
+        }
+      >
+        <View style={s.resultBody}>
+          <View style={[s.resultIcon, { backgroundColor: result?.verdict === "fail" ? theme.colors.dangerTint : theme.colors.warningTint }]}>
+            {result?.verdict === "fail" ? (
+              <Icons.WarningCircle size={32} color={theme.colors.danger} weight="fill" />
+            ) : (
+              <Icons.MagnifyingGlass size={32} color={theme.colors.warning} weight="bold" />
+            )}
+          </View>
+          <Text variant="title2" align="center" accessibilityRole="header">
+            {result?.verdict === "fail" ? t("verify.result.failTitle") : t("verify.result.uncertainTitle")}
+          </Text>
+          <View style={s.reasons}>
+            {(reasons.length ? reasons : [t("verify.result.fallback")]).map((r, i) => (
+              <View key={i} style={s.reason}>
+                <View style={s.reasonDot} />
+                <Text variant="callout" style={s.flex1}>
+                  {r}
+                </Text>
+              </View>
+            ))}
+          </View>
+          <Text variant="caption" color="textTertiary" align="center">
+            {t("verify.result.policy")}
+          </Text>
+        </View>
+      </BottomSheet>
+    </Screen>
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#F5F5F5" },
-  scrollContent: { paddingBottom: 16 },
-  header: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    backgroundColor: "#fff", paddingHorizontal: 12, paddingBottom: 14,
-    borderBottomWidth: 0.5, borderBottomColor: "#eee",
-  },
-  backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  backText: { fontSize: 28, color: "#222" },
-  headerTitle: { fontSize: 16, fontWeight: "bold", color: "#222", flex: 1, textAlign: "center", marginHorizontal: 8 },
-  infoCard: {
-    flexDirection: "row", gap: 10, backgroundColor: "#FFE8DE", borderRadius: 14,
-    margin: 20, marginBottom: 16, padding: 16, alignItems: "flex-start",
-  },
-  infoText: { flex: 1, color: "#993C1D", fontSize: 13, lineHeight: 19 },
-  shotsRow: { flexDirection: "row", gap: 14, paddingHorizontal: 20 },
-  shotBox: {
-    width: "100%", aspectRatio: 3 / 4, borderRadius: 16, backgroundColor: "#FFE8DE",
-    borderWidth: 2, borderColor: "#FF5722", borderStyle: "dashed",
-    alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative",
-  },
-  shotLabel: { fontSize: 16, fontWeight: "bold", color: "#993C1D", marginTop: 8 },
-  shotSub: { fontSize: 12, color: "#993C1D", marginTop: 2 },
-  shotImage: { width: "100%", height: "100%" },
-  retakeBtn: {
-    marginTop: 8, backgroundColor: "#FFE8DE", borderRadius: 10, paddingVertical: 8,
-    alignItems: "center", borderWidth: 1, borderColor: "#FF5722",
-  },
-  retakeBtnText: { color: "#FF5722", fontSize: 12, fontWeight: "bold" },
-  receiptSection: { paddingHorizontal: 20, paddingTop: 22 },
-  receiptHeaderRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  receiptTitle: { fontSize: 14, fontWeight: "bold", color: "#222" },
-  receiptOptionalTag: {
-    fontSize: 10, fontWeight: "bold", color: "#888", backgroundColor: "#eee",
-    borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2,
-  },
-  receiptDesc: { fontSize: 12, color: "#999", marginTop: 4, marginBottom: 10 },
-  receiptBox: {
-    width: "100%", height: 110, borderRadius: 14, backgroundColor: "#F5F5F5",
-    borderWidth: 1.5, borderColor: "#ccc", borderStyle: "dashed",
-    alignItems: "center", justifyContent: "center", overflow: "hidden", gap: 4,
-  },
-  receiptBoxText: { fontSize: 13, color: "#888", fontWeight: "600" },
-  receiptImage: { width: "100%", height: "100%" },
-  ocrBox: {
-    marginTop: 10, backgroundColor: "#F5F5F5", borderRadius: 12, padding: 12, gap: 4,
-  },
-  ocrLoadingRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  ocrLoadingText: { fontSize: 12, color: "#888" },
-  ocrLabel: { fontSize: 11, fontWeight: "bold", color: "#993C1D" },
-  ocrText: { fontSize: 12, color: "#444", lineHeight: 18 },
-  ocrErrorText: { fontSize: 12, color: "#C0392B" },
-  footer: { padding: 20, paddingTop: 26 },
-  verifyBtn: { backgroundColor: "#FF5722", borderRadius: 16, paddingVertical: 16, alignItems: "center" },
-  verifyBtnDisabled: { backgroundColor: "#FFC3AC" },
-  verifyBtnText: { color: "#fff", fontSize: 17, fontWeight: "bold" },
+function ShotTile({ shotKey, uri, disabled, onPress }: { shotKey: "sign" | "food"; uri: string | null; disabled: boolean; onPress: () => void }) {
+  const theme = useTheme();
+  const { t } = useI18n();
+  const s = useStyles();
+  const meta = SHOT_META[shotKey];
+  const TileIcon = meta.icon;
 
-  // 앱 자체 카메라 스캔 오버레이
-  scanOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)" },
-  scanTopBar: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    paddingHorizontal: 20, paddingBottom: 16,
+  return (
+    <PressableScale
+      onPress={onPress}
+      disabled={disabled}
+      scaleTo={0.98}
+      accessibilityLabel={uri ? `${t(meta.label)}, ${t("verify.retake")}` : `${t(meta.label)}, ${t("verify.tapToShoot")}`}
+      style={[s.tile, uri ? s.tileFilled : null]}
+    >
+      {uri ? (
+        <>
+          <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <View style={s.tileDone}>
+            <Icons.CheckCircle size={22} color={theme.colors.success} weight="fill" />
+          </View>
+          <View style={s.retakeChip}>
+            <Icons.ArrowClockwise size={14} color="#FFFFFF" weight="bold" />
+            <Text variant="caption" style={[s.white, s.bold]}>
+              {t("verify.retake")}
+            </Text>
+          </View>
+        </>
+      ) : (
+        <>
+          <View style={s.tileIcon}>
+            <TileIcon size={28} color={theme.colors.primary} weight="duotone" />
+          </View>
+          <Text variant="bodyStrong" color="primaryText">
+            {t(meta.label)}
+          </Text>
+          {meta.sub ? (
+            <Text variant="caption" color="textTertiary" align="center">
+              {t(meta.sub)}
+            </Text>
+          ) : null}
+          <View style={s.tapHint}>
+            <Icons.Camera size={14} color={theme.colors.primaryText} />
+            <Text variant="caption" color="primaryText" style={s.bold}>
+              {t("verify.tapToShoot")}
+            </Text>
+          </View>
+        </>
+      )}
+    </PressableScale>
+  );
+}
+
+const useStyles = makeStyles((t) => ({
+  flex1: { flex: 1 },
+  bold: { fontWeight: "700" },
+  white: { color: "#FFFFFF" },
+  dimWhite: { color: "rgba(255,255,255,0.8)" },
+  dim: { opacity: 0.3 },
+  content: { padding: t.space.xl, gap: t.space.xl, paddingBottom: t.space.xxl },
+  info: {
+    flexDirection: "row",
+    gap: t.space.md,
+    alignItems: "flex-start",
+    backgroundColor: t.colors.primaryTint,
+    borderRadius: t.radius.lg,
+    padding: t.space.lg,
   },
-  scanIconBtn: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.15)",
-    alignItems: "center", justifyContent: "center",
+  shotsRow: { flexDirection: "row", gap: t.space.md },
+  tile: {
+    flex: 1,
+    aspectRatio: 3 / 4,
+    borderRadius: t.radius.lg,
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderColor: t.colors.primary,
+    backgroundColor: t.colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: t.space.xs,
+    padding: t.space.md,
+    overflow: "hidden",
   },
-  scanIconBtnText: { fontSize: 16, color: "#fff" },
-  scanTopTitle: { fontSize: 16, fontWeight: "bold", color: "#fff" },
-  scanGuideText: {
-    textAlign: "center", color: "rgba(255,255,255,0.85)", fontSize: 13,
-    paddingHorizontal: 32, marginBottom: 24,
+  tileFilled: { borderStyle: "solid", borderColor: t.colors.success },
+  tileIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: t.radius.pill,
+    backgroundColor: t.colors.primaryTint,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: t.space.xs,
   },
-  scanFrame: {
-    width: 260, height: 260, alignSelf: "center",
-    alignItems: "center", justifyContent: "center", position: "relative",
+  tapHint: { flexDirection: "row", alignItems: "center", gap: t.space.xs, marginTop: t.space.sm },
+  tileDone: { position: "absolute", top: t.space.sm, right: t.space.sm, backgroundColor: "#FFFFFF", borderRadius: t.radius.pill },
+  retakeChip: {
+    position: "absolute",
+    bottom: t.space.sm,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: t.space.xs,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    borderRadius: t.radius.pill,
+    paddingHorizontal: t.space.md,
+    paddingVertical: t.space.xs + t.space.xxs,
   },
-  corner: { position: "absolute", width: 28, height: 28, borderColor: "#FF5722", borderWidth: 3 },
-  cornerTL: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 6 },
-  cornerTR: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 6 },
-  cornerBL: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 6 },
-  cornerBR: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 6 },
-  scanBottomBar: { flex: 1, alignItems: "center", justifyContent: "center" },
-  captureBtn: {
-    width: 72, height: 72, borderRadius: 36, backgroundColor: "rgba(255,255,255,0.3)",
-    alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: "#fff",
+  receipt: { gap: t.space.sm },
+  receiptHead: { flexDirection: "row", alignItems: "center", gap: t.space.sm },
+  receiptBox: {
+    height: 120,
+    borderRadius: t.radius.lg,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: t.colors.borderStrong,
+    backgroundColor: t.colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: t.space.xs,
+    overflow: "hidden",
+    marginTop: t.space.xs,
   },
-  captureBtnInner: { width: 54, height: 54, borderRadius: 27, backgroundColor: "#fff" },
-});
+  receiptBoxFilled: { borderStyle: "solid", borderColor: t.colors.success },
+  ocr: { backgroundColor: t.colors.surfaceAlt, borderRadius: t.radius.md, padding: t.space.md, gap: t.space.xs },
+  ocrRow: { flexDirection: "row", alignItems: "center", gap: t.space.sm },
+  footer: {
+    paddingHorizontal: t.space.xl,
+    paddingTop: t.space.md,
+    gap: t.space.sm,
+    backgroundColor: t.colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: t.colors.border,
+  },
+
+  resultBody: { paddingHorizontal: t.space.xl, paddingTop: t.space.xl, paddingBottom: t.space.lg, gap: t.space.md, alignItems: "center" },
+  resultIcon: { width: 64, height: 64, borderRadius: t.radius.pill, alignItems: "center", justifyContent: "center" },
+  reasons: { alignSelf: "stretch", gap: t.space.sm, backgroundColor: t.colors.surfaceAlt, borderRadius: t.radius.md, padding: t.space.lg },
+  reason: { flexDirection: "row", gap: t.space.sm, alignItems: "flex-start" },
+  reasonDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: t.colors.textTertiary, marginTop: 8 },
+
+  camRoot: { flex: 1, backgroundColor: "#000000" },
+  camOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)" },
+  camTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: t.space.xl, paddingBottom: t.space.lg },
+  camSpacer: { width: 44 },
+  camGuide: { paddingHorizontal: t.space.xxxl, marginBottom: t.space.xxl },
+  camBottom: { flex: 1, alignItems: "center", justifyContent: "center" },
+}));

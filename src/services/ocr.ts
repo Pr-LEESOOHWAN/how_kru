@@ -17,7 +17,15 @@ const GOOGLE_VISION_API_KEY =
   process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
 const VISION_API_URL = "https://vision.googleapis.com/v1/images:annotate";
 
-export class OcrApiError extends Error {}
+/** kind: 화면 안내용 분류, message: 개발자용 상세(콘솔용) - places.ts의 PlacesApiError와 같은 방식 */
+export class OcrApiError extends Error {
+  constructor(
+    message: string,
+    public readonly kind: "not_configured" | "api" = "api"
+  ) {
+    super(message);
+  }
+}
 
 /**
  * base64로 인코딩된 이미지에서 텍스트를 추출합니다.
@@ -28,7 +36,8 @@ export class OcrApiError extends Error {}
 export async function extractTextFromImage(base64Image: string): Promise<string> {
   if (!GOOGLE_VISION_API_KEY) {
     throw new OcrApiError(
-      "Google Vision API 키가 설정되지 않았어요. .env 파일에 EXPO_PUBLIC_GOOGLE_VISION_API_KEY를 추가해주세요."
+      "Google Vision API 키가 설정되지 않았어요. .env 파일에 EXPO_PUBLIC_GOOGLE_VISION_API_KEY를 추가해주세요.",
+      "not_configured"
     );
   }
 

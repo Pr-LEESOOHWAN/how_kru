@@ -1,27 +1,50 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Animated,
+import { useEffect, useRef, useState } from "react";
+import { Alert, StyleSheet, useWindowDimensions, View } from "react-native";
+import Animated, {
   Easing,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
-import { markDishCompleted } from "@/src/firebase/dishService";
+import { markDishCompleted, MISSION_COMPLETE_XP } from "@/src/firebase/dishService";
+import { useI18n } from "@/src/i18n";
+import { dishName } from "@/src/i18n/content";
+import { makeStyles, useTheme } from "@/src/theme/ThemeContext";
+import { motion } from "@/src/theme/tokens";
+import { Button, Icons, Screen, Text } from "@/src/ui";
 
+// 축하 파티클은 UI 아이콘이 아니라 "내용"이라 이모지를 그대로 쓴다(icons.ts 참고).
 const CONFETTI = ["🎉", "✨", "🎊", "⭐️", "🎈"];
 const CONFETTI_COUNT = 10;
+const EASE_OUT = Easing.bezier(...motion.easing.out);
+
+type Piece = { emoji: string; left: number; delay: number; duration: number; spin: 1 | -1 };
+
+// 렌더 중에 Math.random()을 부르면 React Compiler가 결과를 캐시하거나 다시 계산하면서 값이
+// 흔들릴 수 있어서, 앱이 뜰 때 모듈에서 한 번만 뽑아 둔다.
+const PIECES: Piece[] = Array.from({ length: CONFETTI_COUNT }, (_, i) => ({
+  emoji: CONFETTI[i % CONFETTI.length],
+  left: 0.08 + Math.random() * 0.84,
+  delay: i * 70 + Math.random() * 300,
+  duration: 1100 + Math.random() * 700,
+  spin: Math.random() > 0.5 ? 1 : -1,
+}));
 
 export default function MissionCompleteScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const { t, language } = useI18n();
+  const s = useStyles();
+  const reduceMotion = useReducedMotion();
   // placeId/restaurantName은 choose-restaurant.tsx에서 식당을 고른 시점에 params에
   // 실려서 navigate → arrived → verify를 거쳐 그대로 여기까지 넘어온다(각 화면이
   // router.push할 때 ...params로 통째로 이어받아 넘김). "이 식당에 리뷰 남기기"에 씀.
@@ -34,6 +57,7 @@ export default function MissionCompleteScreen() {
     // verify.tsx가 넘겨준 요리 인증 사진의 로컬 URI. "리뷰 남기기"로 그대로 전달한다.
     foodPhotoUri?: string;
   }>();
+  const dish = dishName({ id: params.dishId, name_kr: params.name_kr, name_en: params.name_en }, language);
   const saved = useRef(false);
   // markDishCompleted()는 화면을 벗어난 뒤에도 응답이 올 수 있는 비동기 호출이라,
   // 언마운트 후 setSaving/setAlreadyCompleted가 실행되거나(React 경고) 이미 화면을
@@ -52,26 +76,6 @@ export default function MissionCompleteScreen() {
   // 진행률/레벨업 판정이 어긋나므로, 저장 중에는 버튼을 잠시 잠근다.
   const [saving, setSaving] = useState(false);
 
-  // 이모지/텍스트 등장 애니메이션
-  const emojiScale = useRef(new Animated.Value(0)).current;
-  const contentFade = useRef(new Animated.Value(0)).current;
-  const contentSlide = useRef(new Animated.Value(16)).current;
-  const rewardScale = useRef(new Animated.Value(0.6)).current;
-
-  // 컨페티 파티클 (랜덤 위치/이모지는 최초 1회만 계산해서 리렌더에도 안 바뀌게 함)
-  const confetti = useMemo(
-    () =>
-      Array.from({ length: CONFETTI_COUNT }, (_, i) => ({
-        emoji: CONFETTI[i % CONFETTI.length],
-        left: `${8 + Math.random() * 84}%` as const,
-        delay: Math.random() * 300,
-        duration: 1100 + Math.random() * 700,
-        rotate: Math.random() > 0.5 ? "1" : "-1",
-      })),
-    []
-  );
-  const confettiAnims = useRef(confetti.map(() => new Animated.Value(0))).current;
-
   // 완료 기록 저장. 실패하면 조용히 넘어가지 않고 재시도 기회를 준다 —
   // 여기서 저장이 안 되면 뒤이어 나오는 킥/레벨 진행 화면이 전부 "이 요리는
   // 완료 안 됨" 기준으로 계산돼서, 축하 화면은 봤는데 레벨/완료 목록엔
@@ -89,14 +93,10 @@ export default function MissionCompleteScreen() {
       .catch((err) => {
         console.error("[mission/complete] markDishCompleted failed:", err);
         if (!mountedRef.current) return;
-        Alert.alert(
-          "완료 기록 저장 실패",
-          "네트워크 문제로 미션 완료가 저장되지 않았어요. 다시 시도할까요?",
-          [
-            { text: "나중에", style: "cancel" },
-            { text: "다시 시도", onPress: saveCompletion },
-          ]
-        );
+        Alert.alert(t("complete.saveFailedTitle"), t("complete.saveFailedBody"), [
+          { text: t("common.later"), style: "cancel" },
+          { text: t("common.retry"), onPress: saveCompletion },
+        ]);
       });
   };
 
@@ -107,50 +107,30 @@ export default function MissionCompleteScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.dishId, user]);
 
+  // 미션당 한 번 보는 축하 화면이라 모션을 아끼지 않는다(Emil: 드문 순간엔 즐거움을 줘도 된다).
+  // 단, 시스템 "동작 줄이기"가 켜져 있으면 모든 요소를 처음부터 제자리에 둔다.
+  const badgeIn = useSharedValue(reduceMotion ? 1 : 0);
+  const contentIn = useSharedValue(reduceMotion ? 1 : 0);
+  const rewardIn = useSharedValue(reduceMotion ? 1 : 0);
   useEffect(() => {
-    Animated.sequence([
-      Animated.spring(emojiScale, {
-        toValue: 1,
-        friction: 4,
-        tension: 70,
-        useNativeDriver: true,
-      }),
-      Animated.parallel([
-        Animated.timing(contentFade, {
-          toValue: 1,
-          duration: 380,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(contentSlide, {
-          toValue: 0,
-          duration: 380,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.spring(rewardScale, {
-          toValue: 1,
-          friction: 5,
-          tension: 80,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
+    if (reduceMotion) return;
+    badgeIn.value = withSpring(1, { damping: 12, stiffness: 180 });
+    contentIn.value = withDelay(180, withTiming(1, { duration: motion.duration.slow, easing: EASE_OUT }));
+    rewardIn.value = withDelay(280, withSpring(1, { damping: 14, stiffness: 200 }));
+  }, [reduceMotion, badgeIn, contentIn, rewardIn]);
 
-    Animated.stagger(
-      70,
-      confettiAnims.map((anim, i) =>
-        Animated.timing(anim, {
-          toValue: 1,
-          duration: confetti[i].duration,
-          delay: confetti[i].delay,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        })
-      )
-    ).start();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const badgeStyle = useAnimatedStyle(() => ({
+    opacity: badgeIn.value,
+    transform: [{ scale: 0.6 + badgeIn.value * 0.4 }],
+  }));
+  const contentStyle = useAnimatedStyle(() => ({
+    opacity: contentIn.value,
+    transform: [{ translateY: (1 - contentIn.value) * 16 }],
+  }));
+  const rewardStyle = useAnimatedStyle(() => ({
+    opacity: rewardIn.value,
+    transform: [{ scale: 0.85 + rewardIn.value * 0.15 }],
+  }));
 
   const handleNext = () => {
     router.push({
@@ -168,6 +148,7 @@ export default function MissionCompleteScreen() {
       params: {
         dishId: params.dishId,
         name_kr: params.name_kr,
+        name_en: params.name_en,
         ...(params.placeId && params.restaurantName
           ? { restaurantId: params.placeId, restaurantName: params.restaurantName }
           : {}),
@@ -176,109 +157,125 @@ export default function MissionCompleteScreen() {
     });
   };
 
+  const xp = alreadyCompleted ? 0 : MISSION_COMPLETE_XP;
+
   return (
-    <View style={s.root}>
-      {/* 컨페티 파티클 */}
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        {confetti.map((c, i) => {
-          const anim = confettiAnims[i];
-          const translateY = anim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [-20, 420],
-          });
-          const opacity = anim.interpolate({
-            inputRange: [0, 0.15, 0.8, 1],
-            outputRange: [0, 1, 1, 0],
-          });
-          const rotate = anim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [`0deg`, `${Number(c.rotate) * 360}deg`],
-          });
-          return (
-            <Animated.Text
-              key={i}
-              style={[
-                s.confettiEmoji,
-                { left: c.left, opacity, transform: [{ translateY }, { rotate }] },
-              ]}
-            >
-              {c.emoji}
-            </Animated.Text>
-          );
-        })}
-      </View>
+    <Screen style={s.root}>
+      {reduceMotion ? null : (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill} importantForAccessibility="no-hide-descendants">
+          {PIECES.map((piece, i) => (
+            <ConfettiPiece key={i} piece={piece} />
+          ))}
+        </View>
+      )}
 
-      <View style={s.center}>
-        <Animated.Text style={[s.emoji, { transform: [{ scale: emojiScale }] }]}>
-          🎉
-        </Animated.Text>
-
-        <Animated.View
-          style={{ opacity: contentFade, transform: [{ translateY: contentSlide }] }}
-        >
-          <Text style={s.title}>미션 완료!</Text>
-          <Text style={s.dishName}>{params.name_kr} 인증 성공</Text>
+      <View style={[s.center, { paddingTop: insets.top }]}>
+        <Animated.View style={[s.badge, badgeStyle]}>
+          <Icons.Confetti size={64} color={theme.colors.primary} weight="fill" />
         </Animated.View>
 
-        <Animated.View style={[s.rewardRow, { transform: [{ scale: rewardScale }] }]}>
-          <View style={s.rewardCard}>
-            <Text style={s.rewardValue}>{alreadyCompleted ? "+0" : "+50"}</Text>
-            <Text style={s.rewardLabel}>XP</Text>
+        <Animated.View style={[s.titles, contentStyle]}>
+          <Text variant="display" align="center" accessibilityRole="header">
+            {t("complete.title")}
+          </Text>
+          <Text variant="body" color="textSecondary" align="center">
+            {t("complete.subtitle", { dish })}
+          </Text>
+        </Animated.View>
+
+        <Animated.View style={[s.rewardRow, rewardStyle]}>
+          <View style={s.rewardCard} accessible accessibilityLabel={`+${xp} ${t("complete.xpLabel")}`}>
+            <Text variant="title1" color="primaryText">
+              +{xp}
+            </Text>
+            <Text variant="caption" color="textSecondary">
+              {t("complete.xpLabel")}
+            </Text>
           </View>
-          <View style={s.rewardCard}>
-            <Text style={s.rewardValue}>🏅</Text>
-            <Text style={s.rewardLabel}>{alreadyCompleted ? "이미 획득한 뱃지" : "New Badge"}</Text>
+          <View style={s.rewardCard} accessible>
+            <Icons.Medal size={32} color={theme.colors.primary} weight="fill" />
+            <Text variant="caption" color="textSecondary" align="center">
+              {alreadyCompleted ? t("complete.badgeOwned") : t("complete.badgeNew")}
+            </Text>
           </View>
         </Animated.View>
 
-        {alreadyCompleted && (
-          <Text style={s.dupNote}>이미 완료했던 요리라 XP는 중복 지급되지 않아요</Text>
-        )}
+        {alreadyCompleted ? (
+          <Text variant="caption" color="textTertiary" align="center" style={s.dupNote}>
+            {t("complete.dupNote")}
+          </Text>
+        ) : null}
       </View>
 
-      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 32) }]}>
-        {params.placeId && params.restaurantName && (
-          <TouchableOpacity style={s.secondaryBtn} onPress={handleReview}>
-            <Text style={s.secondaryBtnText}>📷 {params.restaurantName} 리뷰 남기기</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity
-          style={[s.primaryBtn, saving && s.primaryBtnDisabled]}
-          onPress={handleNext}
-          disabled={saving}
-        >
-          {saving ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={s.primaryBtnText}>다음으로</Text>
-          )}
-        </TouchableOpacity>
+      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, theme.space.xl) }]}>
+        {params.placeId && params.restaurantName ? (
+          <Button
+            title={t("complete.review", { restaurant: params.restaurantName })}
+            variant="tonal"
+            icon={Icons.Camera}
+            fullWidth
+            onPress={handleReview}
+          />
+        ) : null}
+        <Button title={t("common.next")} icon={Icons.ArrowRight} size="lg" fullWidth loading={saving} onPress={handleNext} />
       </View>
-    </View>
+    </Screen>
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#fff" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 },
-  emoji: { fontSize: 72, marginBottom: 10 },
-  title: { fontSize: 26, fontWeight: "bold", color: "#222", marginBottom: 6, textAlign: "center" },
-  dishName: { fontSize: 15, color: "#888", marginBottom: 28, textAlign: "center" },
-  rewardRow: { flexDirection: "row", gap: 14 },
+function ConfettiPiece({ piece }: { piece: Piece }) {
+  const { height, width } = useWindowDimensions();
+  const s = useStyles();
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    progress.value = withDelay(piece.delay, withTiming(1, { duration: piece.duration, easing: Easing.out(Easing.quad) }));
+  }, [piece, progress]);
+
+  const fall = height * 0.55;
+  const style = useAnimatedStyle(() => {
+    const p = progress.value;
+    // 처음 15%에서 나타나고 마지막 20%에서 사라진다.
+    const opacity = p < 0.15 ? p / 0.15 : p > 0.8 ? (1 - p) / 0.2 : 1;
+    return {
+      opacity,
+      transform: [{ translateY: -20 + p * fall }, { rotate: `${piece.spin * p * 360}deg` }],
+    };
+  });
+
+  return (
+    <Animated.Text style={[s.confetti, { left: piece.left * width }, style]}>
+      {piece.emoji}
+    </Animated.Text>
+  );
+}
+
+const useStyles = makeStyles((t) => ({
+  root: { backgroundColor: t.colors.surface },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: t.space.xxxl },
+  badge: {
+    width: 132,
+    height: 132,
+    borderRadius: t.radius.pill,
+    backgroundColor: t.colors.primaryTint,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: t.space.xl,
+  },
+  titles: { gap: t.space.xs, marginBottom: t.space.xxl },
+  rewardRow: { flexDirection: "row", gap: t.space.md },
   rewardCard: {
-    width: 120, backgroundColor: "#FFF0EC", borderRadius: 16,
-    paddingVertical: 18, alignItems: "center",
+    width: 128,
+    minHeight: 96,
+    backgroundColor: t.colors.primaryTint,
+    borderRadius: t.radius.lg,
+    paddingVertical: t.space.lg,
+    paddingHorizontal: t.space.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: t.space.xs,
   },
-  rewardValue: { fontSize: 24, fontWeight: "bold", color: "#FF5722" },
-  rewardLabel: { fontSize: 12, color: "#993C1D", marginTop: 4, fontWeight: "600" },
-  dupNote: { fontSize: 12, color: "#999", marginTop: 16, textAlign: "center" },
-  footer: { padding: 20, paddingBottom: 32, gap: 10 },
-  primaryBtn: { backgroundColor: "#FF5722", borderRadius: 16, paddingVertical: 16, alignItems: "center" },
-  primaryBtnText: { color: "#fff", fontSize: 17, fontWeight: "bold" },
-  primaryBtnDisabled: { backgroundColor: "#FFC3AC" },
-  secondaryBtn: {
-    backgroundColor: "#FFF0EC", borderRadius: 16, paddingVertical: 14, alignItems: "center",
-  },
-  secondaryBtnText: { color: "#FF5722", fontSize: 14, fontWeight: "bold" },
-  confettiEmoji: { position: "absolute", top: 0, fontSize: 22 },
-});
+  dupNote: { marginTop: t.space.lg, maxWidth: 300 },
+  footer: { paddingHorizontal: t.space.xl, gap: t.space.sm },
+  confetti: { position: "absolute", top: 0, fontSize: 22 },
+}));

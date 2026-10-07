@@ -51,12 +51,23 @@ export function formatDistance(m: number): string {
   return m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`;
 }
 
-export function formatWalkTime(m: number): string {
-  const minutes = Math.max(1, Math.round(m / 67)); // 평균 도보 속도 약 4km/h 가정
-  return `도보 ${minutes}분`;
+/** 도보 소요 시간(분). 평균 도보 속도 약 4km/h 가정. 문구("도보 n분")는 화면에서 번역한다. */
+export function walkMinutes(m: number): number {
+  return Math.max(1, Math.round(m / 67));
 }
 
-export class PlacesApiError extends Error {}
+/**
+ * kind: 화면에서 사용자 언어로 안내하기 위한 분류. message는 개발자용 상세(콘솔에 남김) -
+ * 예전엔 "Places API 오류 (403): ..." 같은 개발자용 문장이 사용자 화면에 그대로 떴다.
+ */
+export class PlacesApiError extends Error {
+  constructor(
+    message: string,
+    public readonly kind: "not_configured" | "api" = "api"
+  ) {
+    super(message);
+  }
+}
 
 /**
  * keyword(예: "비빔밥") 기준으로 내 위치 반경 radiusM 이내 식당을 검색.
@@ -70,7 +81,8 @@ export async function searchNearbyRestaurants(
 ): Promise<NearbyRestaurant[]> {
   if (!GOOGLE_PLACES_API_KEY) {
     throw new PlacesApiError(
-      "Google Places API 키가 설정되지 않았어요. .env 파일에 EXPO_PUBLIC_GOOGLE_PLACES_API_KEY를 추가해주세요."
+      "Google Places API 키가 설정되지 않았어요. .env 파일에 EXPO_PUBLIC_GOOGLE_PLACES_API_KEY를 추가해주세요.",
+      "not_configured"
     );
   }
 
@@ -149,18 +161,21 @@ const DETAILS_FIELD_MASK = ["rating", "userRatingCount", "reviews"].join(",");
  * 특정 식당(placeId)의 구글 평점 + 최근 리뷰(최대 5개, 구글 API 자체 제한)를
  * 실시간으로 가져옵니다. 저장하지 않고 화면에 그때그때만 표시하는 용도입니다.
  */
-export async function getPlaceReviews(placeId: string): Promise<{
+export async function getPlaceReviews(placeId: string, languageCode = "ko"): Promise<{
   rating?: number;
   userRatingsTotal?: number;
   reviews: GoogleReview[];
 }> {
   if (!GOOGLE_PLACES_API_KEY) {
     throw new PlacesApiError(
-      "Google Places API 키가 설정되지 않았어요. .env 파일에 EXPO_PUBLIC_GOOGLE_PLACES_API_KEY를 추가해주세요."
+      "Google Places API 키가 설정되지 않았어요. .env 파일에 EXPO_PUBLIC_GOOGLE_PLACES_API_KEY를 추가해주세요.",
+      "not_configured"
     );
   }
 
-  const res = await fetch(`${PLACE_DETAILS_URL}/${placeId}`, {
+  // languageCode를 넘기면 구글이 리뷰 본문(text)을 그 언어로 번역해 주고, 원문은 originalText로
+  // 따로 온다 - 대부분 한국어인 리뷰를 외국인 사용자가 읽을 수 있게 사용자 언어로 요청한다.
+  const res = await fetch(`${PLACE_DETAILS_URL}/${placeId}?languageCode=${encodeURIComponent(languageCode)}`, {
     method: "GET",
     headers: {
       "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
@@ -178,7 +193,8 @@ export async function getPlaceReviews(placeId: string): Promise<{
 
   const reviews: GoogleReview[] = (data.reviews ?? []).map((r: any, i: number) => ({
     id: r.name ?? String(i),
-    authorName: r.authorAttribution?.displayName ?? "익명",
+    // 이름이 없으면 빈 문자열 - 화면에서 사용자 언어의 "익명"으로 바꿔 보여준다.
+    authorName: r.authorAttribution?.displayName ?? "",
     authorPhotoUrl: r.authorAttribution?.photoUri,
     rating: r.rating ?? 0,
     text: r.text?.text ?? r.originalText?.text ?? "",

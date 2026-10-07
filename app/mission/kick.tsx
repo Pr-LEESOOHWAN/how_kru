@@ -1,35 +1,37 @@
-import { useAuth } from "@/src/contexts/AuthContext";
-import { Dish, getDish, saveKickChoice } from "@/src/firebase/dishService";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const FALLBACK_QUESTION = "이 요리의 '킥'은 무엇이었나요?";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { getDish, saveKickChoice, type Dish } from "@/src/firebase/dishService";
+import { useI18n } from "@/src/i18n";
+import { dishName, kickOptionLabel, kickQuestion } from "@/src/i18n/content";
+import { makeStyles, useTheme } from "@/src/theme/ThemeContext";
+import { Button, Icons, PressableScale, Screen, Skeleton, Text, TextField } from "@/src/ui";
+
+// 요리 문서에 kick_options가 없을 때만 쓰는 기본 선택지. 답은 언어와 상관없이 한국어 원문으로
+// 저장하고(통계가 섞이지 않게), 화면에만 kickOptionLabel로 번역해서 보여준다.
 const FALLBACK_OPTIONS = ["맛", "식감", "냄새", "생김새"];
 const CUSTOM_KEY = "__custom__";
 
 export default function KickScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { user } = useAuth();
+  const { t, language } = useI18n();
+  const s = useStyles();
   const params = useLocalSearchParams<{
     dishId: string;
     name_kr: string;
     name_en: string;
   }>();
+  const dish = dishName({ id: params.dishId, name_kr: params.name_kr, name_en: params.name_en }, language);
 
   const [loading, setLoading] = useState(true);
-  const [question, setQuestion] = useState(FALLBACK_QUESTION);
+  // 원문(한국어) 질문. 표시할 때 kickQuestion()으로 번역한다.
+  const [question, setQuestion] = useState<string | undefined>(undefined);
   const [options, setOptions] = useState<string[]>(FALLBACK_OPTIONS);
   const [selected, setSelected] = useState<string | null>(null);
   const [customText, setCustomText] = useState("");
@@ -39,10 +41,10 @@ export default function KickScreen() {
     let cancelled = false;
     (async () => {
       try {
-        const dish: Dish | null = params.dishId ? await getDish(params.dishId) : null;
+        const data: Dish | null = params.dishId ? await getDish(params.dishId) : null;
         if (cancelled) return;
-        if (dish?.kick_question) setQuestion(dish.kick_question);
-        if (dish?.kick_options?.length) setOptions(dish.kick_options.slice(0, 4));
+        if (data?.kick_question) setQuestion(data.kick_question);
+        if (data?.kick_options?.length) setOptions(data.kick_options.slice(0, 4));
       } catch {
         // 실패하면 기본 질문/옵션 사용
       } finally {
@@ -54,17 +56,8 @@ export default function KickScreen() {
     };
   }, [params.dishId]);
 
-  const selectOption = (opt: string) => {
-    setSelected(opt);
-  };
-
-  const selectCustom = () => {
-    setSelected(CUSTOM_KEY);
-  };
-
   const canConfirm =
-    (selected && selected !== CUSTOM_KEY) ||
-    (selected === CUSTOM_KEY && customText.trim().length > 0);
+    (selected && selected !== CUSTOM_KEY) || (selected === CUSTOM_KEY && customText.trim().length > 0);
 
   const handleNext = async () => {
     if (!canConfirm || saving) return;
@@ -84,109 +77,145 @@ export default function KickScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={s.root}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <View style={s.center}>
-        <Text style={s.emoji}>✨</Text>
-        <Text style={s.title}>What's your kick?</Text>
-        <Text style={s.dishName}>{params.name_kr}</Text>
-
-        {loading ? (
-          <ActivityIndicator color="#FF5722" style={{ marginTop: 24 }} />
-        ) : (
-          <>
-            <Text style={s.question}>{question}</Text>
-
-            <View style={s.optionsWrap}>
-              {options.map((opt) => (
-                <TouchableOpacity
-                  key={opt}
-                  style={[s.optionBtn, selected === opt && s.optionBtnActive]}
-                  onPress={() => selectOption(opt)}
-                  activeOpacity={0.8}
-                >
-                  {selected === opt && <Text style={s.optionCheck}>✓</Text>}
-                  <Text style={[s.optionText, selected === opt && s.optionTextActive]}>{opt}</Text>
-                </TouchableOpacity>
-              ))}
-
-              <TouchableOpacity
-                style={[s.optionBtn, s.customBtn, selected === CUSTOM_KEY && s.optionBtnActive]}
-                onPress={selectCustom}
-                activeOpacity={0.8}
-              >
-                {selected === CUSTOM_KEY && <Text style={s.optionCheck}>✓</Text>}
-                <Text style={[s.optionText, selected === CUSTOM_KEY && s.optionTextActive]}>
-                  ✏️ 직접 입력
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {selected === CUSTOM_KEY && (
-              <TextInput
-                style={s.customInput}
-                placeholder="직접 느낀 점을 적어주세요"
-                placeholderTextColor="#bbb"
-                value={customText}
-                onChangeText={setCustomText}
-                multiline
-                maxLength={80}
-                autoFocus
-              />
-            )}
-          </>
-        )}
-      </View>
-
-      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 32) }]}>
-        <TouchableOpacity
-          style={[s.primaryBtn, !canConfirm && s.primaryBtnDisabled]}
-          disabled={!canConfirm || saving}
-          onPress={handleNext}
+    <Screen style={s.root}>
+      <KeyboardAvoidingView style={s.flex1} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <ScrollView
+          contentContainerStyle={[s.content, { paddingTop: insets.top + theme.space.xxl }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          {saving ? (
-            <ActivityIndicator color="#fff" />
+          <View style={s.badge}>
+            <Icons.Sparkle size={40} color={theme.colors.primary} weight="fill" />
+          </View>
+          <Text variant="title1" align="center" accessibilityRole="header">
+            {t("kick.title")}
+          </Text>
+          <Text variant="bodyStrong" color="primaryText" align="center">
+            {dish}
+          </Text>
+
+          {loading ? (
+            <View style={s.options}>
+              <Skeleton width="70%" height={20} />
+              <View style={s.chips}>
+                {[96, 80, 112, 88].map((w, i) => (
+                  <Skeleton key={i} width={w} height={44} radius={theme.radius.pill} />
+                ))}
+              </View>
+            </View>
           ) : (
-            <Text style={s.primaryBtnText}>다음으로</Text>
+            <View style={s.options}>
+              <Text variant="title3" align="center">
+                {kickQuestion(question, language)}
+              </Text>
+
+              <View style={s.chips} accessibilityRole="radiogroup">
+                {options.map((opt) => (
+                  <Chip
+                    key={opt}
+                    label={kickOptionLabel(opt, language)}
+                    active={selected === opt}
+                    onPress={() => setSelected(opt)}
+                  />
+                ))}
+                <Chip
+                  label={t("kick.custom")}
+                  icon={Icons.PencilSimple}
+                  dashed
+                  active={selected === CUSTOM_KEY}
+                  onPress={() => setSelected(CUSTOM_KEY)}
+                />
+              </View>
+
+              {selected === CUSTOM_KEY ? (
+                <TextField
+                  label={t("kick.customLabel")}
+                  placeholder={t("kick.customPlaceholder")}
+                  value={customText}
+                  onChangeText={setCustomText}
+                  multiline
+                  maxLength={80}
+                  autoFocus
+                />
+              ) : null}
+            </View>
           )}
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+        </ScrollView>
+
+        <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, theme.space.xl) }]}>
+          <Button title={t("common.next")} size="lg" fullWidth disabled={!canConfirm} loading={saving} onPress={handleNext} />
+        </View>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#fff" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28 },
-  emoji: { fontSize: 56, marginBottom: 8 },
-  title: { fontSize: 22, fontWeight: "bold", color: "#222" },
-  dishName: { fontSize: 14, color: "#FF5722", fontWeight: "600", marginTop: 4, marginBottom: 18 },
-  question: { fontSize: 16, color: "#333", fontWeight: "600", textAlign: "center", marginBottom: 18 },
-  optionsWrap: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 10 },
-  optionBtn: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    paddingHorizontal: 18, paddingVertical: 12, borderRadius: 22,
-    borderWidth: 1.5, borderColor: "#eee", backgroundColor: "#FAFAFA",
+function Chip({
+  label,
+  active,
+  onPress,
+  icon: ChipIcon,
+  dashed,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  icon?: typeof Icons.PencilSimple;
+  dashed?: boolean;
+}) {
+  const theme = useTheme();
+  const s = useStyles();
+  const fg = active ? theme.colors.onPrimary : theme.colors.text;
+  return (
+    // 선택된 옵션은 연한 틴트가 아니라 진한 채움 + 체크로 확실하게 구분되게 한다.
+    <PressableScale
+      onPress={onPress}
+      haptic="selection"
+      accessibilityRole="radio"
+      accessibilityState={{ checked: active }}
+      accessibilityLabel={label}
+      style={[s.chip, dashed && !active && s.chipDashed, active && s.chipActive]}
+    >
+      {active ? (
+        <Icons.Check size={16} color={fg} weight="bold" />
+      ) : ChipIcon ? (
+        <ChipIcon size={16} color={theme.colors.textSecondary} />
+      ) : null}
+      <Text variant="callout" style={[s.chipText, { color: fg }]}>
+        {label}
+      </Text>
+    </PressableScale>
+  );
+}
+
+const useStyles = makeStyles((t) => ({
+  root: { backgroundColor: t.colors.surface },
+  flex1: { flex: 1 },
+  content: { flexGrow: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: t.space.xxl, paddingBottom: t.space.xxl, gap: t.space.xs },
+  badge: {
+    width: 88,
+    height: 88,
+    borderRadius: t.radius.pill,
+    backgroundColor: t.colors.primaryTint,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: t.space.md,
   },
-  // 선택된 옵션은 연한 틴트가 아니라 진한 채움 배경 + 체크마크로 확실하게 구분되게 함
-  optionBtnActive: {
-    borderStyle: "solid", borderColor: "#FF5722", backgroundColor: "#FF5722",
-    shadowColor: "#FF5722", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4,
-    elevation: 3,
+  options: { alignSelf: "stretch", alignItems: "center", gap: t.space.lg, marginTop: t.space.xl },
+  chips: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: t.space.sm + t.space.xxs },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: t.space.xs + t.space.xxs,
+    minHeight: 44,
+    paddingHorizontal: t.space.lg,
+    borderRadius: t.radius.pill,
+    borderWidth: 1.5,
+    borderColor: t.colors.border,
+    backgroundColor: t.colors.surfaceAlt,
   },
-  optionCheck: { color: "#fff", fontWeight: "bold", fontSize: 14 },
-  optionText: { fontSize: 14, color: "#555", fontWeight: "600" },
-  optionTextActive: { color: "#fff" },
-  customBtn: { borderStyle: "dashed" },
-  customInput: {
-    width: "100%", marginTop: 16, borderWidth: 1.5, borderColor: "#FF5722", borderRadius: 14,
-    padding: 14, fontSize: 14, color: "#222", minHeight: 70, textAlignVertical: "top",
-    backgroundColor: "#FFF7F4",
-  },
-  footer: { padding: 20, paddingBottom: 32 },
-  primaryBtn: { backgroundColor: "#FF5722", borderRadius: 16, paddingVertical: 16, alignItems: "center" },
-  primaryBtnDisabled: { backgroundColor: "#FFC3AC" },
-  primaryBtnText: { color: "#fff", fontSize: 17, fontWeight: "bold" },
-});
+  chipDashed: { borderStyle: "dashed", borderColor: t.colors.borderStrong },
+  chipActive: { borderColor: t.colors.primaryFill, backgroundColor: t.colors.primaryFill, boxShadow: t.elevation.card },
+  chipText: { fontWeight: "600" },
+  footer: { paddingHorizontal: t.space.xl, paddingTop: t.space.md },
+}));

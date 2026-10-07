@@ -1,11 +1,18 @@
-import { useAuth } from "@/src/contexts/AuthContext";
-import { countProgressInLevel, getDishesByLevel, getUser, levelUp } from "@/src/firebase/dishService";
-import { db } from "@/src/firebase/firebaseConfig";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
+import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useAuth } from "@/src/contexts/AuthContext";
+import { countProgressInLevel, getDishesByLevel, getUser, levelUp } from "@/src/firebase/dishService";
+import { db } from "@/src/firebase/firebaseConfig";
+import { useI18n } from "@/src/i18n";
+import { dishName, levelTitle } from "@/src/i18n/content";
+import { makeStyles, useTheme } from "@/src/theme/ThemeContext";
+import { motion } from "@/src/theme/tokens";
+import { Button, Icons, Screen, StateView, Text, triggerHaptic } from "@/src/ui";
 
 const MAX_LEVEL = 12;
 // 데이터를 못 불러온 경우(비로그인 게스트 등)를 위한 안전한 기본값
@@ -16,18 +23,27 @@ type LevelDoc = { title?: string; required_count?: number };
 export default function LevelProgressScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const { t, language } = useI18n();
+  const s = useStyles();
+  const reduceMotion = useReducedMotion();
   const { user: authUser } = useAuth();
   // alreadyCompleted: complete.tsx에서 "이미 완료했던 요리를 다시 완료"한 경우 "1"로
   // 넘어온다. 이때는 이번 미션으로 진행 개수가 늘어난 게 아니므로 "+X% 상승"
   // 계산에서 이전 값을 progress-1로 잡으면 안 된다.
-  const params = useLocalSearchParams<{ dishId?: string; name_kr: string; alreadyCompleted?: string }>();
+  const params = useLocalSearchParams<{ dishId?: string; name_kr: string; name_en?: string; alreadyCompleted?: string }>();
   const alreadyCompleted = params.alreadyCompleted === "1";
+  const dish = params.name_kr
+    ? dishName({ id: params.dishId ?? "", name_kr: params.name_kr, name_en: params.name_en || params.name_kr }, language)
+    : "";
   // Explore 탭에서는 현재 레벨이 아닌 요리로도 미션을 할 수 있다. 그 경우 이번 완료는
   // 현재 레벨 진행 개수에 안 들어가는데, 예전엔 무조건 progress-1을 "이전 값"으로 잡아서
   // 실제로는 변화가 없는데도 "+X% 상승했어요"가 뜨는 버그가 있었다.
   const [outsideLevel, setOutsideLevel] = useState(false);
 
-  const [loading, setLoading] = useState(true);
+  const [fetching, setLoading] = useState(true);
+  // 비로그인이면 불러올 것이 없으니 바로 기본값 화면을 보여준다.
+  const loading = fetching && !!authUser;
   const [display, setDisplay] = useState(FALLBACK);
   const [leveledUp, setLeveledUp] = useState(false);
   // 로딩 실패 시 FALLBACK(레벨 3 / 65%)을 그대로 보여주면 실제 레벨과 다른
@@ -36,13 +52,8 @@ export default function LevelProgressScreen() {
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    if (!authUser) {
-      setLoading(false);
-      return;
-    }
+    if (!authUser) return;
     let cancelled = false;
-    setLoading(true);
-    setLoadError(false);
     (async () => {
       try {
         const user = await getUser(authUser.uid);
@@ -106,6 +117,7 @@ export default function LevelProgressScreen() {
           });
           setLeveledUp(levelUpSaved);
           setOutsideLevel(isOutsideLevel);
+          if (levelUpSaved) triggerHaptic("success");
         }
       } catch (err) {
         console.error("[mission/level-progress] 진행률 로딩 오류:", err);
@@ -120,6 +132,16 @@ export default function LevelProgressScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser, retryCount]);
 
+  // 이번 미션으로 늘어난 구간(이전 값 → 새 값)만 진하게, 왼쪽부터 채워지듯 보여준다.
+  // 너비 대신 scaleX를 움직여 레이아웃을 다시 계산하지 않게 한다.
+  const gainScale = useSharedValue(reduceMotion ? 1 : 0);
+  useEffect(() => {
+    if (loading || loadError || reduceMotion) return;
+    gainScale.value = 0;
+    gainScale.value = withDelay(240, withTiming(1, { duration: 700, easing: Easing.bezier(...motion.easing.out) }));
+  }, [loading, loadError, display.prevPct, display.newPct, reduceMotion, gainScale]);
+  const gainStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: gainScale.value }] }));
+
   const goHome = () => {
     router.dismissAll();
     router.replace("/(tabs)");
@@ -127,127 +149,171 @@ export default function LevelProgressScreen() {
 
   if (loading) {
     return (
-      <View style={s.root}>
-        <View style={s.center}>
-          <ActivityIndicator color="#FF5722" />
-        </View>
-      </View>
+      <Screen style={[s.root, s.centerFill]}>
+        <ActivityIndicator color={theme.colors.primary} />
+      </Screen>
     );
   }
 
   if (loadError) {
     return (
-      <View style={s.root}>
-        <View style={s.center}>
-          <Text style={s.emoji}>📡</Text>
-          <Text style={s.errorTitle}>진행률을 불러오지 못했어요</Text>
-          <Text style={s.errorDesc}>
-            미션 완료는 기록됐어요. 네트워크를 확인하고 다시 시도해주세요.
-          </Text>
-          <TouchableOpacity style={s.retryBtn} onPress={() => setRetryCount((c) => c + 1)}>
-            <Text style={s.retryBtnText}>다시 시도</Text>
-          </TouchableOpacity>
+      <Screen style={s.root}>
+        <View style={[s.centerFill, { paddingTop: insets.top }]}>
+          <StateView
+            icon={Icons.WifiSlash}
+            tone="danger"
+            title={t("lp.errorTitle")}
+            message={t("lp.errorBody")}
+            actionLabel={t("common.retry")}
+            onAction={() => {
+              setLoading(true);
+              setLoadError(false);
+              setRetryCount((c) => c + 1);
+            }}
+          />
         </View>
-        <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 32) }]}>
-          <TouchableOpacity style={s.primaryBtn} onPress={goHome}>
-            <Text style={s.primaryBtnText}>홈으로 돌아가기</Text>
-          </TouchableOpacity>
+        <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, theme.space.xl) }]}>
+          <Button title={t("lp.goHome")} icon={Icons.House} size="lg" fullWidth onPress={goHome} />
         </View>
-      </View>
+      </Screen>
     );
   }
 
+  const gain = Math.max(0, display.newPct - display.prevPct);
+  const delta = leveledUp
+    ? t("lp.levelUp")
+    : alreadyCompleted
+      ? t("lp.unchangedDup")
+      : outsideLevel
+        ? t("lp.outsideLevel")
+        : t("lp.gain", { pct: gain });
+  const note = display.isMaxLevel
+    ? dish
+      ? t("lp.noteMax", { dish })
+      : t("lp.noteMaxNoDish")
+    : leveledUp
+      ? dish
+        ? t("lp.noteUp", { dish })
+        : t("lp.noteUpNoDish")
+      : dish
+        ? t("lp.note", { dish })
+        : t("lp.noteNoDish");
+  const title = levelTitle(display.level, display.title, language);
+
   return (
-    <View style={s.root}>
-      <View style={s.center}>
-        <Text style={s.kicker}>LEVEL {display.level}</Text>
-        <Text style={s.levelName}>{display.title}</Text>
-
-        <View style={s.card}>
-          <View style={s.xpRow}>
-            <Text style={s.xpLabel}>XP Progress</Text>
-            <Text style={s.xpValue}>{display.newPct}%</Text>
+    <Screen style={s.root}>
+      <View style={[s.center, { paddingTop: insets.top }]}>
+        {leveledUp || display.isMaxLevel ? (
+          <View style={s.badge}>
+            <Icons.Trophy size={44} color={theme.colors.primary} weight="fill" />
           </View>
-          <View style={s.xpBg}>
-            <View style={[s.xpFillOld, { width: `${display.prevPct}%` as any }]} />
-            <View
-              style={[
-                s.xpFillNew,
-                { left: `${display.prevPct}%` as any, width: `${Math.max(0, display.newPct - display.prevPct)}%` as any },
-              ]}
-            />
-          </View>
-          <Text style={s.xpDelta}>
-            {leveledUp
-              ? "레벨 업! 🎉"
-              : alreadyCompleted
-                ? "이미 완료했던 요리라 진행률은 그대로예요"
-                : outsideLevel
-                  ? "다른 레벨 요리라 현재 레벨 진행률엔 반영되지 않아요"
-                : `+${Math.max(0, display.newPct - display.prevPct)}% 상승했어요 🎉`}
-          </Text>
+        ) : null}
+        <Text variant="caption" color="primaryText" style={s.kicker}>
+          {t("lp.kicker", { level: display.level })}
+        </Text>
+        <Text variant="title1" align="center" accessibilityRole="header" style={s.levelName}>
+          {title}
+        </Text>
 
-          <View style={s.metaRow}>
-            <View style={s.metaItem}>
-              <Text style={s.metaValue}>🏅 {display.badges}</Text>
-              <Text style={s.metaLabel}>완료한 요리</Text>
-            </View>
+        <View
+          style={s.card}
+          accessible
+          accessibilityLabel={`${t("lp.progressLabel")} ${display.newPct}%. ${delta}. ${t("lp.completedDishes")} ${display.badges}`}
+        >
+          <View style={s.cardRow}>
+            <Text variant="callout" style={s.onFill}>
+              {t("lp.progressLabel")}
+            </Text>
+            <Text variant="callout" style={[s.onFill, s.bold, s.tabular]}>
+              {display.newPct}%
+            </Text>
+          </View>
+          <View style={s.track}>
+            <View style={[s.fillOld, { width: `${display.prevPct}%` }]} />
+            <Animated.View style={[s.fillGain, { left: `${display.prevPct}%`, width: `${gain}%` }, gainStyle]} />
+          </View>
+          <View style={s.deltaRow}>
+            {leveledUp ? (
+              <Icons.Trophy size={16} color={theme.colors.onPrimary} weight="fill" />
+            ) : !alreadyCompleted && !outsideLevel ? (
+              <Icons.TrendUp size={16} color={theme.colors.onPrimary} weight="bold" />
+            ) : null}
+            <Text variant="caption" style={[s.onFill, s.bold, s.flex1]}>
+              {delta}
+            </Text>
+          </View>
+
+          <View style={s.meta}>
+            <Icons.Medal size={20} color={theme.colors.onPrimary} weight="fill" />
+            <Text variant="title3" style={[s.onFill, s.tabular]}>
+              {display.badges}
+            </Text>
+            <Text variant="caption" style={s.onFillDim}>
+              {t("lp.completedDishes")}
+            </Text>
           </View>
         </View>
 
-        <Text style={s.footNote}>
-          {display.isMaxLevel
-            ? params.name_kr
-              ? `${params.name_kr} 미션 완료! 이미 최고 레벨을 달성했어요 🏆`
-              : "이미 최고 레벨을 달성했어요 🏆"
-            : leveledUp
-              ? params.name_kr
-                ? `${params.name_kr} 미션 완료로 레벨이 올랐어요!`
-                : "미션 완료로 레벨이 올랐어요!"
-              : params.name_kr
-                ? `${params.name_kr} 미션 완료! 다음 레벨까지 조금 더 남았어요.`
-                : "미션 완료! 다음 레벨까지 조금 더 남았어요."}
+        <Text variant="callout" color="textSecondary" align="center" style={s.note}>
+          {note}
         </Text>
       </View>
 
-      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 32) }]}>
-        <TouchableOpacity style={s.primaryBtn} onPress={goHome}>
-          <Text style={s.primaryBtnText}>다음 미션 보러가기</Text>
-        </TouchableOpacity>
+      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, theme.space.xl) }]}>
+        <Button title={t("lp.nextMission")} icon={Icons.ArrowRight} size="lg" fullWidth onPress={goHome} />
       </View>
-    </View>
+    </Screen>
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#fff" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28 },
-  kicker: { fontSize: 13, color: "#FF5722", fontWeight: "bold", letterSpacing: 1 },
-  levelName: { fontSize: 24, fontWeight: "bold", color: "#222", marginTop: 4, marginBottom: 24 },
+const useStyles = makeStyles((t) => ({
+  root: { backgroundColor: t.colors.surface },
+  centerFill: { flex: 1, alignItems: "center", justifyContent: "center" },
+  flex1: { flex: 1 },
+  bold: { fontWeight: "700" },
+  tabular: { fontVariant: ["tabular-nums"] },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: t.space.xxl },
+  badge: {
+    width: 88,
+    height: 88,
+    borderRadius: t.radius.pill,
+    backgroundColor: t.colors.primaryTint,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: t.space.lg,
+  },
+  kicker: { fontWeight: "700", letterSpacing: 1 },
+  levelName: { marginTop: t.space.xs, marginBottom: t.space.xxl },
   card: {
-    width: "100%", backgroundColor: "#FF5722", borderRadius: 20, padding: 20,
+    alignSelf: "stretch",
+    backgroundColor: t.colors.primaryFill,
+    borderRadius: t.radius.xl,
+    padding: t.space.xl,
+    gap: t.space.sm,
+    boxShadow: t.elevation.raised,
   },
-  xpRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
-  xpLabel: { color: "rgba(255,255,255,0.85)", fontSize: 13 },
-  xpValue: { color: "#fff", fontSize: 13, fontWeight: "bold" },
-  xpBg: { height: 10, backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 5, overflow: "hidden", position: "relative" },
-  xpFillOld: { position: "absolute", left: 0, top: 0, bottom: 0, backgroundColor: "rgba(255,255,255,0.6)", borderRadius: 5 },
-  xpFillNew: { position: "absolute", top: 0, bottom: 0, backgroundColor: "#fff", borderRadius: 5 },
-  xpDelta: { color: "#fff", fontSize: 12, fontWeight: "600", marginTop: 8 },
-  metaRow: { flexDirection: "row", gap: 12, marginTop: 20 },
-  metaItem: { flex: 1, backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 12, padding: 12, alignItems: "center" },
-  metaValue: { color: "#fff", fontSize: 16, fontWeight: "bold" },
-  metaLabel: { color: "rgba(255,255,255,0.85)", fontSize: 11, marginTop: 2 },
-  footNote: { fontSize: 13, color: "#888", marginTop: 22, textAlign: "center" },
-  emoji: { fontSize: 48, marginBottom: 12 },
-  errorTitle: { fontSize: 18, fontWeight: "bold", color: "#222", textAlign: "center" },
-  errorDesc: { fontSize: 13, color: "#888", marginTop: 8, textAlign: "center", lineHeight: 19 },
-  retryBtn: {
-    marginTop: 20, paddingHorizontal: 22, paddingVertical: 10, borderRadius: 20,
-    borderWidth: 1.5, borderColor: "#FF5722", backgroundColor: "#FFF0EC",
+  cardRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  onFill: { color: t.colors.onPrimary },
+  onFillDim: { color: t.colors.onPrimary, opacity: 0.85 },
+  track: {
+    height: 10,
+    borderRadius: t.radius.pill,
+    backgroundColor: "rgba(255,255,255,0.28)",
+    overflow: "hidden",
   },
-  retryBtnText: { color: "#FF5722", fontWeight: "bold", fontSize: 14 },
-  footer: { padding: 20, paddingBottom: 32 },
-  primaryBtn: { backgroundColor: "#FF5722", borderRadius: 16, paddingVertical: 16, alignItems: "center" },
-  primaryBtnText: { color: "#fff", fontSize: 17, fontWeight: "bold" },
-});
+  fillOld: { position: "absolute", left: 0, top: 0, bottom: 0, backgroundColor: "rgba(255,255,255,0.55)" },
+  fillGain: { position: "absolute", top: 0, bottom: 0, backgroundColor: t.colors.onPrimary, transformOrigin: "left" },
+  deltaRow: { flexDirection: "row", alignItems: "center", gap: t.space.xs + t.space.xxs },
+  meta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: t.space.sm,
+    marginTop: t.space.md,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    borderRadius: t.radius.md,
+    paddingHorizontal: t.space.lg,
+    paddingVertical: t.space.md,
+  },
+  note: { marginTop: t.space.xl, maxWidth: 320 },
+  footer: { paddingHorizontal: t.space.xl, paddingTop: t.space.md },
+}));

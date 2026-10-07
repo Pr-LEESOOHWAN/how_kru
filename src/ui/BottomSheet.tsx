@@ -40,20 +40,21 @@ export function BottomSheet({ visible, onClose, children, footer }: BottomSheetP
   const s = useStyles();
 
   // 닫히는 애니메이션이 끝날 때까지 Modal을 띄워둬야 해서 visible과 따로 관리한다.
+  // 열릴 때는 렌더 중에 바로 맞춰서(이펙트에서 setState하면 한 번 더 렌더된다) 첫 프레임부터 띄운다.
   const [mounted, setMounted] = useState(visible);
+  if (visible && !mounted) setMounted(true);
   const progress = useSharedValue(0);
 
   useEffect(() => {
     if (visible) {
-      setMounted(true);
       progress.value = withTiming(1, { duration: OPEN_MS, easing: DRAWER });
-    } else if (mounted) {
+    } else {
+      // 닫는 중에 다시 열리면 done=false로 끝나므로 Modal을 내리지 않는다.
       progress.value = withTiming(0, { duration: CLOSE_MS, easing: DRAWER }, (done) => {
         if (done) runOnJS(setMounted)(false);
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+  }, [visible, progress]);
 
   const scrimStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
   const sheetStyle = useAnimatedStyle(() =>

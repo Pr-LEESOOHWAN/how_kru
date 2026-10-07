@@ -21,16 +21,31 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const EASE_OUT = Easing.bezier(...motion.easing.out);
 
-export type HapticKind = "light" | "medium" | "selection" | "none";
+/** success/warning/error는 결과 알림용(미션 인증 판정 등) */
+export type HapticKind = "light" | "medium" | "selection" | "success" | "warning" | "error" | "none";
 
 export function triggerHaptic(kind: HapticKind) {
   // 웹이나 진동 모터가 없는 기기에서는 실패할 수 있다 - 햅틱은 부가 피드백이라 조용히 무시.
-  if (kind === "light") {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-  } else if (kind === "medium") {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-  } else if (kind === "selection") {
-    Haptics.selectionAsync().catch(() => {});
+  const ignore = () => {};
+  switch (kind) {
+    case "light":
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(ignore);
+      break;
+    case "medium":
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(ignore);
+      break;
+    case "selection":
+      Haptics.selectionAsync().catch(ignore);
+      break;
+    case "success":
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(ignore);
+      break;
+    case "warning":
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(ignore);
+      break;
+    case "error":
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(ignore);
+      break;
   }
 }
 

@@ -1,10 +1,22 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useEffect } from "react";
+import { View } from "react-native";
+import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useI18n } from "@/src/i18n";
+import { dishName } from "@/src/i18n/content";
+import { makeStyles, useTheme } from "@/src/theme/ThemeContext";
+import { motion } from "@/src/theme/tokens";
+import { Button, Icons, Screen, Text } from "@/src/ui";
 
 export default function ArrivedScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const { t, language } = useI18n();
+  const s = useStyles();
+  const reduceMotion = useReducedMotion();
   const params = useLocalSearchParams<{
     dishId: string;
     name_kr: string;
@@ -12,49 +24,56 @@ export default function ArrivedScreen() {
     restaurantName: string;
     address: string;
   }>();
+  const dish = dishName({ id: params.dishId, name_kr: params.name_kr, name_en: params.name_en }, language);
 
-  const handleNext = () => {
-    router.push({ pathname: "/mission/verify", params });
-  };
+  // 미션 중 한 번 보는 화면이라 가벼운 등장 모션을 준다(자주 보는 화면은 모션 없음 - Emil 원칙).
+  const appear = useSharedValue(reduceMotion ? 1 : 0);
+  useEffect(() => {
+    appear.value = withTiming(1, { duration: motion.duration.slow, easing: Easing.bezier(...motion.easing.out) });
+  }, [appear]);
+  const badgeStyle = useAnimatedStyle(() => ({
+    opacity: appear.value,
+    transform: [{ scale: 0.92 + appear.value * 0.08 }],
+  }));
 
   return (
-    <View style={s.root}>
-      <View style={s.center}>
-        <View style={s.badge}>
-          <Text style={{ fontSize: 56 }}>📍</Text>
-        </View>
-        <Text style={s.title}>도착하셨나요?</Text>
-        <Text style={s.subtitle}>{params.restaurantName}</Text>
-        <Text style={s.desc}>
-          이제 상호와 {params.name_kr} 사진을 찍어{"\n"}미션을 인증해주세요.
+    <Screen style={s.root}>
+      <View style={[s.center, { paddingTop: insets.top }]}>
+        <Animated.View style={[s.badge, badgeStyle]}>
+          <Icons.MapPin size={64} color={theme.colors.primary} weight="fill" />
+        </Animated.View>
+        <Text variant="title1" align="center" accessibilityRole="header">
+          {t("arrived.title")}
+        </Text>
+        <Text variant="title3" color="primaryText" align="center" style={s.bold}>
+          {params.restaurantName}
+        </Text>
+        <Text variant="body" color="textSecondary" align="center" style={s.desc}>
+          {t("arrived.desc", { dish })}
         </Text>
       </View>
 
-      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 32) }]}>
-        <TouchableOpacity style={s.primaryBtn} onPress={handleNext}>
-          <Text style={s.primaryBtnText}>사진으로 인증하기 📷</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={s.secondaryBtn} onPress={() => router.back()}>
-          <Text style={s.secondaryBtnText}>아직 도착 전이에요</Text>
-        </TouchableOpacity>
+      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, theme.space.xl) }]}>
+        <Button title={t("arrived.verify")} icon={Icons.Camera} size="lg" fullWidth onPress={() => router.push({ pathname: "/mission/verify", params })} />
+        <Button title={t("arrived.notYet")} variant="ghost" fullWidth onPress={() => router.back()} />
       </View>
-    </View>
+    </Screen>
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#fff" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 },
+const useStyles = makeStyles((t) => ({
+  root: { backgroundColor: t.colors.surface },
+  bold: { fontWeight: "700" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: t.space.xxxl, gap: t.space.sm },
   badge: {
-    width: 140, height: 140, borderRadius: 70, backgroundColor: "#FFF0EC",
-    alignItems: "center", justifyContent: "center", marginBottom: 24,
+    width: 148,
+    height: 148,
+    borderRadius: t.radius.pill,
+    backgroundColor: t.colors.primaryTint,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: t.space.xl,
   },
-  title: { fontSize: 24, fontWeight: "bold", color: "#222", marginBottom: 6 },
-  subtitle: { fontSize: 16, color: "#FF5722", fontWeight: "600", marginBottom: 16 },
-  desc: { fontSize: 14, color: "#888", textAlign: "center", lineHeight: 22 },
-  footer: { padding: 20, paddingBottom: 32, gap: 10 },
-  primaryBtn: { backgroundColor: "#FF5722", borderRadius: 16, paddingVertical: 16, alignItems: "center" },
-  primaryBtnText: { color: "#fff", fontSize: 17, fontWeight: "bold" },
-  secondaryBtn: { paddingVertical: 12, alignItems: "center" },
-  secondaryBtnText: { color: "#999", fontSize: 14 },
-});
+  desc: { marginTop: t.space.sm, maxWidth: 320 },
+  footer: { paddingHorizontal: t.space.xl, gap: t.space.sm },
+}));

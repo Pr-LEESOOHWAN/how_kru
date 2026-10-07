@@ -1,25 +1,16 @@
-import { getRestaurantThumbnail } from "@/src/firebase/dishService";
-import {
-  formatDistance,
-  formatWalkTime,
-  NearbyRestaurant,
-  searchNearbyRestaurants,
-} from "@/src/services/places";
 import Slider from "@react-native-community/slider";
 import * as Location from "expo-location";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Linking,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Linking, ScrollView, View } from "react-native";
+
+import { getRestaurantThumbnail } from "@/src/firebase/dishService";
+import { useI18n, type MessageKey } from "@/src/i18n";
+import { dishName } from "@/src/i18n/content";
+import { formatDistance, NearbyRestaurant, PlacesApiError, searchNearbyRestaurants, walkMinutes } from "@/src/services/places";
+import { makeStyles, useTheme } from "@/src/theme/ThemeContext";
+import { Button, Card, Icons, PressableScale, Screen, ScreenHeader, Skeleton, StateView, Text } from "@/src/ui";
 
 const DEFAULT_RADIUS_M = 1000;
 const MIN_RADIUS_M = 300;
@@ -32,19 +23,16 @@ type SortBy = "distance" | "rating";
 
 export default function ChooseRestaurantScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{
-    dishId: string;
-    name_kr: string;
-    name_en: string;
-    desc: string;
-    spice: string;
-  }>();
+  const theme = useTheme();
+  const { t, language } = useI18n();
+  const s = useStyles();
+  const params = useLocalSearchParams<{ dishId: string; name_kr: string; name_en: string }>();
+  const dishLabel = dishName({ id: params.dishId, name_kr: params.name_kr, name_en: params.name_en }, language);
 
   const [state, setState] = useState<LoadState>("loading");
-  const [errorMsg, setErrorMsg] = useState("");
-  // 위치 권한이 "거부"돼서 에러 상태가 된 경우인지 구분해서, 이 경우에만
-  // "다시 시도" 대신(또는 함께) 설정 앱으로 바로 이동하는 버튼을 보여준다.
+  // 오류는 번역 키로 들고 있는다(예전엔 "Places API 오류 (403)..." 같은 개발자용 문장이 그대로 떴다).
+  const [errorKey, setErrorKey] = useState<MessageKey>("places.error.search");
+  // 위치 권한 "거부"로 생긴 오류일 때만 설정 앱으로 바로 가는 버튼을 보여준다.
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [restaurants, setRestaurants] = useState<NearbyRestaurant[]>([]);
   const [sortBy, setSortBy] = useState<SortBy>("distance");
@@ -52,12 +40,8 @@ export default function ChooseRestaurantScreen() {
   const [radiusM, setRadiusM] = useState(DEFAULT_RADIUS_M);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [myLoc, setMyLoc] = useState<{ lat: number; lng: number } | null>(null);
-  // place_id -> 그 식당에서 찍힌 리뷰 사진 중 가장 최근 것. 우리 앱은 식당 자체 사진을
-  // 갖고 있지 않아서(Google Places 사진 API 미연동) 이걸로 대신 보완한다.
+  // place_id -> 그 식당에서 찍힌 리뷰 사진 중 가장 최근 것(Places 사진 API 미연동이라 대신 보완).
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
-  // getRestaurantThumbnail()은 화면이 언마운트된 뒤에도 응답이 올 수 있는 백그라운드
-  // 조회라, "컴포넌트가 마운트되지 않았는데 상태를 갱신하려 한다"는 React 경고를
-  // 막기 위해 언마운트 여부를 이 ref로 추적한다.
   const mountedRef = useRef(true);
   useEffect(() => {
     return () => {
@@ -65,11 +49,8 @@ export default function ChooseRestaurantScreen() {
     };
   }, []);
 
-  // 검색 요청 순번. 반경 슬라이더를 연달아 움직이거나 "반경 넓혀서 찾기"를 빠르게
-  // 누르면 검색이 동시에 여러 개 날아가는데, 네트워크 순서에 따라 먼저 보낸(좁은 반경)
-  // 응답이 나중에 도착해 최신 반경의 결과를 덮어써버릴 수 있었다. 화면에 "3km 이내"라고
-  // 써놓고 1km 결과만 보이는 식이라, 요청마다 순번을 매기고 최신 요청의 응답만 반영한다.
-  // 화면을 떠난 뒤 늦게 도착하는 응답도 (mountedRef) 같이 무시한다.
+  // 검색 요청 순번. 반경을 연달아 바꾸면 검색이 동시에 여러 개 날아가는데, 먼저 보낸(좁은 반경)
+  // 응답이 늦게 도착해 최신 결과를 덮어쓰는 걸 막기 위해 최신 요청의 응답만 반영한다.
   const searchSeqRef = useRef(0);
 
   const runSearch = async (lat: number, lng: number, radius: number) => {
@@ -77,13 +58,17 @@ export default function ChooseRestaurantScreen() {
     const isStale = () => seq !== searchSeqRef.current || !mountedRef.current;
     setState("loading");
     try {
+      // 검색어는 한글 요리명 - 한국 지도 검색은 한글이 정확하고, 인증 단계에서 간판 글자와
+      // 대조하는 상호명도 한글이어야 한다(그래서 표시 언어와 무관하게 한국어로 검색).
       const results = await searchNearbyRestaurants(params.name_kr, lat, lng, radius);
       if (isStale()) return;
       setRestaurants(results);
+      setVisibleCount(PAGE_SIZE);
       setState(results.length === 0 ? "empty" : "ok");
-    } catch (err: any) {
+    } catch (err) {
       if (isStale()) return;
-      setErrorMsg(err?.message ?? "식당을 불러오는 중 오류가 발생했어요.");
+      console.error("[choose-restaurant] 검색 오류:", err);
+      setErrorKey(err instanceof PlacesApiError && err.kind === "not_configured" ? "places.error.notConfigured" : "places.error.search");
       setState("error");
     }
   };
@@ -95,14 +80,14 @@ export default function ChooseRestaurantScreen() {
       if (status !== "granted") {
         if (!cancelledRef?.current) {
           setPermissionDenied(true);
-          setErrorMsg("위치 권한이 없으면 근처 식당을 찾을 수 없어요. 설정에서 위치 권한을 허용해주세요.");
+          setErrorKey("places.error.permission");
           setState("error");
         }
         return;
       }
       setPermissionDenied(false);
-      // 실내/지하 등에서 getCurrentPositionAsync가 끝없이 대기하는 경우가 있어, 10초가 지나면
-      // 마지막으로 알려진 위치(캐시)로 대신 진행한다. 그것도 없으면 에러 화면 -> 다시 시도.
+      // 실내/지하에서 위치 조회가 끝없이 대기하는 경우가 있어 10초가 지나면 마지막으로 알려진
+      // 위치(캐시)로 대신 진행한다. 그것도 없으면 오류 화면 -> 다시 시도.
       let pos: Location.LocationObject | null = null;
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
@@ -119,23 +104,25 @@ export default function ChooseRestaurantScreen() {
       }
       if (cancelledRef?.current) return;
       if (!pos) {
-        setErrorMsg("현재 위치를 가져오지 못했어요. 잠시 후 다시 시도해주세요.");
+        setErrorKey("places.error.location");
         setState("error");
         return;
       }
       setMyLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       await runSearch(pos.coords.latitude, pos.coords.longitude, radius);
-    } catch (err: any) {
+    } catch (err) {
       if (!cancelledRef?.current) {
-        setErrorMsg(err?.message ?? "식당을 불러오는 중 오류가 발생했어요.");
+        console.error("[choose-restaurant] 위치/검색 오류:", err);
+        setErrorKey("places.error.search");
         setState("error");
       }
     }
   };
 
-  // 최초 진입: 위치 권한 + 내 위치 확보 후 기본 반경으로 검색
   useEffect(() => {
     const cancelledRef = { current: false };
+    // 상태는 권한/위치 응답(await 이후)에서만 바뀐다 - 린터가 catch 블록을 보수적으로 잡는 경우라 여기서만 끈다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     acquireLocationAndSearch(radiusM, cancelledRef);
     return () => {
       cancelledRef.current = true;
@@ -143,50 +130,39 @@ export default function ChooseRestaurantScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.name_kr]);
 
-  // 위치를 못 가져온 채 에러 화면에 머물러 있을 때 다시 시도
-  const handleRetryLocation = () => {
-    acquireLocationAndSearch(radiusM);
-  };
-
   // 슬라이더로 반경을 바꾸면(손 뗄 때) 같은 위치 기준으로 재검색
   const handleRadiusCommit = (value: number) => {
     const rounded = Math.round(value / RADIUS_STEP_M) * RADIUS_STEP_M;
     setRadiusM(rounded);
-    if (myLoc) {
-      runSearch(myLoc.lat, myLoc.lng, rounded);
-    }
+    if (myLoc) runSearch(myLoc.lat, myLoc.lng, rounded);
   };
 
-  // 필터/정렬/반경이 바뀌면 "더보기" 단계는 처음부터 다시 보여준다.
-  useEffect(() => {
+  // 필터/정렬/검색 결과가 바뀌면 "더 보기" 단계는 처음부터 다시 보여준다
+  // (예전엔 이펙트로 맞춰서 바뀐 목록이 한 번 그려진 뒤 다시 줄어드는 렌더가 한 번 더 있었다).
+  const changeSort = (key: SortBy) => {
+    setSortBy(key);
     setVisibleCount(PAGE_SIZE);
-  }, [restaurants, sortBy, openOnly]);
+  };
+  const changeOpenOnly = (value: boolean) => {
+    setOpenOnly(value);
+    setVisibleCount(PAGE_SIZE);
+  };
 
   const sortedRestaurants = useMemo(() => {
-    let list = restaurants;
-    if (openOnly) {
-      // openNow가 명확히 false인 곳(영업종료)만 제외하고, 정보가 없는 곳은 남겨둔다.
-      list = list.filter((r) => r.openNow !== false);
-    }
+    // openNow가 명확히 false인 곳(영업 종료)만 제외하고, 정보가 없는 곳은 남겨둔다.
+    const list = openOnly ? restaurants.filter((r) => r.openNow !== false) : restaurants;
     const sorted = [...list];
-    if (sortBy === "rating") {
-      sorted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-    } else {
-      sorted.sort((a, b) => a.distanceM - b.distanceM);
-    }
+    if (sortBy === "rating") sorted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+    else sorted.sort((a, b) => a.distanceM - b.distanceM);
     return sorted;
   }, [restaurants, sortBy, openOnly]);
 
   const visibleRestaurants = sortedRestaurants.slice(0, visibleCount);
-  const hasMore = visibleCount < sortedRestaurants.length;
+  const hiddenCount = sortedRestaurants.length - visibleCount;
 
-  // 검색 결과(최대 20개)마다 리뷰 사진을 조회. visibleRestaurants/sortedRestaurants는
-  // useMemo/slice로 매 렌더마다 새 배열 참조가 생겨 의존성으로 쓰면 무한 재조회로
-  // 이어지므로, 실제로 새 검색이 있을 때만 바뀌는 restaurants 자체에 걸어둔다.
-  // 식당 하나당 리뷰 쿼리 1번이라 리뷰가 아주 많이 쌓이면 비용이 늘긴 하지만, 지금
-  // 규모에서는 문제없다 - 나중에 부담되면 restaurants 컬렉션에 캐싱해두는 걸 고려.
+  // 검색 결과(최대 20개)마다 리뷰 사진 조회 - 새 검색이 있을 때만 바뀌는 restaurants에 건다
+  // (sortedRestaurants는 매 렌더 새 배열이라 의존성으로 쓰면 무한 재조회).
   useEffect(() => {
-    if (restaurants.length === 0) return;
     restaurants.forEach((r) => {
       getRestaurantThumbnail(r.id)
         .then((url) => {
@@ -195,7 +171,6 @@ export default function ChooseRestaurantScreen() {
         })
         .catch(() => {});
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurants]);
 
   const handleSelect = (r: NearbyRestaurant) => {
@@ -205,8 +180,7 @@ export default function ChooseRestaurantScreen() {
         ...params,
         restaurantName: r.name,
         address: r.address,
-        distance: formatDistance(r.distanceM),
-        walk: formatWalkTime(r.distanceM),
+        distanceM: String(Math.round(r.distanceM)),
         lat: String(r.lat),
         lng: String(r.lng),
         placeId: r.id,
@@ -214,243 +188,236 @@ export default function ChooseRestaurantScreen() {
     });
   };
 
+  const widerRadius = Math.min(MAX_RADIUS_M, radiusM + 1000);
+
   return (
-    <View style={s.root}>
-      <View style={[s.header, { paddingTop: Math.max(insets.top, 20) + 14 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Text style={s.backText}>‹</Text>
-        </TouchableOpacity>
-        <Text style={s.headerTitle}>식당 선택</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <Screen>
+      <ScreenHeader title={t("choose.title")} />
 
-      <View style={s.introBox}>
-        <Text style={s.introTitle}>{params.name_kr} 인근 식당</Text>
-        <Text style={s.introSub}>
-          내 위치 반경 {formatDistance(radiusM)} 이내, {sortBy === "rating" ? "별점 높은 곳부터" : "가까운 곳부터"} 정렬했어요
+      <View style={s.intro}>
+        <Text variant="title3" style={s.bold}>
+          {t("choose.intro", { dish: dishLabel })}
         </Text>
+        <Text variant="callout" color="textTertiary">
+          {t(sortBy === "rating" ? "choose.subRating" : "choose.subDistance", { radius: formatDistance(radiusM) })}
+        </Text>
+
+        {myLoc ? (
+          <View style={s.radiusRow}>
+            <Text variant="caption" color="textSecondary" style={s.bold}>
+              {t("choose.radius")}
+            </Text>
+            <Slider
+              style={s.slider}
+              minimumValue={MIN_RADIUS_M}
+              maximumValue={MAX_RADIUS_M}
+              step={RADIUS_STEP_M}
+              value={radiusM}
+              minimumTrackTintColor={theme.colors.primary}
+              maximumTrackTintColor={theme.colors.border}
+              thumbTintColor={theme.colors.primary}
+              onSlidingComplete={handleRadiusCommit}
+              accessibilityLabel={t("choose.radius")}
+            />
+            <Text variant="caption" color="primaryText" style={[s.bold, s.radiusValue]}>
+              {formatDistance(radiusM)}
+            </Text>
+          </View>
+        ) : null}
+
+        {state === "ok" ? (
+          <View style={s.controls}>
+            <View style={s.segment} accessibilityRole="radiogroup">
+              {(["distance", "rating"] as SortBy[]).map((key) => {
+                const active = sortBy === key;
+                return (
+                  <PressableScale
+                    key={key}
+                    haptic="selection"
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: active }}
+                    onPress={() => changeSort(key)}
+                    style={[s.segBtn, active && s.segBtnActive]}
+                  >
+                    <Text variant="caption" style={[s.bold, { color: active ? theme.colors.text : theme.colors.textTertiary }]}>
+                      {key === "distance" ? t("choose.sortDistance") : t("choose.sortRating")}
+                    </Text>
+                  </PressableScale>
+                );
+              })}
+            </View>
+            <PressableScale
+              haptic="selection"
+              accessibilityRole="switch"
+              accessibilityState={{ checked: openOnly }}
+              onPress={() => changeOpenOnly(!openOnly)}
+              style={[s.toggleChip, openOnly && s.toggleChipOn]}
+            >
+              {openOnly ? <Icons.Check size={14} color={theme.colors.primaryText} weight="bold" /> : <Icons.Clock size={14} color={theme.colors.textTertiary} />}
+              <Text variant="caption" style={[s.bold, { color: openOnly ? theme.colors.primaryText : theme.colors.textSecondary }]}>
+                {t("choose.openOnly")}
+              </Text>
+            </PressableScale>
+          </View>
+        ) : null}
       </View>
 
-      {myLoc && (
-        <View style={s.radiusRow}>
-          <Text style={s.radiusLabel}>반경 조절</Text>
-          <Slider
-            style={s.radiusSlider}
-            minimumValue={MIN_RADIUS_M}
-            maximumValue={MAX_RADIUS_M}
-            step={RADIUS_STEP_M}
-            value={radiusM}
-            minimumTrackTintColor="#FF5722"
-            maximumTrackTintColor="#eee"
-            thumbTintColor="#FF5722"
-            onSlidingComplete={handleRadiusCommit}
-          />
-          <Text style={s.radiusValue}>{formatDistance(radiusM)}</Text>
-        </View>
-      )}
-
-      {state === "ok" && (
-        <View style={s.controlsRow}>
-          <View style={s.sortGroup}>
-            <TouchableOpacity
-              style={[s.sortBtn, sortBy === "distance" && s.sortBtnActive]}
-              onPress={() => setSortBy("distance")}
-            >
-              <Text style={[s.sortBtnText, sortBy === "distance" && s.sortBtnTextActive]}>거리순</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.sortBtn, sortBy === "rating" && s.sortBtnActive]}
-              onPress={() => setSortBy("rating")}
-            >
-              <Text style={[s.sortBtnText, sortBy === "rating" && s.sortBtnTextActive]}>별점순</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            style={[s.openOnlyChip, openOnly && s.openOnlyChipActive]}
-            onPress={() => setOpenOnly((v) => !v)}
-          >
-            <Text style={[s.openOnlyChipText, openOnly && s.openOnlyChipTextActive]}>
-              {openOnly ? "✓ " : ""}영업중만 보기
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {state === "loading" && (
-        <View style={s.centerBox}>
-          <ActivityIndicator size="large" color="#FF5722" />
-          <Text style={s.centerText}>주변 식당을 찾는 중...</Text>
-        </View>
-      )}
-
-      {state === "error" && (
-        <View style={s.centerBox}>
-          <Text style={{ fontSize: 32 }}>⚠️</Text>
-          <Text style={[s.centerText, { paddingHorizontal: 30, textAlign: "center" }]}>{errorMsg}</Text>
-          {permissionDenied ? (
-            // 권한을 한 번 거부하면 requestForegroundPermissionsAsync()가 OS 다이얼로그를
-            // 다시 띄워주지 않는 기기가 많아서(특히 Android), "다시 시도"보다 설정 앱으로
-            // 바로 이동하는 버튼이 실제로 더 도움이 된다.
-            <TouchableOpacity style={s.retryBtn} onPress={() => Linking.openSettings()}>
-              <Text style={s.retryBtnText}>설정 열기</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={s.retryBtn} onPress={handleRetryLocation}>
-              <Text style={s.retryBtnText}>다시 시도</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {state === "empty" && (
-        <View style={s.centerBox}>
-          <Text style={{ fontSize: 32 }}>🔍</Text>
-          <Text style={[s.centerText, { paddingHorizontal: 30, textAlign: "center" }]}>
-            {`${formatDistance(radiusM)} 이내에 '${params.name_kr}' 관련 식당이 없어요.`}
-          </Text>
-          {/* 슬라이더를 직접 찾지 않아도 한 번에 반경을 넓혀 재검색할 수 있게 함.
-              최대 반경까지 이미 넓힌 상태면 더 넓힐 수 없으니 버튼 대신 안내만 보여준다. */}
-          {radiusM < MAX_RADIUS_M ? (
-            <TouchableOpacity
-              style={s.retryBtn}
-              onPress={() => handleRadiusCommit(Math.min(MAX_RADIUS_M, radiusM + 1000))}
-            >
-              <Text style={s.retryBtnText}>
-                반경 {formatDistance(Math.min(MAX_RADIUS_M, radiusM + 1000))}로 넓혀서 찾기
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <Text style={s.centerHint}>다른 요리를 골라보거나 위치를 옮겨서 다시 찾아보세요.</Text>
-          )}
-        </View>
-      )}
-
-      {state === "ok" && visibleRestaurants.length === 0 && (
-        <View style={s.centerBox}>
-          <Text style={{ fontSize: 32 }}>😴</Text>
-          <Text style={s.centerText}>
-            지금 영업 중인 식당이 없어요. (검색된 {restaurants.length}곳 모두 영업종료)
-          </Text>
-          {/* 이 화면은 "영업중만 보기" 필터 때문에만 비어 보일 수 있는데, 필터 칩이
-              스크롤 위쪽에 작게 있어서 원인을 모른 채 막다른 길처럼 느껴졌다.
-              여기서 바로 필터를 끌 수 있게 해준다. */}
-          <TouchableOpacity style={s.retryBtn} onPress={() => setOpenOnly(false)}>
-            <Text style={s.retryBtnText}>영업종료 식당도 보기</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {state === "ok" && visibleRestaurants.length > 0 && (
-        <ScrollView contentContainerStyle={s.list} showsVerticalScrollIndicator={false}>
-          {visibleRestaurants.map((r) => (
-            <TouchableOpacity key={r.id} style={s.card} activeOpacity={0.7} onPress={() => handleSelect(r)}>
-              <View style={s.cardIcon}>
-                {thumbnails[r.id] ? (
-                  <Image
-                    source={{ uri: thumbnails[r.id] }}
-                    style={s.cardIconImage}
-                    contentFit="cover"
-                    transition={150}
-                  />
-                ) : (
-                  <Text style={{ fontSize: 22 }}>🏪</Text>
-                )}
+      {state === "loading" ? (
+        <View style={s.list} accessibilityLabel={t("choose.searching")}>
+          {[0, 1, 2].map((i) => (
+            <Card key={i} style={s.row}>
+              <Skeleton width={56} height={56} radius={theme.radius.md} />
+              <View style={{ flex: 1, gap: theme.space.sm }}>
+                <Skeleton width="55%" height={15} />
+                <Skeleton width="80%" height={11} />
+                <Skeleton width="35%" height={11} />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.cardName} numberOfLines={1}>{r.name}</Text>
-                <Text style={s.cardAddress} numberOfLines={1}>{r.address}</Text>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
-                  <Text style={s.cardMeta}>{formatWalkTime(r.distanceM)} · {formatDistance(r.distanceM)}</Text>
-                  {typeof r.rating === "number" && (
-                    <Text style={s.cardRating}>⭐ {r.rating.toFixed(1)}</Text>
-                  )}
-                  {r.openNow === false && <Text style={s.cardClosed}>영업종료</Text>}
-                </View>
-              </View>
-              <Text style={s.cardArrow}>›</Text>
-            </TouchableOpacity>
+            </Card>
           ))}
+        </View>
+      ) : state === "error" ? (
+        <StateView
+          icon={permissionDenied ? Icons.MapPin : Icons.WarningCircle}
+          tone="danger"
+          title={t(errorKey)}
+          // 권한을 한 번 거부하면 OS 창이 다시 안 뜨는 기기가 많아서(특히 Android) 설정으로 보낸다.
+          actionLabel={permissionDenied ? t("common.openSettings") : t("common.retry")}
+          onAction={permissionDenied ? () => Linking.openSettings() : () => acquireLocationAndSearch(radiusM)}
+        />
+      ) : state === "empty" ? (
+        <StateView
+          icon={Icons.MagnifyingGlass}
+          title={t("choose.empty", { radius: formatDistance(radiusM) })}
+          message={radiusM < MAX_RADIUS_M ? undefined : t("choose.emptyMax")}
+          // 슬라이더를 찾지 않아도 한 번에 반경을 넓혀 재검색할 수 있게 한다.
+          actionLabel={radiusM < MAX_RADIUS_M ? t("choose.widen", { radius: formatDistance(widerRadius) }) : undefined}
+          onAction={radiusM < MAX_RADIUS_M ? () => handleRadiusCommit(widerRadius) : undefined}
+        />
+      ) : visibleRestaurants.length === 0 ? (
+        // "영업 중만" 필터 때문에만 비어 보이는 경우 - 필터 칩이 위쪽에 작게 있어 원인을 모를 수
+        // 있으니 여기서 바로 끌 수 있게 한다.
+        <StateView
+          icon={Icons.Clock}
+          title={t("choose.allClosed")}
+          message={t("choose.allClosedHint", { count: restaurants.length })}
+          actionLabel={t("choose.showClosed")}
+          onAction={() => changeOpenOnly(false)}
+        />
+      ) : (
+        <ScrollView contentContainerStyle={s.list} showsVerticalScrollIndicator={false}>
+          {visibleRestaurants.map((r) => {
+            const walk = t("choose.walk", { min: walkMinutes(r.distanceM) });
+            const closed = r.openNow === false;
+            return (
+              <Card
+                key={r.id}
+                onPress={() => handleSelect(r)}
+                accessibilityLabel={[
+                  r.name,
+                  walk,
+                  formatDistance(r.distanceM),
+                  typeof r.rating === "number" ? t("choose.ratingA11y", { rating: r.rating.toFixed(1) }) : "",
+                  closed ? t("choose.closed") : "",
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
+                accessibilityHint={t("choose.cardHint")}
+                style={s.row}
+              >
+                <View style={s.thumb}>
+                  {thumbnails[r.id] ? (
+                    <Image source={{ uri: thumbnails[r.id] }} style={s.thumbImg} contentFit="cover" transition={150} />
+                  ) : (
+                    <Icons.Storefront size={26} color={theme.colors.primary} weight="duotone" />
+                  )}
+                </View>
+                <View style={s.rowText}>
+                  <Text variant="bodyStrong" numberOfLines={1}>
+                    {r.name}
+                  </Text>
+                  <Text variant="caption" color="textTertiary" numberOfLines={1}>
+                    {r.address}
+                  </Text>
+                  <View style={s.metaRow}>
+                    <Icons.PersonSimpleWalk size={14} color={theme.colors.primaryText} weight="bold" />
+                    <Text variant="caption" color="primaryText" style={[s.bold, s.tabular]}>
+                      {walk} · {formatDistance(r.distanceM)}
+                    </Text>
+                    {typeof r.rating === "number" ? (
+                      <View style={s.rating}>
+                        <Icons.Star size={13} color={theme.colors.warning} weight="fill" />
+                        <Text variant="caption" style={[s.bold, s.tabular, { color: theme.colors.warning }]}>
+                          {r.rating.toFixed(1)}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {closed ? (
+                      <Text variant="caption" color="danger" style={s.bold}>
+                        {t("choose.closed")}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+                <Icons.CaretRight size={18} color={theme.colors.textTertiary} />
+              </Card>
+            );
+          })}
 
-          {hasMore && (
-            <TouchableOpacity
-              style={s.moreBtn}
+          {hiddenCount > 0 ? (
+            <Button
+              title={t("choose.more", { count: hiddenCount })}
+              variant="secondary"
               onPress={() => setVisibleCount((v) => v + PAGE_SIZE)}
-            >
-              <Text style={s.moreBtnText}>
-                더보기 ({sortedRestaurants.length - visibleCount}개 더 있어요)
-              </Text>
-            </TouchableOpacity>
-          )}
+              fullWidth
+            />
+          ) : null}
         </ScrollView>
       )}
-    </View>
+    </Screen>
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#F5F5F5" },
-  header: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    backgroundColor: "#fff", paddingHorizontal: 12, paddingBottom: 14,
-    borderBottomWidth: 0.5, borderBottomColor: "#eee",
+const useStyles = makeStyles((t) => ({
+  bold: { fontWeight: "700" },
+  tabular: { fontVariant: ["tabular-nums"] },
+  intro: { paddingHorizontal: t.space.xl, paddingTop: t.space.lg, gap: t.space.xs },
+  radiusRow: { flexDirection: "row", alignItems: "center", gap: t.space.sm, marginTop: t.space.sm },
+  slider: { flex: 1, height: 36 },
+  radiusValue: { width: 48, textAlign: "right", fontVariant: ["tabular-nums"] },
+  controls: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: t.space.sm,
+    marginBottom: t.space.xs,
   },
-  backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  backText: { fontSize: 28, color: "#222" },
-  headerTitle: { fontSize: 17, fontWeight: "bold", color: "#222" },
-  introBox: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 4 },
-  introTitle: { fontSize: 17, fontWeight: "bold", color: "#222" },
-  introSub: { fontSize: 13, color: "#888", marginTop: 4 },
-  radiusRow: {
-    flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingTop: 6, paddingBottom: 4, gap: 8,
+  segment: { flexDirection: "row", backgroundColor: t.colors.surfaceAlt, borderRadius: t.radius.pill, padding: 3 },
+  segBtn: { paddingHorizontal: t.space.lg, paddingVertical: t.space.sm, borderRadius: t.radius.pill },
+  segBtnActive: { backgroundColor: t.colors.surface, boxShadow: t.elevation.card },
+  toggleChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: t.space.xs + t.space.xxs,
+    borderWidth: 1,
+    borderColor: t.colors.border,
+    borderRadius: t.radius.pill,
+    paddingHorizontal: t.space.md,
+    paddingVertical: t.space.sm,
   },
-  radiusLabel: { fontSize: 12, color: "#999", fontWeight: "600" },
-  radiusSlider: { flex: 1, height: 32 },
-  radiusValue: { fontSize: 12, color: "#FF5722", fontWeight: "bold", width: 44, textAlign: "right" },
-  controlsRow: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: 16, paddingTop: 4, paddingBottom: 10, gap: 10,
+  toggleChipOn: { borderColor: t.colors.primary, backgroundColor: t.colors.primaryTint },
+  list: { padding: t.space.lg, gap: t.space.md, paddingBottom: t.space.xxxl },
+  row: { flexDirection: "row", alignItems: "center", gap: t.space.md, padding: t.space.md },
+  thumb: {
+    width: 56,
+    height: 56,
+    borderRadius: t.radius.md,
+    backgroundColor: t.colors.primaryTint,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
-  sortGroup: {
-    flexDirection: "row", backgroundColor: "#eee", borderRadius: 20, padding: 3, gap: 2,
-  },
-  sortBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 18 },
-  sortBtnActive: { backgroundColor: "#FF5722" },
-  sortBtnText: { fontSize: 12, color: "#666", fontWeight: "600" },
-  sortBtnTextActive: { color: "#fff" },
-  openOnlyChip: {
-    borderWidth: 1, borderColor: "#ddd", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7,
-  },
-  openOnlyChipActive: { borderColor: "#FF5722", backgroundColor: "#FFF0EC" },
-  openOnlyChipText: { fontSize: 12, color: "#666", fontWeight: "600" },
-  openOnlyChipTextActive: { color: "#FF5722" },
-  centerBox: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
-  centerText: { color: "#888", fontSize: 14 },
-  centerHint: { color: "#aaa", fontSize: 12, paddingHorizontal: 30, textAlign: "center" },
-  retryBtn: {
-    marginTop: 4, backgroundColor: "#FF5722", borderRadius: 20,
-    paddingHorizontal: 20, paddingVertical: 10,
-  },
-  retryBtnText: { color: "#fff", fontSize: 13, fontWeight: "bold" },
-  list: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 30, gap: 12 },
-  card: {
-    flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderRadius: 14,
-    padding: 14, borderWidth: 0.5, borderColor: "#eee", gap: 12,
-  },
-  cardIcon: {
-    width: 46, height: 46, borderRadius: 12, backgroundColor: "#FFF0EC",
-    alignItems: "center", justifyContent: "center", overflow: "hidden",
-  },
-  cardIconImage: { width: "100%", height: "100%" },
-  cardName: { fontSize: 15, fontWeight: "bold", color: "#222" },
-  cardAddress: { fontSize: 12, color: "#999", marginTop: 2 },
-  cardMeta: { fontSize: 12, color: "#FF5722", fontWeight: "600" },
-  cardRating: { fontSize: 12, color: "#B8860B", fontWeight: "600" },
-  cardClosed: { fontSize: 11, color: "#c0392b", fontWeight: "700" },
-  cardArrow: { fontSize: 20, color: "#ccc" },
-  moreBtn: {
-    borderWidth: 1.5, borderColor: "#FF5722", borderStyle: "dashed", borderRadius: 14,
-    paddingVertical: 13, alignItems: "center", marginTop: 2,
-  },
-  moreBtnText: { color: "#FF5722", fontSize: 13, fontWeight: "bold" },
-});
+  thumbImg: { width: "100%", height: "100%" },
+  rowText: { flex: 1, gap: t.space.xxs },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: t.space.xs + t.space.xxs, flexWrap: "wrap", marginTop: t.space.xxs },
+  rating: { flexDirection: "row", alignItems: "center", gap: 2 },
+}));

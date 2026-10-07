@@ -52,7 +52,9 @@ export default function HomeScreen() {
   const s = useStyles();
   const { user: authUser } = useAuth();
 
-  const [loading, setLoading] = useState(true);
+  const [fetching, setLoading] = useState(true);
+  // 로그아웃돼 authUser가 없으면 불러올 것도 없으니 로딩이 끝난 것으로 본다(영원히 스켈레톤 방지).
+  const loading = fetching && !!authUser;
   // 데이터 로딩 실패를 "이 레벨엔 요리가 없어요"로 잘못 보여주지 않도록 별도 에러 상태로 구분한다.
   const [loadError, setLoadError] = useState(false);
   const [home, setHome] = useState<HomeState>({
@@ -73,10 +75,7 @@ export default function HomeScreen() {
   const firstLoadRef = useRef(true);
 
   useEffect(() => {
-    if (!authUser) {
-      setLoading(false);
-      return;
-    }
+    if (!authUser) return;
     let cancelled = false;
     (async () => {
       if (firstLoadRef.current || loadError) setLoading(true);
@@ -247,7 +246,7 @@ export default function HomeScreen() {
                 icon={Icons.WifiSlash}
                 tone="danger"
                 title={t("home.loadError")}
-                message={t("home.loadErrorHint")}
+                message={t("common.checkConnection")}
                 actionLabel={t("common.retry")}
                 onAction={retry}
               />

@@ -1,84 +1,82 @@
-import { withJosa } from "@/src/i18n/josa";
-import { getPlaceReviews, GoogleReview, PlacesApiError } from "@/src/services/places";
 import { Image } from "expo-image";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  ImageBackground,
-  Linking,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, ImageBackground, Linking, Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// 정책: 자체 경로 안내(턴바이턴 내비게이션)는 지도 API 라이선스상 제공하지 않고,
-// 외부 지도 앱(길찾기)으로 연결하는 방식으로 처리한다. (react-native-maps 등으로
-// 자체 내비게이션을 붙이는 방향으로 바꾸지 말 것 - 의도적인 제품 결정임)
-// 대신 실제 내 위치 + 식당 위치를 보여주는 정적 미리보기 지도(Google Static Maps)는 제공한다.
+import { LOCALE_TAG, useI18n } from "@/src/i18n";
+import { formatDistance, getPlaceReviews, type GoogleReview, walkMinutes } from "@/src/services/places";
+import { makeStyles, useTheme } from "@/src/theme/ThemeContext";
+import { Button, Icons, Screen, ScreenHeader, Text } from "@/src/ui";
+
+// 정책: 자체 경로 안내(턴바이턴 내비게이션)는 지도 API 라이선스상 제공하지 않고, 외부 지도 앱
+// (길찾기)으로 연결한다. (react-native-maps 등으로 자체 내비게이션을 붙이는 방향으로 바꾸지 말 것 -
+// 의도적인 제품 결정임) 대신 내 위치 + 식당 위치를 보여주는 정적 미리보기 지도는 제공한다.
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
+
+// 지도 마커 색 - 지도 이미지 안에 들어가는 값이라 테마와 무관하게 고정.
+const MARKER_ME = "0x2F6DB5";
+const MARKER_DEST = "0xF2542D";
 
 export default function NavigateScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const { t, language } = useI18n();
+  const s = useStyles();
   const params = useLocalSearchParams<{
     dishId: string;
     name_kr: string;
     name_en: string;
     restaurantName: string;
     address: string;
-    distance: string;
-    walk: string;
+    distanceM?: string;
     lat?: string;
     lng?: string;
     placeId?: string;
   }>();
+  const distanceM = Number(params.distanceM ?? 0);
+  const distanceLine = distanceM
+    ? `${t("choose.walk", { min: walkMinutes(distanceM) })} · ${formatDistance(distanceM)}`
+    : "";
 
   const [myLoc, setMyLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [locError, setLocError] = useState(false);
-  // 지도 이미지 로드 실패는 "어느 URL에서 실패했는지"와 함께 기억한다. 내 위치를 받아오면
-  // 마커가 하나 더 붙으면서 URL이 바뀌는데, 예전엔 첫 URL(식당 마커만)에서 한 번 실패하면
-  // 새 URL은 시도도 못 해보고 에러 화면에 갇혀 있었다. URL이 달라지면 에러를 무시하고
-  // 다시 그려본다.
+  // 지도 이미지 로드 실패는 "어느 URL에서 실패했는지"와 함께 기억한다. 내 위치를 받아오면 URL이
+  // 바뀌는데, 첫 URL에서 한 번 실패했다고 새 URL을 시도도 안 하고 오류 화면에 갇히지 않게.
   const [mapImgErrorUrl, setMapImgErrorUrl] = useState<string | null>(null);
 
-  // 구글 리뷰: 약관상 저장/캐싱이 금지되어 있어서 화면에 들어올 때마다 매번
-  // 실시간으로만 조회하고, 상태로만 잠깐 들고 있다가 화면을 벗어나면 버립니다.
+  // 구글 리뷰: 약관상 저장/캐싱이 금지라 화면에 들어올 때마다 실시간으로만 조회하고 상태로만 잠깐 든다.
   const [googleReviews, setGoogleReviews] = useState<GoogleReview[] | null>(null);
   const [googleRating, setGoogleRating] = useState<{ rating?: number; total?: number }>({});
-  const [reviewsState, setReviewsState] = useState<"loading" | "ok" | "empty" | "error">("loading");
-  const [reviewsError, setReviewsError] = useState("");
+  const [fetchedReviewsState, setReviewsState] = useState<"loading" | "ok" | "empty" | "error">("loading");
+  // 식당 id가 없으면(예전 흐름) 조회할 리뷰가 없다.
+  const reviewsState = params.placeId ? fetchedReviewsState : "empty";
 
   useEffect(() => {
-    if (!params.placeId) {
-      setReviewsState("empty");
-      return;
-    }
+    if (!params.placeId) return;
     let cancelled = false;
     (async () => {
       setReviewsState("loading");
       try {
-        const { rating, userRatingsTotal, reviews } = await getPlaceReviews(params.placeId!);
+        // 사용자 언어로 요청하면 구글이 리뷰 본문을 번역해서 준다(대부분 한국어 리뷰라 외국인에게 유용).
+        const { rating, userRatingsTotal, reviews } = await getPlaceReviews(params.placeId!, LOCALE_TAG[language]);
         if (cancelled) return;
         setGoogleRating({ rating, total: userRatingsTotal });
         setGoogleReviews(reviews);
         setReviewsState(reviews.length === 0 ? "empty" : "ok");
       } catch (err) {
         if (cancelled) return;
-        setReviewsError(err instanceof PlacesApiError ? err.message : "구글 리뷰를 불러오지 못했어요.");
+        console.error("[navigate] 구글 리뷰 오류:", err);
         setReviewsState("error");
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [params.placeId]);
+  }, [params.placeId, language]);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,9 +88,7 @@ export default function NavigateScreen() {
           return;
         }
         const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        if (!cancelled) {
-          setMyLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        }
+        if (!cancelled) setMyLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       } catch {
         if (!cancelled) setLocError(true);
       }
@@ -106,18 +102,15 @@ export default function NavigateScreen() {
 
   const staticMapUrl = (() => {
     if (!GOOGLE_MAPS_API_KEY || !hasDestCoords) return null;
-    const destMarker = `color:0xFF5722|label:R|${params.lat},${params.lng}`;
-    const markers = myLoc
-      ? [`color:0x3E7FC1|label:U|${myLoc.lat},${myLoc.lng}`, destMarker]
-      : [destMarker];
+    const destMarker = `color:${MARKER_DEST}|label:R|${params.lat},${params.lng}`;
+    const markers = myLoc ? [`color:${MARKER_ME}|label:U|${myLoc.lat},${myLoc.lng}`, destMarker] : [destMarker];
     const markerParams = markers.map((m) => `markers=${encodeURIComponent(m)}`).join("&");
-    // 마커가 2개면 구글이 둘 다 들어오게 알아서 확대/중심을 잡아준다. 아직 내 위치를
-    // 못 받아와 마커가 식당 1개뿐일 때는 기준이 될 범위가 없어 아주 넓게 잡히므로,
-    // 이 경우에만 식당 주변이 보이도록 zoom을 직접 지정한다.
+    // 마커가 2개면 구글이 둘 다 들어오게 확대/중심을 잡아준다. 식당 1개뿐이면 범위가 아주 넓게
+    // 잡히므로 이 경우에만 zoom을 직접 지정한다. 지도 글자도 사용자 언어로(language).
     const zoomParam = markers.length === 1 ? "&zoom=16" : "";
     return (
       `https://maps.googleapis.com/maps/api/staticmap?size=640x400&scale=2` +
-      `&maptype=roadmap${zoomParam}&${markerParams}&key=${GOOGLE_MAPS_API_KEY}`
+      `&maptype=roadmap${zoomParam}&language=${LOCALE_TAG[language]}&${markerParams}&key=${GOOGLE_MAPS_API_KEY}`
     );
   })();
 
@@ -125,7 +118,6 @@ export default function NavigateScreen() {
 
   const openInMaps = () => {
     const query = encodeURIComponent(`${params.restaurantName} ${params.address}`);
-
     const url = hasDestCoords
       ? Platform.select({
           ios: `maps://?daddr=${params.lat},${params.lng}&dirflg=w`,
@@ -145,33 +137,16 @@ export default function NavigateScreen() {
         hasDestCoords ? `${params.lat},${params.lng}` : query
       }&travelmode=walking`;
       Linking.openURL(fallback).catch(() => {
-        // 웹 브라우저 길찾기까지 실패한 경우 사용자에게 알려줌(기존엔 아무 반응 없이 조용히 실패했음)
-        Alert.alert("길찾기를 열 수 없어요", "지도 앱을 열지 못했어요. 잠시 후 다시 시도해주세요.");
+        Alert.alert(t("nav.openMapsFailed"), t("common.tryAgainLater"));
       });
     });
   };
 
-  const handleArrived = () => {
-    router.push({ pathname: "/mission/arrived", params });
-  };
+  const legendMe = myLoc ? t("nav.myLocation") : locError ? t("nav.myLocationDenied") : t("nav.myLocationLoading");
 
   return (
-    <View style={s.root}>
-      <View style={[s.header, { paddingTop: Math.max(insets.top, 20) + 14 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Text style={s.backText}>‹</Text>
-        </TouchableOpacity>
-        <Text style={s.headerTitle} numberOfLines={1}>
-          {withJosa(params.restaurantName, "으로")} 이동
-        </Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <View style={s.infoPillWrap}>
-        <View style={s.infoPill}>
-          <Text style={s.infoPillText}>{params.walk} · {params.distance}</Text>
-        </View>
-      </View>
+    <Screen>
+      <ScreenHeader title={t("nav.title", { restaurant: params.restaurantName })} />
 
       <View style={s.mapArea}>
         {staticMapUrl && !mapImgFailed ? (
@@ -179,200 +154,222 @@ export default function NavigateScreen() {
             source={{ uri: staticMapUrl }}
             style={s.mapImage}
             resizeMode="cover"
+            accessibilityIgnoresInvertColors
             onError={(e) => {
-              console.warn("[mission/navigate] static map load failed:", e.nativeEvent?.error);
+              // 개발자용 원인(대부분 Maps Static API 미활성화/키 제한)은 콘솔에만 남긴다.
+              console.warn("[mission/navigate] static map load failed - Maps Static API 활성화/키 제한 확인:", e.nativeEvent?.error);
               setMapImgErrorUrl(staticMapUrl);
             }}
           >
-            <View style={s.mapLegend}>
-              {/* 내 위치(U) 마커는 위치를 받아온 뒤에만 지도에 찍히므로, 범례도 실제 상태에
-                  맞춘다. 예전엔 권한 거부/로딩 중에도 "내 위치 (U)"가 항상 떠서 지도에
-                  없는 마커를 찾게 만들었다. */}
+            {/* 내 위치(U) 마커는 위치를 받아온 뒤에만 지도에 찍히므로 범례도 실제 상태에 맞춘다. */}
+            <View style={s.legend}>
               <View style={s.legendRow}>
-                <View
-                  style={[
-                    s.legendDot,
-                    { backgroundColor: myLoc ? "#3E7FC1" : "#bbb" },
-                  ]}
-                />
-                <Text style={s.legendText}>
-                  {myLoc ? "내 위치 (U)" : locError ? "내 위치 없음 · 위치 권한 필요" : "내 위치 확인 중..."}
+                <View style={[s.legendDot, { backgroundColor: myLoc ? theme.colors.info : theme.colors.textDisabled }]} />
+                <Text variant="caption" style={s.legendText} numberOfLines={1}>
+                  {myLoc ? `${legendMe} (U)` : legendMe}
                 </Text>
               </View>
               <View style={s.legendRow}>
-                <View style={[s.legendDot, { backgroundColor: "#FF5722" }]} />
-                <Text style={s.legendText} numberOfLines={1}>{params.restaurantName} (R)</Text>
+                <View style={[s.legendDot, { backgroundColor: theme.colors.primary }]} />
+                <Text variant="caption" style={s.legendText} numberOfLines={1}>
+                  {params.restaurantName} (R)
+                </Text>
               </View>
             </View>
           </ImageBackground>
         ) : (
           <View style={s.mapFallback}>
+            <Icons.MapPin size={32} color={theme.colors.textTertiary} weight="duotone" />
             {mapImgFailed ? (
               <>
-                <Text style={{ fontSize: 28 }}>⚠️</Text>
-                <Text style={s.mapFallbackText}>
-                  지도 미리보기를 불러올 수 없어요.{"\n"}Google Cloud Console에서 "Maps Static API"가
-                  활성화되어 있는지, API 키 제한사항에 Maps Static API가 허용되어 있는지 확인해주세요.
+                <Text variant="bodyStrong" align="center">
+                  {t("nav.mapFailed")}
                 </Text>
-                <TouchableOpacity
-                  onPress={() => setMapImgErrorUrl(null)}
-                  style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: "#FFF0EC" }}
-                >
-                  <Text style={{ color: "#FF5722", fontSize: 12, fontWeight: "bold" }}>🔄 다시 시도</Text>
-                </TouchableOpacity>
+                <Text variant="caption" color="textTertiary" align="center">
+                  {t("nav.useMapsApp")}
+                </Text>
+                <Button title={t("common.retry")} variant="tonal" size="sm" icon={Icons.ArrowClockwise} onPress={() => setMapImgErrorUrl(null)} />
               </>
             ) : !GOOGLE_MAPS_API_KEY ? (
-              <Text style={s.mapFallbackText}>
-                지도 미리보기 설정이 아직 안 되어 있어요.{"\n"}
-                아래 "지도 앱으로 길찾기 열기"로 이동해주세요.
-              </Text>
+              <>
+                <Text variant="bodyStrong" align="center">
+                  {t("nav.mapNotConfigured")}
+                </Text>
+                <Text variant="caption" color="textTertiary" align="center">
+                  {t("nav.useMapsApp")}
+                </Text>
+              </>
             ) : !hasDestCoords ? (
-              // 미리보기 지도는 "식당 좌표"만 있으면 그릴 수 있다(내 위치는 있으면 마커를
-              // 하나 더 얹는 정도). 좌표가 없으면 아무리 기다려도 지도가 안 나오므로,
-              // 예전처럼 로딩 스피너를 계속 돌리지 않고 바로 안내로 넘긴다.
-              <Text style={s.mapFallbackText}>
-                이 식당은 위치 좌표 정보가 없어 지도 미리보기를 표시할 수 없어요.{"\n"}
-                아래 "지도 앱으로 길찾기 열기"로 이동해주세요.
-                {locError ? "\n(위치 권한을 허용하면 내 위치도 함께 표시돼요.)" : ""}
-              </Text>
+              // 미리보기는 식당 좌표만 있으면 그릴 수 있다 - 좌표가 없으면 아무리 기다려도 안 나오므로
+              // 로딩을 계속 돌리지 않고 바로 안내한다.
+              <>
+                <Text variant="bodyStrong" align="center">
+                  {t("nav.noCoords")}
+                </Text>
+                <Text variant="caption" color="textTertiary" align="center">
+                  {t("nav.useMapsApp")}
+                  {locError ? `\n${t("nav.locationHint")}` : ""}
+                </Text>
+              </>
             ) : (
               <>
-                <ActivityIndicator color="#FF5722" />
-                <Text style={s.mapFallbackText}>지도를 불러오는 중...</Text>
+                <ActivityIndicator color={theme.colors.primary} />
+                <Text variant="caption" color="textTertiary">
+                  {t("nav.mapLoading")}
+                </Text>
               </>
             )}
           </View>
         )}
       </View>
 
-      <View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 32) }]}>
-        <View style={s.handle} />
-        <Text style={s.sheetName}>{params.restaurantName}</Text>
-        <Text style={s.sheetAddress}>{params.address} · {params.walk} · {params.distance}</Text>
-
-        <View style={s.reviewsBox}>
-          <View style={s.reviewsHeaderRow}>
-            <Text style={s.reviewsTitle}>Google 리뷰</Text>
-            {typeof googleRating.rating === "number" && (
-              <Text style={s.reviewsRatingText}>
-                ⭐ {googleRating.rating.toFixed(1)} ({googleRating.total ?? 0})
+      <View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, theme.space.lg) }]}>
+        <ScrollView style={s.sheetScroll} contentContainerStyle={s.sheetContent} showsVerticalScrollIndicator={false}>
+          <View style={s.handle} />
+          <Text variant="title2" numberOfLines={2}>
+            {params.restaurantName}
+          </Text>
+          <Text variant="caption" color="textTertiary">
+            {params.address}
+          </Text>
+          {distanceLine ? (
+            <View style={s.distanceRow}>
+              <Icons.PersonSimpleWalk size={15} color={theme.colors.primaryText} weight="bold" />
+              <Text variant="caption" color="primaryText" style={s.bold}>
+                {distanceLine}
               </Text>
-            )}
-          </View>
+            </View>
+          ) : null}
 
-          {reviewsState === "loading" && (
-            <ActivityIndicator color="#FF5722" style={{ marginVertical: 10 }} />
-          )}
-          {reviewsState === "error" && <Text style={s.reviewsEmptyText}>{reviewsError}</Text>}
-          {reviewsState === "empty" && (
-            <Text style={s.reviewsEmptyText}>표시할 구글 리뷰가 없어요.</Text>
-          )}
-          {reviewsState === "ok" && googleReviews && (
-            <>
-              {googleReviews.slice(0, 2).map((r) => (
-                <View key={r.id} style={s.reviewRow}>
-                  <View style={s.reviewRowHeader}>
-                    {r.authorPhotoUrl ? (
-                      <Image
-                        source={{ uri: r.authorPhotoUrl }}
-                        style={s.reviewAvatar}
-                        contentFit="cover"
-                        transition={150}
-                      />
-                    ) : (
-                      <View style={[s.reviewAvatar, s.reviewAvatarFallback]}>
-                        <Text style={{ fontSize: 11, color: "#888" }}>{r.authorName.charAt(0)}</Text>
-                      </View>
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.reviewAuthor} numberOfLines={1}>{r.authorName}</Text>
-                      <Text style={s.reviewMeta}>
-                        {"⭐".repeat(Math.max(0, Math.round(r.rating)))} · {r.relativeTime}
-                      </Text>
-                    </View>
-                  </View>
-                  {!!r.text && (
-                    <Text style={s.reviewText} numberOfLines={3}>{r.text}</Text>
-                  )}
+          <View style={s.reviews}>
+            <View style={s.reviewsHead}>
+              <Text variant="bodyStrong">{t("nav.googleReviews")}</Text>
+              {typeof googleRating.rating === "number" ? (
+                <View style={s.ratingRow}>
+                  <Icons.Star size={14} color={theme.colors.warning} weight="fill" />
+                  <Text variant="caption" style={[s.bold, { color: theme.colors.warning }]}>
+                    {t("nav.ratingCount", { rating: googleRating.rating.toFixed(1), count: googleRating.total ?? 0 })}
+                  </Text>
                 </View>
-              ))}
-              <Text style={s.reviewsAttribution}>제공: Google</Text>
-            </>
-          )}
+              ) : null}
+            </View>
+
+            {reviewsState === "loading" ? <ActivityIndicator color={theme.colors.primary} style={s.reviewsLoading} /> : null}
+            {reviewsState === "error" ? (
+              <Text variant="caption" color="textTertiary">
+                {t("nav.reviewsError")}
+              </Text>
+            ) : null}
+            {reviewsState === "empty" ? (
+              <Text variant="caption" color="textTertiary">
+                {t("nav.reviewsEmpty")}
+              </Text>
+            ) : null}
+            {reviewsState === "ok" && googleReviews ? (
+              <>
+                {googleReviews.slice(0, 2).map((r) => {
+                  const author = r.authorName || t("common.anonymous");
+                  return (
+                  <View key={r.id} style={s.review}>
+                    <View style={s.reviewHead}>
+                      {r.authorPhotoUrl ? (
+                        <Image source={{ uri: r.authorPhotoUrl }} style={s.avatar} contentFit="cover" transition={150} />
+                      ) : (
+                        <View style={[s.avatar, s.avatarFallback]}>
+                          <Text variant="caption" color="textTertiary">
+                            {author.charAt(0)}
+                          </Text>
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text variant="caption" style={s.bold} numberOfLines={1}>
+                          {author}
+                        </Text>
+                        <View style={s.ratingRow}>
+                          {Array.from({ length: 5 }, (_, i) => (
+                            <Icons.Star
+                              key={i}
+                              size={11}
+                              color={i < Math.round(r.rating) ? theme.colors.warning : theme.colors.border}
+                              weight="fill"
+                            />
+                          ))}
+                          <Text variant="caption" color="textTertiary">
+                            {" "}
+                            {r.relativeTime}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    {r.text ? (
+                      <Text variant="caption" color="textSecondary" numberOfLines={3}>
+                        {r.text}
+                      </Text>
+                    ) : null}
+                  </View>
+                  );
+                })}
+                <Text variant="caption" color="textTertiary" align="right">
+                  {t("nav.attribution")}
+                </Text>
+              </>
+            ) : null}
+          </View>
+        </ScrollView>
+
+        <View style={s.actions}>
+          <Button title={t("nav.openMaps")} variant="secondary" icon={Icons.NavigationArrow} onPress={openInMaps} fullWidth />
+          <Button title={t("nav.arrived")} size="lg" icon={Icons.MapPin} onPress={() => router.push({ pathname: "/mission/arrived", params })} fullWidth />
         </View>
-
-        <TouchableOpacity style={s.mapsBtn} onPress={openInMaps}>
-          <Text style={s.mapsBtnText}>지도 앱으로 길찾기 열기 ↗</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={s.arrivedBtn} onPress={handleArrived}>
-          <Text style={s.arrivedBtnText}>도착했어요</Text>
-        </TouchableOpacity>
       </View>
-    </View>
+    </Screen>
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#F5F5F5" },
-  header: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    backgroundColor: "#fff", paddingHorizontal: 12, paddingBottom: 14,
-    borderBottomWidth: 0.5, borderBottomColor: "#eee",
-  },
-  backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  backText: { fontSize: 28, color: "#222" },
-  headerTitle: { fontSize: 16, fontWeight: "bold", color: "#222", flex: 1, textAlign: "center", marginHorizontal: 8 },
-  infoPillWrap: { alignItems: "center", backgroundColor: "#fff", paddingBottom: 14 },
-  infoPill: {
-    borderWidth: 1.5, borderColor: "#FF5722", borderRadius: 20,
-    paddingHorizontal: 18, paddingVertical: 8,
-  },
-  infoPillText: { color: "#FF5722", fontWeight: "bold", fontSize: 13 },
-  mapArea: {
-    flex: 1, backgroundColor: "#F6EFE6", position: "relative", overflow: "hidden",
-  },
+const useStyles = makeStyles((t) => ({
+  bold: { fontWeight: "700" },
+  mapArea: { flex: 1, backgroundColor: t.colors.surfaceAlt, overflow: "hidden" },
   mapImage: { flex: 1, justifyContent: "flex-start", alignItems: "flex-start" },
-  mapLegend: {
-    margin: 14, backgroundColor: "rgba(255,255,255,0.92)", borderRadius: 12,
-    paddingHorizontal: 12, paddingVertical: 10, gap: 6, maxWidth: 200,
+  legend: {
+    margin: t.space.md,
+    backgroundColor: "rgba(255,255,255,0.94)",
+    borderRadius: t.radius.md,
+    paddingHorizontal: t.space.md,
+    paddingVertical: t.space.sm + t.space.xxs,
+    gap: t.space.xs + t.space.xxs,
+    maxWidth: 220,
   },
-  legendRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  legendRow: { flexDirection: "row", alignItems: "center", gap: t.space.sm },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendText: { fontSize: 12, fontWeight: "600", color: "#333", flexShrink: 1 },
-  mapFallback: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10 },
-  mapFallbackText: { fontSize: 13, color: "#999", paddingHorizontal: 30, textAlign: "center" },
+  // 범례는 지도(밝은 이미지) 위라 테마와 무관하게 어두운 글씨
+  legendText: { color: "#2A2826", fontWeight: "600", flexShrink: 1 },
+  mapFallback: { flex: 1, alignItems: "center", justifyContent: "center", gap: t.space.sm, paddingHorizontal: t.space.xxxl },
   sheet: {
-    backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 20, paddingBottom: 32,
+    maxHeight: "58%",
+    backgroundColor: t.colors.surface,
+    borderTopLeftRadius: t.radius.xl,
+    borderTopRightRadius: t.radius.xl,
+    marginTop: -t.space.xl,
+    boxShadow: t.elevation.raised,
   },
-  handle: { width: 36, height: 4, backgroundColor: "#e0e0e0", borderRadius: 2, alignSelf: "center", marginBottom: 14 },
-  sheetName: { fontSize: 19, fontWeight: "bold", color: "#222" },
-  sheetAddress: { fontSize: 13, color: "#888", marginTop: 4, marginBottom: 16 },
-  reviewsBox: {
-    marginBottom: 16, borderTopWidth: 0.5, borderTopColor: "#eee", paddingTop: 14,
+  sheetScroll: { flexGrow: 0 },
+  sheetContent: { paddingHorizontal: t.space.xl, paddingTop: t.space.sm, gap: t.space.xs },
+  handle: {
+    width: 40,
+    height: 5,
+    borderRadius: t.radius.pill,
+    backgroundColor: t.colors.borderStrong,
+    alignSelf: "center",
+    marginBottom: t.space.md,
   },
-  reviewsHeaderRow: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6,
-  },
-  reviewsTitle: { fontSize: 13, fontWeight: "bold", color: "#222" },
-  reviewsRatingText: { fontSize: 12, color: "#B8860B", fontWeight: "600" },
-  reviewsEmptyText: { fontSize: 12, color: "#999", marginTop: 4 },
-  reviewRow: {
-    backgroundColor: "#F8F8F8", borderRadius: 10, padding: 10, marginTop: 8,
-  },
-  reviewRowHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
-  reviewAvatar: { width: 26, height: 26, borderRadius: 13 },
-  reviewAvatarFallback: { backgroundColor: "#eee", alignItems: "center", justifyContent: "center" },
-  reviewAuthor: { fontSize: 12, fontWeight: "bold", color: "#333" },
-  reviewMeta: { fontSize: 10, color: "#999", marginTop: 1 },
-  reviewText: { fontSize: 12, color: "#444", marginTop: 6, lineHeight: 17 },
-  reviewsAttribution: { fontSize: 10, color: "#bbb", marginTop: 8, textAlign: "right" },
-  mapsBtn: {
-    borderWidth: 1.5, borderColor: "#FF5722", borderRadius: 14,
-    paddingVertical: 14, alignItems: "center", marginBottom: 10,
-  },
-  mapsBtnText: { color: "#FF5722", fontWeight: "bold", fontSize: 15 },
-  arrivedBtn: { backgroundColor: "#FF5722", borderRadius: 14, paddingVertical: 15, alignItems: "center" },
-  arrivedBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-});
+  distanceRow: { flexDirection: "row", alignItems: "center", gap: t.space.xs, marginTop: t.space.xs },
+  reviews: { marginTop: t.space.lg, paddingTop: t.space.lg, borderTopWidth: 1, borderTopColor: t.colors.border, gap: t.space.sm },
+  reviewsHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  reviewsLoading: { marginVertical: t.space.sm },
+  ratingRow: { flexDirection: "row", alignItems: "center", gap: 2 },
+  review: { backgroundColor: t.colors.surfaceAlt, borderRadius: t.radius.md, padding: t.space.md, gap: t.space.sm },
+  reviewHead: { flexDirection: "row", alignItems: "center", gap: t.space.sm },
+  avatar: { width: 28, height: 28, borderRadius: 14 },
+  avatarFallback: { backgroundColor: t.colors.border, alignItems: "center", justifyContent: "center" },
+  actions: { paddingHorizontal: t.space.xl, paddingTop: t.space.md, gap: t.space.sm },
+}));

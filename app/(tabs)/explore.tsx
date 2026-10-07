@@ -64,9 +64,8 @@ export default function ExploreScreen() {
     };
   }, []);
 
+  // 첫 진입엔 loading=true로 시작하므로 여기선 로딩 표시를 켜지 않는다(재시도는 retryLoad가 켠다).
   const fetchDishes = async () => {
-    setLoading(true);
-    setLoadError(false);
     try {
       const snapshot = await getDocs(collection(db, "dishes"));
       const data = snapshot.docs
@@ -92,9 +91,17 @@ export default function ExploreScreen() {
   };
 
   useEffect(() => {
+    // 상태는 Firestore 응답(await 이후)에서만 바뀐다. 린터는 catch 블록이 동기적으로 돌 가능성까지
+    // 보수적으로 잡아서 경고하므로 여기서만 끈다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchDishes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const retryLoad = () => {
+    setLoading(true);
+    setLoadError(false);
+    fetchDishes();
+  };
 
   // 완료 목록은 미션을 마치고 이 탭으로 돌아올 때마다 바뀔 수 있으므로 포커스마다 조용히 다시 읽는다.
   useFocusEffect(
@@ -227,9 +234,9 @@ export default function ExploreScreen() {
       icon={Icons.WifiSlash}
       tone="danger"
       title={t("explore.loadError")}
-      message={t("home.loadErrorHint")}
+      message={t("common.checkConnection")}
       actionLabel={t("common.retry")}
-      onAction={fetchDishes}
+      onAction={retryLoad}
     />
   ) : query.trim() ? (
     <StateView

@@ -33,7 +33,9 @@ export default function LevelsScreen() {
   const [levelInfo, setLevelInfo] = useState<Record<number, LevelInfo>>({});
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [myLevel, setMyLevel] = useState(DEFAULT_LEVEL);
-  const [loading, setLoading] = useState(true);
+  const [fetching, setLoading] = useState(true);
+  // 로그아웃돼 authUser가 없으면 불러올 것도 없으니 로딩이 끝난 것으로 본다(영원히 스켈레톤 방지).
+  const loading = fetching && !!authUser;
   // 로딩 실패를 "표시할 요리가 없어요"로 잘못 보여주지 않도록 별도 에러 상태로 구분
   const [loadError, setLoadError] = useState(false);
   const [openLevels, setOpenLevels] = useState<Set<number>>(new Set());
@@ -48,14 +50,9 @@ export default function LevelsScreen() {
     };
   }, []);
 
+  // 첫 진입엔 loading=true로 시작하므로 여기선 로딩 표시를 켜지 않는다(재시도는 retryLoad가 켠다).
   const load = async () => {
-    if (!authUser) {
-      // 화면이 떠 있는 동안 로그아웃되는 경우 로딩이 영원히 안 끝나는 것을 방지
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setLoadError(false);
+    if (!authUser) return;
     try {
       const [dishSnap, levelSnap, user] = await Promise.all([
         getDocs(collection(db, "dishes")),
@@ -106,9 +103,17 @@ export default function LevelsScreen() {
   };
 
   useEffect(() => {
+    // 상태는 응답(await 이후)에서만 바뀐다 - 린터가 catch 블록을 보수적으로 잡는 경우라 여기서만 끈다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser]);
+
+  const retryLoad = () => {
+    setLoading(true);
+    setLoadError(false);
+    load();
+  };
 
   const levels = useMemo(
     () => Object.keys(dishesByLevel).map(Number).sort((a, b) => a - b),
@@ -155,9 +160,9 @@ export default function LevelsScreen() {
           icon={Icons.WifiSlash}
           tone="danger"
           title={t("levels.loadError")}
-          message={t("home.loadErrorHint")}
+          message={t("common.checkConnection")}
           actionLabel={t("common.retry")}
-          onAction={load}
+          onAction={retryLoad}
         />
       ) : (
         <ScrollView ref={scrollRef} contentContainerStyle={s.list}>
