@@ -99,7 +99,8 @@ export default function VerifyScreen() {
       // 세 장 다 서버 인증에 base64로 보내야 하고, 영수증은 촬영 직후 인식 미리보기에도 쓴다.
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.6, base64: true });
       if (photo?.uri) setShots((prev) => ({ ...prev, [shotKey]: photo.uri }));
-      if (photo?.base64) setShotsBase64((prev) => ({ ...prev, [shotKey]: photo.base64 ?? null }));
+      // base64가 없으면 이전 촬영본의 값이 남지 않도록 null로 덮어쓴다(재촬영 시 옛 사진이 서버로 가는 것 방지).
+      setShotsBase64((prev) => ({ ...prev, [shotKey]: photo?.base64 ?? null }));
       setActiveShot(null);
       if (shotKey === "receipt") {
         if (photo?.base64) runReceiptOcr(photo.base64);
