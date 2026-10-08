@@ -208,7 +208,7 @@ export default function ExploreScreen() {
                 // 36pt 칩 + 위아래 4 = 44pt 터치 영역
                 hitSlop={{ top: 4, bottom: 4 }}
               >
-                <Text variant="caption" style={[s.chipText, active && s.chipTextActive]}>
+                <Text variant="callout" style={[s.chipText, active && s.chipTextActive]}>
                   {label}
                 </Text>
                 <Text variant="caption" style={[s.chipCount, active && s.chipTextActive]}>
@@ -438,7 +438,7 @@ const useStyles = makeStyles((t) => ({
     borderColor: t.colors.border,
   },
   chipActive: { backgroundColor: t.colors.text, borderColor: t.colors.text },
-  chipText: { color: t.colors.textSecondary, fontWeight: "700", fontSize: 13 },
+  chipText: { color: t.colors.textSecondary, fontWeight: "700" },
   chipCount: { color: t.colors.textTertiary, fontVariant: ["tabular-nums"] },
   chipTextActive: { color: t.colors.bg },
 

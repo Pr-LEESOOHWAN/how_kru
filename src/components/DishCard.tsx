@@ -108,7 +108,7 @@ export function DishCard({
             {ctaLabel ? (
               <View style={s.cta}>
                 <Icons.Camera size={16} color={theme.colors.onPrimary} weight="bold" />
-                <Text variant="caption" style={s.ctaText} numberOfLines={1}>
+                <Text variant="callout" style={s.ctaText} numberOfLines={1}>
                   {ctaLabel}
                 </Text>
               </View>
@@ -154,5 +154,5 @@ const useStyles = makeStyles((t) => ({
     paddingHorizontal: t.space.md,
     paddingVertical: t.space.sm,
   },
-  ctaText: { color: t.colors.onPrimary, fontWeight: "700", fontSize: 13 },
+  ctaText: { color: t.colors.onPrimary, fontWeight: "700" },
 }));

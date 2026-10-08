@@ -6,6 +6,7 @@
 import { ActivityIndicator, View, type TextStyle } from "react-native";
 
 import { useTheme } from "@/src/theme/ThemeContext";
+import { radius, space } from "@/src/theme/tokens";
 import { PressableScale, Text } from "@/src/ui";
 
 // 카메라 영상은 하얀 벽·접시처럼 아주 밝을 수 있다. 화면 전체를 덮는 반투명 막만으로는 그 위의
@@ -25,9 +26,9 @@ export function OverlayLabel({ children }: { children: React.ReactNode }) {
         alignSelf: "center",
         maxWidth: "86%",
         backgroundColor: "rgba(0,0,0,0.6)",
-        borderRadius: 999,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
+        borderRadius: radius.pill,
+        paddingHorizontal: space.lg,
+        paddingVertical: space.sm,
       }}
     >
       <Text variant="callout" align="center" style={{ color: "#FFFFFF" }}>

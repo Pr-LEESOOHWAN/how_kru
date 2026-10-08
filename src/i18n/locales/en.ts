@@ -325,4 +325,8 @@ export const en: PluralMessages = {
   "lp.errorBody": "Your mission was saved. Check your connection and try again.",
   "lp.goHome": "Back to home",
   "lp.nextMission": "Find my next mission",
+
+  // 앱 오류 화면(ErrorBoundary)
+  "error.title": "Something went wrong",
+  "error.body": "Please try again. If it keeps happening, restart the app.",
 };

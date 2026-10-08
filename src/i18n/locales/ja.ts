@@ -325,4 +325,8 @@ export const ja: Messages = {
   "lp.errorBody": "ミッション完了は記録されました。接続を確認してもう一度お試しください。",
   "lp.goHome": "ホームに戻る",
   "lp.nextMission": "次のミッションを見る",
+
+  // 앱 오류 화면(ErrorBoundary)
+  "error.title": "問題が発生しました",
+  "error.body": "もう一度お試しください。繰り返す場合はアプリを再起動してください。",
 };

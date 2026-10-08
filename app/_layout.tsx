@@ -17,6 +17,9 @@ export const unstable_settings = {
   anchor: '(tabs)',
 };
 
+// 어느 화면에서든 렌더 오류가 나면 앱 전체가 멈추는 대신 "다시 시도" 화면을 보여준다.
+export { AppErrorFallback as ErrorBoundary } from '@/src/components/AppErrorFallback';
+
 function RootNavigator() {
   const { user, initializing } = useAuth();
   const theme = useTheme();

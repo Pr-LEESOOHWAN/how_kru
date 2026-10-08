@@ -330,4 +330,8 @@ export const ko = {
   "lp.errorBody": "미션 완료는 기록됐어요. 인터넷 연결을 확인하고 다시 시도해 주세요.",
   "lp.goHome": "홈으로 돌아가기",
   "lp.nextMission": "다음 미션 보러 가기",
+
+  // 앱 오류 화면(ErrorBoundary)
+  "error.title": "문제가 생겼어요",
+  "error.body": "잠시 후 다시 시도해 주세요. 계속 이러면 앱을 껐다 켜 주세요.",
 } as const;

@@ -325,4 +325,8 @@ export const zh: Messages = {
   "lp.errorBody": "任务完成已记录。请检查网络后重试。",
   "lp.goHome": "返回首页",
   "lp.nextMission": "查看下一个任务",
+
+  // 앱 오류 화면(ErrorBoundary)
+  "error.title": "出了点问题",
+  "error.body": "请重试。如果问题持续，请重启应用。",
 };
