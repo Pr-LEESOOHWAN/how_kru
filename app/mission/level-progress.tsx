@@ -6,7 +6,7 @@ import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, w
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
-import { countProgressInLevel, getDishesByLevel, getUser, levelUp } from "@/src/firebase/dishService";
+import { countProgressInLevel, getDishesByLevel, getUser } from "@/src/firebase/dishService";
 import { db } from "@/src/firebase/firebaseConfig";
 import { useI18n } from "@/src/i18n";
 import { dishName, levelTitle } from "@/src/i18n/content";
@@ -31,8 +31,16 @@ export default function LevelProgressScreen() {
   // alreadyCompleted: complete.tsx에서 "이미 완료했던 요리를 다시 완료"한 경우 "1"로
   // 넘어온다. 이때는 이번 미션으로 진행 개수가 늘어난 게 아니므로 "+X% 상승"
   // 계산에서 이전 값을 progress-1로 잡으면 안 된다.
-  const params = useLocalSearchParams<{ dishId?: string; name_kr: string; name_en?: string; alreadyCompleted?: string }>();
+  // leveledUp: complete.tsx가 completeMission 결과로 "1"을 넘겨준다(서버가 레벨업을 처리함).
+  const params = useLocalSearchParams<{
+    dishId?: string;
+    name_kr: string;
+    name_en?: string;
+    alreadyCompleted?: string;
+    leveledUp?: string;
+  }>();
   const alreadyCompleted = params.alreadyCompleted === "1";
+  const serverLeveledUp = params.leveledUp === "1";
   const dish = params.name_kr
     ? dishName({ id: params.dishId ?? "", name_kr: params.name_kr, name_en: params.name_en || params.name_kr }, language)
     : "";
@@ -57,22 +65,33 @@ export default function LevelProgressScreen() {
     (async () => {
       try {
         const user = await getUser(authUser.uid);
+        // 레벨업은 completeMission(서버)이 이미 처리했다 - current_level은 올라간 뒤의 레벨이다.
+        // (예전엔 이 화면이 직접 levelUp()으로 users 문서를 썼는데, 그러면 앱에서 레벨을 마음대로
+        // 올릴 수 있어서 Firestore 규칙으로 막고 서버로 옮겼다.)
         const level = Math.min(user?.current_level ?? 1, MAX_LEVEL);
 
-        // 진행 개수는 위에서 받은 유저 문서 + 레벨 요리 목록으로 바로 계산한다
-        // (예전엔 getProgressInLevel()이 유저 문서를 한 번 더 읽었음).
+        // 진행 개수는 위에서 받은 유저 문서 + 레벨 요리 목록으로 바로 계산한다.
         const [levelSnap, levelDishes] = await Promise.all([
           getDoc(doc(db, "levels", String(level))),
-          getDishesByLevel(level),
+          serverLeveledUp ? Promise.resolve([]) : getDishesByLevel(level),
         ]);
-        const progress = countProgressInLevel(user?.completed_dishes, levelDishes);
         const levelData = (levelSnap.exists() ? levelSnap.data() : {}) as LevelDoc;
-        // levels/{level} 문서(또는 required_count)가 없으면 진행률 표시용으로만
-        // progress를 기준값으로 대신 쓴다. 이 fallback 값을 그대로 레벨업 판정에
-        // 쓰면 progress >= progress가 항상 참이 되어, 설정 문서가 비어 있을 때마다
-        // 실제로 레벨업이 발생해버리는 버그가 있었음 — 그래서 레벨업 판정은
-        // hasRequiredCount(실제 기준치를 아는 경우)로만 제한한다.
-        const hasRequiredCount = levelSnap.exists() && typeof levelData.required_count === "number";
+        const title = levelData.title ?? `Level ${level}`;
+        const badges = user?.completed_dishes?.length ?? 0;
+
+        if (serverLeveledUp) {
+          if (!cancelled) {
+            // 직전 레벨을 다 채워서 올라온 것이므로 막대는 꽉 찬 상태로 보여준다.
+            setDisplay({ level, title, prevPct: 100, newPct: 100, badges, isMaxLevel: level >= MAX_LEVEL });
+            setLeveledUp(true);
+            setOutsideLevel(false);
+            triggerHaptic("success");
+          }
+          return;
+        }
+
+        const progress = countProgressInLevel(user?.completed_dishes, levelDishes);
+        // levels/{level}.required_count가 없으면 진행률 표시용으로만 progress를 기준값으로 쓴다.
         const requiredCount = levelData.required_count ?? Math.max(progress, 1);
 
         // dishId를 모르면(예전 흐름 호환) 기존처럼 현재 레벨 요리였다고 가정한다.
@@ -81,43 +100,21 @@ export default function LevelProgressScreen() {
         const prevProgress = countedNow ? Math.max(0, progress - 1) : progress;
         const prevPct = Math.min(100, Math.round((prevProgress / requiredCount) * 100));
         const newPct = Math.min(100, Math.round((progress / requiredCount) * 100));
-        const didLevelUp = hasRequiredCount && progress >= requiredCount && level < MAX_LEVEL;
-
-        let shownLevel = level;
-        let shownTitle = levelData.title ?? `Level ${level}`;
-        // DB 저장이 실제로 성공했을 때만 "레벨 업" UI를 보여주기 위한 플래그.
-        // (didLevelUp만 보고 판단하면 levelUp() 저장이 실패해도 축하 메시지가 뜨는 버그가 있었음)
-        let levelUpSaved = false;
-
-        if (didLevelUp) {
-          try {
-            await levelUp(authUser.uid, level);
-            levelUpSaved = true;
-            shownLevel = level + 1;
-            const nextSnap = await getDoc(doc(db, "levels", String(shownLevel)));
-            shownTitle = nextSnap.exists() ? (nextSnap.data() as LevelDoc).title ?? shownTitle : shownTitle;
-          } catch (err) {
-            // 레벨업 저장에 실패한 경우, 화면은 그대로 진행하되(사용자 경험 방해 X)
-            // "레벨 업" 표시는 하지 않고 기존 레벨 진행률만 보여줌. 콘솔에는 남김
-            console.error("[mission/level-progress] levelUp failed:", err);
-          }
-        }
 
         if (!cancelled) {
           setDisplay({
-            level: shownLevel,
-            title: shownTitle,
-            prevPct: levelUpSaved ? newPct : prevPct,
-            newPct: levelUpSaved ? 100 : newPct,
-            badges: user?.completed_dishes?.length ?? 0,
+            level,
+            title,
+            prevPct,
+            newPct,
+            badges,
             // 이미 최고 레벨(12)에 도달한 유저는 더 이상 "다음 레벨"이 없으므로
             // 별도 문구를 보여주기 위한 플래그. (기존엔 이 경우에도 "다음 레벨까지
             // 조금 더 남았어요"라는 잘못된 안내가 계속 떴음)
-            isMaxLevel: shownLevel >= MAX_LEVEL,
+            isMaxLevel: level >= MAX_LEVEL,
           });
-          setLeveledUp(levelUpSaved);
+          setLeveledUp(false);
           setOutsideLevel(isOutsideLevel);
-          if (levelUpSaved) triggerHaptic("success");
         }
       } catch (err) {
         console.error("[mission/level-progress] 진행률 로딩 오류:", err);

@@ -45,6 +45,8 @@ export type VerifyMissionResult = {
   /** 한국어 문장 - 코드를 모르는 구버전 서버 응답일 때의 폴백 */
   reasons: string[];
   reasonCodes?: ReasonCode[];
+  /** 인증 티켓 - 완료 화면이 completeMission에 넘긴다(구버전 서버는 없음) */
+  verificationId?: string;
 };
 
 /** key: 화면에 보여줄 번역 키 */
@@ -67,6 +69,7 @@ const callVerifyMission = httpsCallable<
   {
     dishId: string;
     restaurantName: string;
+    placeId?: string;
     signPhotoBase64: string;
     foodPhotoBase64: string;
     receiptPhotoBase64?: string;
@@ -77,6 +80,7 @@ const callVerifyMission = httpsCallable<
 export async function verifyMission(params: {
   dishId: string;
   restaurantName: string;
+  placeId?: string;
   signPhotoBase64: string;
   foodPhotoBase64: string;
   receiptPhotoBase64?: string;

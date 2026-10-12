@@ -56,3 +56,6 @@ app/t.txt
 testfile_outside.txt
 zz_test.txt
 zzz_delete_test.txt
+
+# Firebase emulator logs
+*-debug.log

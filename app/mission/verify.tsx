@@ -35,6 +35,7 @@ export default function VerifyScreen() {
     name_kr: string;
     name_en: string;
     restaurantName: string;
+    placeId?: string;
   }>();
   const dish = dishName({ id: params.dishId, name_kr: params.name_kr, name_en: params.name_en }, language);
 
@@ -129,11 +130,17 @@ export default function VerifyScreen() {
 
   // 요리 사진의 로컬 URI를 완료 화면까지 넘겨서, "리뷰 남기기"에서 방금 인증에 쓴 사진을 바로
   // 첨부할 수 있게 한다(base64는 너무 커서 URI만 - 앱 캐시 파일이라 리뷰 작성까지는 유효하다).
-  const goToComplete = () => {
+  // verificationId: 서버가 사진 판정 때 발급한 인증 티켓. 완료 화면이 이걸로 completeMission을
+  // 불러야 완료/XP가 기록된다(앱이 직접 쓰지 못하게 바뀜).
+  const goToComplete = (verificationId: string | undefined) => {
     setResultOpen(false);
     router.push({
       pathname: "/mission/complete",
-      params: { ...params, ...(shots.food ? { foodPhotoUri: shots.food } : {}) },
+      params: {
+        ...params,
+        ...(verificationId ? { verificationId } : {}),
+        ...(shots.food ? { foodPhotoUri: shots.food } : {}),
+      },
     });
   };
 
@@ -150,6 +157,7 @@ export default function VerifyScreen() {
       const res = await verifyMission({
         dishId: params.dishId,
         restaurantName: params.restaurantName,
+        placeId: params.placeId,
         signPhotoBase64: shotsBase64.sign,
         foodPhotoBase64: shotsBase64.food,
         receiptPhotoBase64: shotsBase64.receipt ?? undefined,
@@ -157,7 +165,7 @@ export default function VerifyScreen() {
 
       if (res.verdict === "pass") {
         triggerHaptic("success");
-        goToComplete();
+        goToComplete(res.verificationId);
         return;
       }
       // 관대한 정책: 확실히 안 맞아도 완전히 막지는 않는다. 이유를 보여주고 재촬영을 권하되
@@ -342,7 +350,7 @@ export default function VerifyScreen() {
               <Button title={t("verify.result.retake")} variant="secondary" icon={Icons.Camera} fullWidth onPress={() => setResultOpen(false)} />
             </View>
             <View style={s.flex1}>
-              <Button title={t("verify.result.proceed")} fullWidth onPress={goToComplete} />
+              <Button title={t("verify.result.proceed")} fullWidth onPress={() => goToComplete(result?.verificationId)} />
             </View>
           </>
         }

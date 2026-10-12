@@ -329,4 +329,9 @@ export const ja: Messages = {
   // 앱 오류 화면(ErrorBoundary)
   "error.title": "問題が発生しました",
   "error.body": "もう一度お試しください。繰り返す場合はアプリを再起動してください。",
+
+  // 미션 완료 - 인증 티켓 만료/없음
+  "complete.reverifyTitle": "もう一度認証してください",
+  "complete.reverifyBody": "認証の有効期限が切れたか、記録が見つかりませんでした。写真の認証に戻ります。",
+  "complete.reverifyAction": "もう一度認証する",
 };

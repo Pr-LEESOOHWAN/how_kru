@@ -3,7 +3,6 @@
 
 import {
     addDoc,
-    arrayUnion,
     collection,
     doc,
     getDoc,
@@ -70,38 +69,14 @@ export const getUser = async (userId: string): Promise<User | null> => {
   return snap.exists() ? (snap.data() as User) : null;
 };
 
-// 미션 완료 시 보상 XP. 미션 시작/완료 화면은 이 상수를 그대로 보여준다(문구에 숫자를
-// 하드코딩하지 않으므로 여기만 바꾸면 화면도 같이 바뀐다).
+// 미션 완료 시 보상 XP. 미션 시작/완료 화면은 이 상수를 그대로 보여준다.
+// 실제 지급은 서버(functions/src/completion.ts의 MISSION_COMPLETE_XP)가 한다 - 값을 바꾸면 둘 다 바꿀 것.
 export const MISSION_COMPLETE_XP = 50;
 
-// 음식 완료만 먼저 처리 (Kick 답변은 별도 화면에서 나중에 받음)
-// signUp() 시점에 users 문서에 xp: 0 필드를 만들어두는데도 이 필드를 갱신하는
-// 곳이 아무 데도 없어서, 미션 완료 화면에 "+50 XP" 보상을 보여줘 놓고 실제로는
-// 영구히 0으로 남아있던 문제가 있었다 (level/levelName을 나중에 동기화해준
-// levelUp()과 같은 종류의 문제). 화면에 이미 보여주고 있는 보상 값만큼
-// 실제로 xp 필드에 누적되도록 함께 저장한다.
-//
-// 이미 완료한 요리를 다시 미션으로 진행하는 경우(레벨 화면에서 "완료" 스탬프가
-// 찍힌 요리도 탭할 수 있음), completed_dishes는 arrayUnion이라 중복이 안 생기지만
-// xp는 increment라 매번 +50이 또 쌓이는 버그가 있었다. 그래서 먼저 완료 여부를
-// 확인하고, 처음 완료할 때만 XP를 지급한다. 반환값의 alreadyCompleted로 화면에서
-// "이번엔 XP 중복 지급 없음"을 안내할 수 있다.
-export const markDishCompleted = async (
-  userId: string,
-  dishId: string
-): Promise<{ alreadyCompleted: boolean }> => {
-  const user = await getUser(userId);
-  const alreadyCompleted = (user?.completed_dishes ?? []).includes(dishId);
-  await setDoc(
-    doc(db, "users", userId),
-    {
-      completed_dishes: arrayUnion(dishId),
-      ...(alreadyCompleted ? {} : { xp: increment(MISSION_COMPLETE_XP) }),
-    },
-    { merge: true }
-  );
-  return { alreadyCompleted };
-};
+// 미션 완료 기록(completed_dishes/xp)과 레벨업(current_level)은 2026-10부터 Cloud Function
+// completeMission이 사진 인증 티켓을 확인한 뒤에만 쓴다(src/services/missionComplete.ts).
+// 예전 markDishCompleted()/levelUp()은 앱이 직접 써서 인증 없이도 완료·레벨업이 가능했고,
+// firestore.rules가 이제 이 필드들의 클라이언트 쓰기를 막는다.
 
 // "이 요리의 킥이 뭐였나요?" 답변만 별도로 저장.
 // 요리 하나당 답변 1개만 유지한다. 예전엔 arrayUnion으로 그냥 덧붙이기만 해서,
@@ -118,35 +93,6 @@ export const saveKickChoice = async (
   await setDoc(
     doc(db, "users", userId),
     { kick_choices: [...others, { dish: dishId, choice }] },
-    { merge: true }
-  );
-};
-
-// 레벨업 처리
-// 다른 쓰기 함수들과 마찬가지로 setDoc(merge: true) 사용.
-// updateDoc은 유저 문서가 아직 없으면 "No document to update" 오류로 실패한다.
-//
-// level / levelName 필드는 화면 계산에는 안 쓰이고(진짜 기준은 current_level) signUp()
-// 시점에만 한 번 써지던 죽은 필드였는데, Firestore 콘솔에서 문서를 볼 때 current_level과
-// 값이 달라 보여 혼란을 줬다. 그래서 레벨업할 때마다 함께 갱신해 항상 동기화되게 한다.
-export const levelUp = async (userId: string, currentLevel: number) => {
-  const nextLevel = currentLevel + 1;
-
-  let levelName: string | undefined;
-  try {
-    const levelSnap = await getDoc(doc(db, "levels", String(nextLevel)));
-    levelName = levelSnap.exists() ? (levelSnap.data() as { title?: string }).title : undefined;
-  } catch {
-    // levels 문서 조회 실패해도 레벨업 자체를 막지는 않음 (levelName만 못 채움)
-  }
-
-  await setDoc(
-    doc(db, "users", userId),
-    {
-      current_level: nextLevel,
-      level: nextLevel,
-      ...(levelName ? { levelName } : {}),
-    },
     { merge: true }
   );
 };

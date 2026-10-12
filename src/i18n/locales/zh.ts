@@ -329,4 +329,9 @@ export const zh: Messages = {
   // 앱 오류 화면(ErrorBoundary)
   "error.title": "出了点问题",
   "error.body": "请重试。如果问题持续，请重启应用。",
+
+  // 미션 완료 - 인증 티켓 만료/없음
+  "complete.reverifyTitle": "请重新认证",
+  "complete.reverifyBody": "认证已过期或找不到认证记录，将返回拍照认证。",
+  "complete.reverifyAction": "重新认证",
 };

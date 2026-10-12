@@ -329,4 +329,9 @@ export const en: PluralMessages = {
   // 앱 오류 화면(ErrorBoundary)
   "error.title": "Something went wrong",
   "error.body": "Please try again. If it keeps happening, restart the app.",
+
+  // 미션 완료 - 인증 티켓 만료/없음
+  "complete.reverifyTitle": "Please verify again",
+  "complete.reverifyBody": "Your verification expired or couldn't be found. Let's go back to the photo step.",
+  "complete.reverifyAction": "Verify again",
 };

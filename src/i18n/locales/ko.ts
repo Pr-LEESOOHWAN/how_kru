@@ -334,4 +334,9 @@ export const ko = {
   // 앱 오류 화면(ErrorBoundary)
   "error.title": "문제가 생겼어요",
   "error.body": "잠시 후 다시 시도해 주세요. 계속 이러면 앱을 껐다 켜 주세요.",
+
+  // 미션 완료 - 인증 티켓 만료/없음
+  "complete.reverifyTitle": "인증을 다시 해 주세요",
+  "complete.reverifyBody": "인증한 지 너무 오래됐거나 인증 기록을 찾지 못했어요. 사진 인증 화면으로 돌아갈게요.",
+  "complete.reverifyAction": "다시 인증하기",
 } as const;

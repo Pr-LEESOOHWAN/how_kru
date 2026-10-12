@@ -122,7 +122,7 @@ export async function searchNearbyRestaurants(
     const rLng = p.location?.longitude;
     return {
       id: p.id,
-      name: p.displayName?.text ?? "이름 없음",
+      name: p.displayName?.text ?? "",
       address: p.formattedAddress ?? "",
       lat: rLat,
       lng: rLng,
@@ -133,8 +133,10 @@ export async function searchNearbyRestaurants(
     };
   });
 
-  // locationBias는 "선호"일 뿐 강제 반경이 아니므로, 1km 밖 결과는 직접 제외합니다.
-  const withinRadius = results.filter((r) => r.distanceM <= radiusM);
+  // locationBias는 "선호"일 뿐 강제 반경이 아니므로, 반경 밖 결과는 직접 제외합니다.
+  // 이름이 없는 장소도 뺍니다 - 인증이 간판 글자와 식당 이름을 대조하므로 이름 없이는 미션을
+  // 끝낼 수 없고, 예전엔 목록에 "이름 없음"(한국어 고정)으로 떠서 외국어 사용자에게도 그대로 보였다.
+  const withinRadius = results.filter((r) => r.distanceM <= radiusM && r.name.trim() !== "");
   withinRadius.sort((a, b) => a.distanceM - b.distanceM);
   return withinRadius;
 }

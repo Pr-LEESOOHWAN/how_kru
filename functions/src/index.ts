@@ -1,7 +1,8 @@
 import { initializeApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore, type Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 
+import { checkTicket, planCompletion } from "./completion";
 import { judgeDishPhoto, type DishMatchResult } from "./dishMatch";
 import { matchRestaurantName } from "./nameMatch";
 import { extractText } from "./vision";
@@ -12,6 +13,8 @@ const db = getFirestore();
 type VerifyMissionRequest = {
   dishId: string;
   restaurantName: string;
+  /** Google Places id - 방문 기록(visits)에 식당을 남기기 위함(구버전 앱은 안 보냄) */
+  placeId?: string;
   signPhotoBase64: string;
   foodPhotoBase64: string;
   receiptPhotoBase64?: string;
@@ -57,7 +60,7 @@ export const verifyMission = onCall(
     }
 
     const data = (request.data ?? {}) as Partial<VerifyMissionRequest>;
-    const { dishId, restaurantName, signPhotoBase64, foodPhotoBase64, receiptPhotoBase64 } = data;
+    const { dishId, restaurantName, placeId, signPhotoBase64, foodPhotoBase64, receiptPhotoBase64 } = data;
 
     if (!dishId || !restaurantName || !signPhotoBase64 || !foodPhotoBase64) {
       throw new HttpsError("invalid-argument", "필요한 정보가 빠졌어요.");
@@ -132,7 +135,164 @@ export const verifyMission = onCall(
       dishMatch: dishJudgement,
     });
 
-    return { verdict, nameMatch: nameResult, dishMatch: dishJudgement, reasons, reasonCodes };
+    // 인증 티켓: 이 사진 판정을 거쳤다는 증거. completeMission은 이 티켓이 있어야만 완료를
+    // 기록한다(앱이 사진 없이 완료를 쓸 수 없게). 판정이 uncertain/fail이어도 사용자가
+    // "그래도 인증"을 고를 수 있으므로(관대한 정책) 티켓은 항상 발급하고, 판정은 함께 남겨
+    // 나중에 "확실히 인증된 방문"만 따로 셀 수 있게 한다.
+    const ticketRef = db.collection("verifications").doc();
+    await ticketRef.set({
+      uid: request.auth.uid,
+      dishId,
+      restaurantName,
+      placeId: typeof placeId === "string" && placeId ? placeId : null,
+      verdict,
+      nameMatched: nameResult.matched,
+      nameSource: nameResult.source,
+      dishCode: dishJudgement.code,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
+    return {
+      verdict,
+      nameMatch: nameResult,
+      dishMatch: dishJudgement,
+      reasons,
+      reasonCodes,
+      verificationId: ticketRef.id,
+    };
+  }
+);
+
+type TicketDoc = {
+  uid: string;
+  dishId: string;
+  restaurantName: string;
+  placeId: string | null;
+  verdict: Verdict;
+  nameMatched: boolean;
+  dishCode: DishMatchResult["code"];
+  createdAt?: Timestamp;
+  result?: CompleteMissionResult;
+};
+
+type CompleteMissionResult = {
+  alreadyCompleted: boolean;
+  xpGained: number;
+  leveledUp: boolean;
+  /** 완료 반영 후 레벨 */
+  level: number;
+};
+
+type LevelDoc = { title?: string; required_count?: number };
+
+// 미션 완료 기록 (2026-10). 예전엔 앱이 users 문서에 완료/XP/레벨을 직접 썼는데, 그러면
+// 사진 인증 없이도 완료 처리가 되고 사용자가 자기 레벨을 고칠 수도 있었다(firestore.rules에서
+// 이제 막음). verifyMission이 발급한 티켓을 한 번만 쓸 수 있고, 같은 트랜잭션에서
+//   - users/{uid}: completed_dishes, xp, (레벨업 시) current_level/level/levelName
+//   - visits/{id}: 방문 기록(식당, 판정, 강행 여부) - "인증된 방문" 통계의 원본
+//   - verifications/{id}.result: 결과 저장 → 응답이 유실돼 앱이 재시도해도 같은 결과를 돌려줌
+// 를 함께 쓴다.
+export const completeMission = onCall(
+  { timeoutSeconds: 30, memory: "256MiB", region: "asia-northeast3" },
+  async (request): Promise<CompleteMissionResult> => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "로그인이 필요해요.");
+    }
+    const uid = request.auth.uid;
+    const { verificationId } = (request.data ?? {}) as { verificationId?: unknown };
+    if (typeof verificationId !== "string" || !verificationId) {
+      throw new HttpsError("invalid-argument", "인증 정보가 빠졌어요.");
+    }
+
+    const ticketRef = db.collection("verifications").doc(verificationId);
+    const userRef = db.collection("users").doc(uid);
+
+    return db.runTransaction(async (tx) => {
+      const ticketSnap = await tx.get(ticketRef);
+      if (!ticketSnap.exists) {
+        throw new HttpsError("not-found", "인증 기록을 찾을 수 없어요.");
+      }
+      const ticket = ticketSnap.data() as TicketDoc;
+      // 같은 티켓으로 다시 부르면(응답 유실 후 재시도) 저장해 둔 결과를 그대로 돌려준다.
+      if (ticket.result && ticket.uid === uid) return ticket.result;
+
+      const check = checkTicket(
+        { uid: ticket.uid, createdAtMs: ticket.createdAt?.toMillis() ?? 0 },
+        uid,
+        Date.now()
+      );
+      if (!check.ok) {
+        throw new HttpsError(
+          check.reason === "wrong_user" ? "permission-denied" : "failed-precondition",
+          check.reason === "wrong_user" ? "다른 사용자의 인증이에요." : "인증한 지 너무 오래됐어요. 다시 인증해 주세요."
+        );
+      }
+
+      // 트랜잭션 규칙상 읽기를 모두 끝낸 뒤에 쓴다.
+      const userSnap = await tx.get(userRef);
+      const user = (userSnap.exists ? userSnap.data() : {}) as {
+        current_level?: number;
+        completed_dishes?: string[];
+      };
+      const currentLevel = user.current_level ?? 1;
+      const [levelSnap, levelDishesSnap] = await Promise.all([
+        tx.get(db.collection("levels").doc(String(currentLevel))),
+        tx.get(db.collection("dishes").where("level", "==", currentLevel)),
+      ]);
+      const levelData = (levelSnap.exists ? levelSnap.data() : {}) as LevelDoc;
+
+      const plan = planCompletion({
+        completedDishes: user.completed_dishes,
+        currentLevel,
+        dishId: ticket.dishId,
+        levelDishIds: levelDishesSnap.docs.map((d) => d.id),
+        requiredCount: levelData.required_count,
+      });
+
+      let nextLevelTitle: string | undefined;
+      if (plan.leveledUp) {
+        const nextSnap = await tx.get(db.collection("levels").doc(String(plan.level)));
+        nextLevelTitle = nextSnap.exists ? (nextSnap.data() as LevelDoc).title : undefined;
+      }
+
+      tx.set(
+        userRef,
+        {
+          completed_dishes: FieldValue.arrayUnion(ticket.dishId),
+          ...(plan.xpGained ? { xp: FieldValue.increment(plan.xpGained) } : {}),
+          ...(plan.leveledUp
+            ? { current_level: plan.level, level: plan.level, ...(nextLevelTitle ? { levelName: nextLevelTitle } : {}) }
+            : {}),
+        },
+        { merge: true }
+      );
+
+      tx.set(db.collection("visits").doc(), {
+        uid,
+        dishId: ticket.dishId,
+        restaurantName: ticket.restaurantName,
+        placeId: ticket.placeId,
+        verdict: ticket.verdict,
+        // 판정이 pass가 아닌데 사용자가 "그래도 인증"으로 진행한 경우
+        forced: ticket.verdict !== "pass",
+        nameMatched: ticket.nameMatched,
+        dishCode: ticket.dishCode,
+        firstCompletion: !plan.alreadyCompleted,
+        verificationId,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      const result: CompleteMissionResult = {
+        alreadyCompleted: plan.alreadyCompleted,
+        xpGained: plan.xpGained,
+        leveledUp: plan.leveledUp,
+        level: plan.level,
+      };
+      tx.update(ticketRef, { result, usedAt: FieldValue.serverTimestamp() });
+
+      console.log("[completeMission]", { uid, dishId: ticket.dishId, verdict: ticket.verdict, ...result });
+      return result;
+    });
   }
 );
 

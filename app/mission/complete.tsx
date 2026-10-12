@@ -13,9 +13,10 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
-import { markDishCompleted, MISSION_COMPLETE_XP } from "@/src/firebase/dishService";
+import { MISSION_COMPLETE_XP } from "@/src/firebase/dishService";
 import { useI18n } from "@/src/i18n";
 import { dishName } from "@/src/i18n/content";
+import { completeMission, CompleteMissionError, type CompleteMissionResult } from "@/src/services/missionComplete";
 import { makeStyles, useTheme } from "@/src/theme/ThemeContext";
 import { motion } from "@/src/theme/tokens";
 import { Button, Icons, Screen, Text } from "@/src/ui";
@@ -56,10 +57,12 @@ export default function MissionCompleteScreen() {
     restaurantName?: string;
     // verify.tsx가 넘겨준 요리 인증 사진의 로컬 URI. "리뷰 남기기"로 그대로 전달한다.
     foodPhotoUri?: string;
+    // verifyMission이 발급한 인증 티켓 - 이게 있어야 서버가 완료를 기록한다.
+    verificationId?: string;
   }>();
   const dish = dishName({ id: params.dishId, name_kr: params.name_kr, name_en: params.name_en }, language);
   const saved = useRef(false);
-  // markDishCompleted()는 화면을 벗어난 뒤에도 응답이 올 수 있는 비동기 호출이라,
+  // completeMission()은 화면을 벗어난 뒤에도 응답이 올 수 있는 비동기 호출이라,
   // 언마운트 후 setSaving/setAlreadyCompleted가 실행되거나(React 경고) 이미 화면을
   // 떠난 사용자에게 "저장 실패, 다시 시도할까요?" Alert가 뜨는 것을 막기 위해 추적한다.
   const mountedRef = useRef(true);
@@ -68,9 +71,10 @@ export default function MissionCompleteScreen() {
       mountedRef.current = false;
     };
   }, []);
-  // 이미 완료했던 요리를 다시 완료한 경우(XP 중복 지급 없음). 다음 화면(kick →
-  // level-progress)에도 params로 넘겨서 진행률 "+X% 상승" 계산이 어긋나지 않게 한다.
-  const [alreadyCompleted, setAlreadyCompleted] = useState(false);
+  // 서버가 돌려준 완료 결과. alreadyCompleted(XP 중복 지급 없음)와 leveledUp(서버가 레벨업 처리함)을
+  // 다음 화면(kick → level-progress)에 params로 넘겨 진행률/레벨업 표시가 어긋나지 않게 한다.
+  const [completion, setCompletion] = useState<CompleteMissionResult | null>(null);
+  const alreadyCompleted = completion?.alreadyCompleted ?? false;
   // 완료 기록 저장이 아직 진행 중인지. 저장이 끝나기 전에 "다음으로"를 누르면
   // level-progress 화면이 Firestore에서 아직 반영 안 된 진행 개수를 읽어
   // 진행률/레벨업 판정이 어긋나므로, 저장 중에는 버튼을 잠시 잠근다.
@@ -80,24 +84,41 @@ export default function MissionCompleteScreen() {
   // 여기서 저장이 안 되면 뒤이어 나오는 킥/레벨 진행 화면이 전부 "이 요리는
   // 완료 안 됨" 기준으로 계산돼서, 축하 화면은 봤는데 레벨/완료 목록엔
   // 반영이 안 되는 상황이 생긴다.
+  //
+  // 완료는 서버(completeMission)가 인증 티켓을 확인한 뒤에만 기록한다. 티켓이 없거나 만료되면
+  // 재시도해도 소용없으므로 인증 화면으로 돌아가 다시 인증하도록 안내한다.
   const saveCompletion = () => {
     if (!params.dishId || !user) return;
+    if (!params.verificationId) {
+      askReverify();
+      return;
+    }
     setSaving(true);
-    markDishCompleted(user.uid, params.dishId)
-      .then(({ alreadyCompleted: dup }) => {
-        if (mountedRef.current) setAlreadyCompleted(dup);
+    completeMission(params.verificationId)
+      .then((res) => {
+        if (mountedRef.current) setCompletion(res);
       })
       .finally(() => {
         if (mountedRef.current) setSaving(false);
       })
       .catch((err) => {
-        console.error("[mission/complete] markDishCompleted failed:", err);
+        console.error("[mission/complete] completeMission failed:", err);
         if (!mountedRef.current) return;
+        if (err instanceof CompleteMissionError && !err.retryable) {
+          askReverify();
+          return;
+        }
         Alert.alert(t("complete.saveFailedTitle"), t("complete.saveFailedBody"), [
           { text: t("common.later"), style: "cancel" },
           { text: t("common.retry"), onPress: saveCompletion },
         ]);
       });
+  };
+
+  const askReverify = () => {
+    Alert.alert(t("complete.reverifyTitle"), t("complete.reverifyBody"), [
+      { text: t("complete.reverifyAction"), onPress: () => router.back() },
+    ]);
   };
 
   useEffect(() => {
@@ -135,7 +156,12 @@ export default function MissionCompleteScreen() {
   const handleNext = () => {
     router.push({
       pathname: "/mission/kick",
-      params: { ...params, ...(alreadyCompleted ? { alreadyCompleted: "1" } : {}) },
+      params: {
+        ...params,
+        ...(alreadyCompleted ? { alreadyCompleted: "1" } : {}),
+        // 레벨업은 서버가 이미 처리했다 - level-progress는 결과를 보여주기만 한다.
+        ...(completion?.leveledUp ? { leveledUp: "1", newLevel: String(completion.level) } : {}),
+      },
     });
   };
 
