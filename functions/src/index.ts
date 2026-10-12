@@ -135,3 +135,35 @@ export const verifyMission = onCall(
     return { verdict, nameMatch: nameResult, dishMatch: dishJudgement, reasons, reasonCodes };
   }
 );
+
+// 영수증 사진 -> 글자 (인증 화면의 "읽어낸 글자" 미리보기용).
+//
+// 예전엔 앱이 Vision API를 직접 불렀는데, 그러려면 API 키를 EXPO_PUBLIC_*로 APK 안에 넣어야
+// 했다(누구나 APK를 풀어 키를 꺼내 쓸 수 있다). 게다가 Vision 전용 키가 없으면 Places 키로
+// 대신 호출해서, 그 키에 Vision 권한이 없으면 미리보기가 늘 "읽지 못했어요"로 끝났다.
+// verifyMission과 같은 서비스 계정 인증으로 서버에서 읽어서 돌려준다 - 앱에는 키가 필요 없다.
+// 미리보기일 뿐이고 실제 판정은 verifyMission이 사진을 다시 받아 독립적으로 한다.
+const MAX_RECEIPT_BASE64 = 8 * 1024 * 1024; // 약 6MB 이미지 - quality 0.6 촬영본은 보통 1MB 안팎
+
+export const readReceipt = onCall(
+  { timeoutSeconds: 30, memory: "256MiB", region: "asia-northeast3" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "로그인이 필요해요.");
+    }
+    const { imageBase64 } = (request.data ?? {}) as { imageBase64?: unknown };
+    if (typeof imageBase64 !== "string" || imageBase64.length === 0) {
+      throw new HttpsError("invalid-argument", "사진이 빠졌어요.");
+    }
+    if (imageBase64.length > MAX_RECEIPT_BASE64) {
+      throw new HttpsError("invalid-argument", "사진이 너무 커요.");
+    }
+
+    try {
+      return { text: await extractText(imageBase64) };
+    } catch (err) {
+      console.error("[readReceipt] OCR 실패:", err);
+      throw new HttpsError("internal", "영수증 글자를 읽지 못했어요.");
+    }
+  }
+);

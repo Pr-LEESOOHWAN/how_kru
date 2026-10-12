@@ -1,31 +1,18 @@
-// Google Cloud Vision API - TEXT_DETECTION 을 이용해 영수증 사진에서
-// 글자(한글 포함)를 추출하는 서비스.
+// 영수증 사진 -> 글자 (인증 화면의 "읽어낸 글자" 미리보기용).
 //
-// 필요한 것:
-//   1) Google Cloud 콘솔(Places API 키와 같은 프로젝트)에서
-//      "Cloud Vision API" 활성화 (APIs & Services > 라이브러리 > "Cloud Vision API" 검색 > 사용 설정)
-//   2) .env 파일에 아래 키 추가
-//        EXPO_PUBLIC_GOOGLE_VISION_API_KEY=여기에_발급받은_키
-//      (Places API 키를 그대로 재사용해도 되지만, 제한된 별도 키를 새로 발급받는 걸 권장)
-//
-// 참고: 상호명 매칭/인증 로직은 아직 포함하지 않았습니다. 이 서비스는
-// "사진 -> 텍스트" 추출까지만 담당하고, 추출된 텍스트를 어떻게 검증에 쓸지는
-// 추후 별도로 구현합니다.
+// functions/src/index.ts의 readReceipt Cloud Function을 부른다. 예전엔 앱이 Google Vision API를
+// 직접 불렀는데, 그러려면 API 키를 EXPO_PUBLIC_*로 APK에 넣어야 했고(누구나 꺼내 쓸 수 있음),
+// Vision 전용 키가 없으면 Places 키로 대신 호출해서 그 키에 Vision 권한이 없으면 늘 실패했다.
+// 서버는 서비스 계정 인증으로 Vision을 부르므로 앱에는 키가 필요 없다.
 
-const GOOGLE_VISION_API_KEY =
-  process.env.EXPO_PUBLIC_GOOGLE_VISION_API_KEY ??
-  process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
-const VISION_API_URL = "https://vision.googleapis.com/v1/images:annotate";
+import { httpsCallable } from "firebase/functions";
 
-/** kind: 화면 안내용 분류, message: 개발자용 상세(콘솔용) - places.ts의 PlacesApiError와 같은 방식 */
-export class OcrApiError extends Error {
-  constructor(
-    message: string,
-    public readonly kind: "not_configured" | "api" = "api"
-  ) {
-    super(message);
-  }
-}
+import { functions } from "@/src/firebase/firebaseConfig";
+
+/** message는 개발자용 상세(콘솔용) - 화면에는 verify.ocrFailed 문구를 보여준다. */
+export class OcrApiError extends Error {}
+
+const callReadReceipt = httpsCallable<{ imageBase64: string }, { text: string }>(functions, "readReceipt");
 
 /**
  * base64로 인코딩된 이미지에서 텍스트를 추출합니다.
@@ -34,41 +21,10 @@ export class OcrApiError extends Error {
  * 반환값: 인식된 전체 텍스트(줄바꿈 포함 원문). 텍스트가 없으면 빈 문자열.
  */
 export async function extractTextFromImage(base64Image: string): Promise<string> {
-  if (!GOOGLE_VISION_API_KEY) {
-    throw new OcrApiError(
-      "Google Vision API 키가 설정되지 않았어요. .env 파일에 EXPO_PUBLIC_GOOGLE_VISION_API_KEY를 추가해주세요.",
-      "not_configured"
-    );
+  try {
+    const res = await callReadReceipt({ imageBase64: base64Image });
+    return res.data.text ?? "";
+  } catch (err) {
+    throw new OcrApiError(err instanceof Error ? err.message : String(err));
   }
-
-  const res = await fetch(`${VISION_API_URL}?key=${GOOGLE_VISION_API_KEY}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      requests: [
-        {
-          image: { content: base64Image },
-          // DOCUMENT_TEXT_DETECTION: 영수증처럼 밀집된 문서 텍스트에 TEXT_DETECTION보다 최적화되어 있음
-          features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
-          imageContext: { languageHints: ["ko", "en"] },
-        },
-      ],
-    }),
-  });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new OcrApiError(
-      `Vision API 오류 (${data.error?.status ?? res.status}): ${data.error?.message ?? "알 수 없는 오류"}`
-    );
-  }
-
-  const responseError = data.responses?.[0]?.error;
-  if (responseError) {
-    throw new OcrApiError(`Vision API 오류: ${responseError.message ?? "알 수 없는 오류"}`);
-  }
-
-  const fullText: string | undefined = data.responses?.[0]?.fullTextAnnotation?.text;
-  return fullText ?? "";
 }
